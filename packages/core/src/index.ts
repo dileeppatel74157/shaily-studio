@@ -35,3 +35,6 @@ export function logSystemEvent(event: string, details: Record<string, unknown>) 
   // eslint-disable-next-line no-console
   console.log(JSON.stringify({ timestamp, event, details }));
 }
+
+export * from "./kernel/index";
+

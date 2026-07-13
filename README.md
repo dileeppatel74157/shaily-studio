@@ -107,4 +107,5 @@ To run packages outside Docker Compose, use these root pnpm shortcuts:
 * **Strict Type Safety**: All TypeScript files must compile under TypeScript strict mode. Python codebases must be strictly typed using `pydantic` schemas.
 * **No Business Placeholders**: Avoid hardcoded values in core configurations. Declare parameters inside `.env` and load them through `settings` configurations.
 * **Keep Code Single-Responsibility**: Do not write large files. Ensure every database connection, agent implementation, or page component serves one single duty.
+* **Kernel Finality**: The Kernel is final. Modules integrate with the Kernel through interfaces and registration. Modules never extend the Kernel. Lifecycle hooks are reserved for internal infrastructure.
 * **AI Architecture Readiness**: Extend the Python agent registry `packages/agents` to hook into future automation services.

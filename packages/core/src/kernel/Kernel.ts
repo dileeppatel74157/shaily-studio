@@ -20,6 +20,17 @@ function generateUUID(): string {
   });
 }
 
+/**
+ * The Kernel class is the permanent foundation of Shaily Studio.
+ *
+ * ARCHITECTURAL RULE:
+ * "The Kernel is final.
+ * Modules integrate with the Kernel through interfaces and registration.
+ * Modules never extend the Kernel."
+ *
+ * All application modules (e.g. Story Engine, Research Engine, Plugins, AI Agents)
+ * must NEVER extend or subclass the Kernel.
+ */
 export class Kernel implements IKernel {
   private readonly _kernelId: string;
   private _state: KernelState = KernelState.CREATED;
@@ -37,12 +48,54 @@ export class Kernel implements IKernel {
     this._environment = environment;
   }
 
-  // Protected Lifecycle Hooks
+  // Internal Lifecycle Hooks
+
+  /**
+   * @internal
+   * This hook is reserved for internal kernel infrastructure.
+   * Feature modules must never override Kernel behavior.
+   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
+   */
   protected async beforeInitialize(): Promise<void> {}
+
+  /**
+   * @internal
+   * This hook is reserved for internal kernel infrastructure.
+   * Feature modules must never override Kernel behavior.
+   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
+   */
   protected async afterInitialize(): Promise<void> {}
+
+  /**
+   * @internal
+   * This hook is reserved for internal kernel infrastructure.
+   * Feature modules must never override Kernel behavior.
+   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
+   */
   protected async beforeStart(): Promise<void> {}
+
+  /**
+   * @internal
+   * This hook is reserved for internal kernel infrastructure.
+   * Feature modules must never override Kernel behavior.
+   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
+   */
   protected async afterStart(): Promise<void> {}
+
+  /**
+   * @internal
+   * This hook is reserved for internal kernel infrastructure.
+   * Feature modules must never override Kernel behavior.
+   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
+   */
   protected async beforeStop(): Promise<void> {}
+
+  /**
+   * @internal
+   * This hook is reserved for internal kernel infrastructure.
+   * Feature modules must never override Kernel behavior.
+   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
+   */
   protected async afterStop(): Promise<void> {}
 
   public async initialize(): Promise<void> {

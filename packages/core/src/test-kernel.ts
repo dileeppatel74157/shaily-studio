@@ -23,6 +23,14 @@ const CONFIG_TOKEN = new ServiceToken<ConfigService>("config");
 const LOGGER_TOKEN = new ServiceToken<LoggerService>("logger");
 const UNREGISTERED_TOKEN = new ServiceToken<unknown>("database");
 
+/**
+ * TestKernel is an internal test spy subclassing Kernel.
+ *
+ * ARCHITECTURAL EXCEPTION FOR UNIT TESTING:
+ * This class exists strictly for testing internal kernel hook coordination.
+ * Application and feature modules must never extend the Kernel.
+ * Future lifecycle integrations will occur through registration or events.
+ */
 class TestKernel extends Kernel {
   public hookCalls: string[] = [];
 

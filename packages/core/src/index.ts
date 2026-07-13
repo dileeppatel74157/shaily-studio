@@ -45,3 +45,4 @@ export * from "./jobs/index";
 export * from "./memory/index";
 export * from "./agents/index";
 export * from "./workflow/index";
+export * from "./providers/index";

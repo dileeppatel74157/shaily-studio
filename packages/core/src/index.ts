@@ -40,6 +40,8 @@ export * from "./kernel/index";
 export * from "./logger/index";
 export * from "./config/index";
 export * from "./registry/index";
+export * from "./events/index";
+
 
 
 

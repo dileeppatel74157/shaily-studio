@@ -39,6 +39,8 @@ export function logSystemEvent(event: string, details: Record<string, unknown>) 
 export * from "./kernel/index";
 export * from "./logger/index";
 export * from "./config/index";
+export * from "./registry/index";
+
 
 
 

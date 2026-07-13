@@ -42,3 +42,4 @@ export * from "./config/index";
 export * from "./registry/index";
 export * from "./events/index";
 export * from "./jobs/index";
+export * from "./memory/index";

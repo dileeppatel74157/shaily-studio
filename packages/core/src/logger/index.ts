@@ -1,11 +1,15 @@
+export { Clock, SystemClock } from "./Clock";
+import { ConsoleTransport } from "./ConsoleTransport";
 export { ILogger } from "./ILogger";
 export { Logger } from "./Logger";
 export { LoggerBuilder } from "./LoggerBuilder";
 export { LoggerConfig } from "./LoggerConfig";
 export { LoggerContext } from "./LoggerContext";
 export { LogEntry } from "./LogEntry";
+export { LogEntryFactory } from "./LogEntryFactory";
 export { JsonFormatter, LogFormatter, PrettyConsoleFormatter } from "./LogFormatter";
 export { LogLevel } from "./LogLevel";
+export { LogMetadata } from "./LogMetadata";
 export { LogTransport } from "./LogTransport";
 export { ConsoleTransport } from "./ConsoleTransport";
-export { LogMetadata } from "./types";
+export { TransportFailureHandler, TransportPipeline } from "./TransportPipeline";

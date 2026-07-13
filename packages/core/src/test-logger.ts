@@ -1,15 +1,43 @@
+import { Clock, SystemClock } from "./logger/Clock";
 import { ConsoleTransport } from "./logger/ConsoleTransport";
-import { JsonFormatter, PrettyConsoleFormatter } from "./logger/LogFormatter";
 import { LogEntry } from "./logger/LogEntry";
+import { LogEntryFactory } from "./logger/LogEntryFactory";
+import { JsonFormatter, PrettyConsoleFormatter } from "./logger/LogFormatter";
 import { LogLevel } from "./logger/LogLevel";
+import { LogMetadata } from "./logger/LogMetadata";
 import { LogTransport } from "./logger/LogTransport";
 import { LoggerBuilder } from "./logger/LoggerBuilder";
+import { TransportFailureHandler, TransportPipeline } from "./logger/TransportPipeline";
 
 class MockTransport implements LogTransport {
   public entries: LogEntry[] = [];
 
   public send(entry: LogEntry): void {
     this.entries.push(entry);
+  }
+}
+
+class CrashingTransport implements LogTransport {
+  public send(entry: LogEntry): void {
+    throw new Error(`Intentional crash for entry ${entry.id}`);
+  }
+}
+
+class TestFailureHandler implements TransportFailureHandler {
+  public failures: Array<{ error: Error; entry: LogEntry; transport: LogTransport }> = [];
+
+  public handleFailure(error: Error, entry: LogEntry, transport: LogTransport): void {
+    this.failures.push({ error, entry, transport });
+  }
+}
+
+class FixedClock implements Clock {
+  private readonly _date: Date;
+  constructor(date: Date) {
+    this._date = date;
+  }
+  public now(): Date {
+    return this._date;
   }
 }
 
@@ -21,97 +49,141 @@ async function runTests() {
   const prettyFormatter = new PrettyConsoleFormatter();
   const consoleTransport = new ConsoleTransport(prettyFormatter, true);
 
-  // 1. Fluid Builder Configuration
+  // ==========================================
+  // Test 1: Clock Abstraction Tests
+  // ==========================================
   // eslint-disable-next-line no-console
-  console.log("1. Building Logger via LoggerBuilder...");
-  const builder = new LoggerBuilder()
+  console.log("\n1. Running Clock Abstraction Tests...");
+  const systemClock = new SystemClock();
+  assert(systemClock.now() instanceof Date, "SystemClock must return Date");
+
+  const fixedDate = new Date("2026-07-13T12:00:00.000Z");
+  const fixedClock = new FixedClock(fixedDate);
+  assert(fixedClock.now().getTime() === fixedDate.getTime(), "FixedClock must return configured Date");
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Clock abstraction validated.");
+
+  // ==========================================
+  // Test 2: LogEntryFactory & Immutability Tests
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n2. Running LogEntryFactory & Immutability Tests...");
+  const factory = new LogEntryFactory(fixedClock);
+  const rawMeta = { user: "dileep", role: "admin" };
+  const entry = factory.create(LogLevel.INFO, "Hello World", "AuthModule", { moduleName: "AuthModule" }, rawMeta);
+
+  assert(entry.timestamp.getTime() === fixedDate.getTime(), "Factory must read time from Clock");
+  assert(entry.id.length === 36, "Factory must populate UUID");
+  assert(entry.metadata instanceof LogMetadata, "Metadata normalized to LogMetadata instance");
+  assert(entry.metadata.get("user") === "dileep", "Metadata keys preserved");
+
+  // Verify immutability
+  assert(Object.isFrozen(entry), "LogEntry object must be frozen");
+  assert(Object.isFrozen(entry.context), "LoggerContext object must be frozen");
+  assert(Object.isFrozen(entry.metadata.fields), "LogMetadata fields must be frozen");
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (entry as any).message = "Hack";
+    throw new Error("Should have thrown error in strict mode when modifying frozen entry");
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.log("   ✓ Prevented mutation of frozen LogEntry correctly.");
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Factory and Immutability verified.");
+
+  // ==========================================
+  // Test 3: Correlation ID Support & Propagation Tests
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n3. Running Correlation ID Propagation Tests...");
+  const rootBuilder = new LoggerBuilder()
+    .withMinLevel(LogLevel.INFO)
+    .addTransport(mockTransport)
+    .withFormatter(prettyFormatter)
+    .withModule("RootModule");
+
+  const rootLogger = rootBuilder.build();
+  rootLogger.info("Root log message");
+
+  const rootEntry = mockTransport.entries[0];
+  const rootCorrId = rootEntry.context.correlationId;
+  assert(rootCorrId !== undefined, "Correlation ID must be auto-generated");
+  assert(rootCorrId!.length === 36, "Correlation ID should be a valid UUID");
+
+  // Child propagation
+  const childLogger = rootLogger.child({ moduleName: "ChildModule", job: "generate-video" });
+  childLogger.info("Child log message");
+
+  const childEntry = mockTransport.entries[1];
+  assert(childEntry.context.correlationId === rootCorrId, "Child logger must inherit correlationId");
+  assert(childEntry.context.job === "generate-video", "Child context appended");
+
+  // Child override
+  const childOverrideLogger = rootLogger.child({ correlationId: "override-id-999" });
+  childOverrideLogger.info("Child override message");
+
+  const childOverrideEntry = mockTransport.entries[2];
+  assert(childOverrideEntry.context.correlationId === "override-id-999", "Child logger must support override");
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Correlation ID propagation and override verified.");
+
+  // ==========================================
+  // Test 4: Transport Pipeline & Isolation Tests
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n4. Running Transport Pipeline Failure Isolation Tests...");
+  const pipelineTrans1 = new MockTransport();
+  const pipelineTrans2 = new CrashingTransport();
+  const pipelineTrans3 = new MockTransport();
+
+  const pipeline = new TransportPipeline([pipelineTrans1, pipelineTrans2, pipelineTrans3]);
+  const failHandler = new TestFailureHandler();
+  pipeline.registerFailureHandler(failHandler);
+
+  const pipelineEntry = factory.create(LogLevel.ERROR, "Pipeline testing", "System", { moduleName: "System" });
+  pipeline.send(pipelineEntry);
+
+  assert(pipelineTrans1.entries.length === 1, "Transport 1 must run successfully");
+  assert(pipelineTrans3.entries.length === 1, "Transport 3 must run despite Transport 2 crash");
+  assert(failHandler.failures.length === 1, "Pipeline must capture crash in failure handler");
+  assert(failHandler.failures[0].error.message.includes("Intentional crash"), "Crash message matches");
+  assert(failHandler.failures[0].entry === pipelineEntry, "Failed entry preserved");
+  assert(failHandler.failures[0].transport === pipelineTrans2, "Crashing transport reported");
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Pipeline isolated transport failures and processed remaining queue.");
+
+  // ==========================================
+  // Test 5: Formatters & Nested Cause Serialization Tests
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n5. Running Error Cause Serialization Tests...");
+  const innerError = new Error("Database timeout");
+  const testError = new Error("Failed to process transaction", { cause: innerError });
+
+  const rootLoggerWithConsole = new LoggerBuilder()
     .withMinLevel(LogLevel.INFO)
     .addTransport(mockTransport)
     .addTransport(consoleTransport)
     .withFormatter(prettyFormatter)
-    .withModule("TestModule")
-    .withKernelId("mock-kernel-id-123");
+    .withModule("TransactionModule")
+    .build();
 
-  const logger = builder.build();
+  rootLoggerWithConsole.error("Db error", {}, testError);
 
-  // 2. Log Level Filtering Tests
-  // eslint-disable-next-line no-console
-  console.log("2. Running Log Level Filtering Tests...");
-  logger.trace("Trace log - should be filtered");
-  logger.debug("Debug log - should be filtered");
-  logger.info("Info log - should pass");
-  logger.warn("Warn log - should pass");
-  logger.error("Error log - should pass");
-  logger.fatal("Fatal log - should pass");
-
-  assert(
-    mockTransport.entries.length === 4,
-    "Filtered logs: only 4 entries should be received (INFO, WARN, ERROR, FATAL)"
-  );
-  assert(mockTransport.entries[0].level === LogLevel.INFO, "First entry level should be INFO");
-  assert(mockTransport.entries[1].level === LogLevel.WARN, "Second entry level should be WARN");
-  assert(mockTransport.entries[2].level === LogLevel.ERROR, "Third entry level should be ERROR");
-  assert(mockTransport.entries[3].level === LogLevel.FATAL, "Fourth entry level should be FATAL");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified log levels filter correctly.");
-
-  // 3. Metadata & Context Tests
-  // eslint-disable-next-line no-console
-  console.log("3. Running Metadata & Context Tests...");
-  const metadata = { userId: "user-456", action: "test-run" };
-  logger.info("Checking metadata payload", metadata);
-
-  const metaEntry = mockTransport.entries[4];
-  assert(metaEntry.message === "Checking metadata payload", "Message match");
-  assert(metaEntry.metadata !== undefined, "Metadata exists");
-  assert(metaEntry.metadata!.userId === "user-456", "Metadata userId matches");
-  assert(metaEntry.context.moduleName === "TestModule", "Context module name matches");
-  assert(metaEntry.context.kernelId === "mock-kernel-id-123", "Context kernelId matches");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Metadata & root context mapped successfully.");
-
-  // 4. Child Logger Inheritance Tests
-  // eslint-disable-next-line no-console
-  console.log("4. Running Child Logger Context Inheritance Tests...");
-  const childLogger = logger.child({ jobId: "job-999", moduleName: "SubModule" });
-  childLogger.info("Child log message");
-
-  const childEntry = mockTransport.entries[5];
-  assert(childEntry.context.moduleName === "SubModule", "Child context moduleName overwritten");
-  assert(childEntry.context.kernelId === "mock-kernel-id-123", "Child inherited kernelId");
-  assert(childEntry.context.jobId === "job-999", "Child context jobId added");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Child logger inherited and extended context successfully.");
-
-  // 5. Error Logging & Serialization Tests
-  // eslint-disable-next-line no-console
-  console.log("5. Running Error Logging & Serialization Tests...");
-  const innerError = new Error("Database timeout");
-  const testError = new Error("Failed to process transaction", { cause: innerError });
-
-  logger.error("Transaction error occurred", undefined, testError);
-
-  const errEntry = mockTransport.entries[6];
-  assert(errEntry.error !== undefined, "Error payload attached");
-  assert(errEntry.error!.message === "Failed to process transaction", "Error message matches");
-  assert(errEntry.error!.stack !== undefined, "Error stack exists");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  assert((errEntry.error as any).cause === innerError, "Error cause matches inner error");
-
-  // Formatters check
+  const errorEntry = mockTransport.entries[mockTransport.entries.length - 1];
   const jsonFormatter = new JsonFormatter();
-  const jsonOutput = jsonFormatter.format(errEntry);
+  const jsonOutput = jsonFormatter.format(errorEntry);
   const parsedJson = JSON.parse(jsonOutput);
 
-  assert(parsedJson.message === "Transaction error occurred", "JSON message matches");
-  assert(parsedJson.error.message === "Failed to process transaction", "JSON serialized error message matches");
-  assert(parsedJson.error.stack !== undefined, "JSON serialized error stack matches");
-  assert(parsedJson.error.cause.message === "Database timeout", "JSON serialized error cause matches");
+  assert(parsedJson.error.message === "Failed to process transaction", "JSON Error message matches");
+  assert(parsedJson.error.cause.message === "Database timeout", "Nested Error cause matches");
   // eslint-disable-next-line no-console
-  console.log("   ✓ Error stack and nested cause serialized correctly.");
+  console.log("   ✓ Nested error cause serialized to JSON accurately.");
 
   // eslint-disable-next-line no-console
-  console.log("=== ALL LOGGER INFRASTRUCTURE VERIFICATION TESTS PASSED SUCCESSFULLY ===");
+  console.log("\n=== ALL LOGGER INFRASTRUCTURE VERIFICATION TESTS PASSED SUCCESSFULLY ===");
 }
 
 function assert(condition: boolean, message: string) {

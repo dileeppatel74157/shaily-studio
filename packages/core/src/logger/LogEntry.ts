@@ -1,4 +1,5 @@
 import { LogLevel } from "./LogLevel";
+import { LogMetadata } from "./LogMetadata";
 import { LoggerContext } from "./LoggerContext";
 
 export interface LogEntry {
@@ -8,6 +9,6 @@ export interface LogEntry {
   readonly message: string;
   readonly module: string;
   readonly context: LoggerContext;
-  readonly metadata?: Record<string, unknown>;
+  readonly metadata: LogMetadata;
   readonly error?: Error;
 }

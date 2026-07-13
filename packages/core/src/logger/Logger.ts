@@ -69,41 +69,77 @@ export class Logger implements ILogger {
    */
   protected afterFlush(): void {}
 
-  private log(level: LogLevel, message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  private log(
+    level: LogLevel,
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     if (level < this._config.minLevel) {
       return;
     }
 
     this.beforeLog(level, message, metadata, error);
 
-    const entry = this._factory.create(level, message, this._context.moduleName, this._context, metadata, error);
+    const entry = this._factory.create(
+      level,
+      message,
+      this._context.moduleName,
+      this._context,
+      metadata,
+      error
+    );
 
     this._config.pipeline.send(entry);
 
     this.afterLog(entry);
   }
 
-  public trace(message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  public trace(
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     this.log(LogLevel.TRACE, message, metadata, error);
   }
 
-  public debug(message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  public debug(
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     this.log(LogLevel.DEBUG, message, metadata, error);
   }
 
-  public info(message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  public info(
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     this.log(LogLevel.INFO, message, metadata, error);
   }
 
-  public warn(message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  public warn(
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     this.log(LogLevel.WARN, message, metadata, error);
   }
 
-  public error(message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  public error(
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     this.log(LogLevel.ERROR, message, metadata, error);
   }
 
-  public fatal(message: string, metadata?: LogMetadata | Record<string, unknown>, error?: Error): void {
+  public fatal(
+    message: string,
+    metadata?: LogMetadata | Record<string, unknown>,
+    error?: Error
+  ): void {
     this.log(LogLevel.FATAL, message, metadata, error);
   }
 

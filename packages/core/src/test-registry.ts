@@ -112,7 +112,10 @@ async function runTests() {
     ).build();
     throw new Error("Should have thrown error on double registration");
   } catch (err: any) {
-    assert(err.message.includes("already been registered"), "Prevented duplicate token registrations");
+    assert(
+      err.message.includes("already been registered"),
+      "Prevented duplicate token registrations"
+    );
     // eslint-disable-next-line no-console
     console.log("   ✓ Prevented duplicate registration correctly.");
   }
@@ -139,8 +142,14 @@ async function runTests() {
     cycleRegistry.resolve(SERVICE_A_TOKEN);
     throw new Error("Should have thrown error for circular dependency");
   } catch (err: any) {
-    assert(err.message.includes("Circular dependency detected"), "Circular trap caught dependencies");
-    assert(err.message.includes("serviceA -> serviceB -> serviceA"), "Circular error lists correct dependency path");
+    assert(
+      err.message.includes("Circular dependency detected"),
+      "Circular trap caught dependencies"
+    );
+    assert(
+      err.message.includes("serviceA -> serviceB -> serviceA"),
+      "Circular error lists correct dependency path"
+    );
     // eslint-disable-next-line no-console
     console.log("   ✓ Circular dependency cycle detected correctly: " + err.message);
   }
@@ -153,7 +162,10 @@ async function runTests() {
   const snap = registry.snapshot();
 
   assert(snap.registrations.length === 2, "Snapshot registrations exist");
-  assert(snap.registrations[0].lifetime === ServiceLifetime.SINGLETON, "Correct lifetime in snapshot");
+  assert(
+    snap.registrations[0].lifetime === ServiceLifetime.SINGLETON,
+    "Correct lifetime in snapshot"
+  );
   assert(snap.registrations[0].isResolved === true, "Resolved singleton status correctly flagged");
 
   assert(Object.isFrozen(snap), "Registry snapshot must be frozen");

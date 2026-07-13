@@ -59,7 +59,10 @@ async function runTests() {
 
   const fixedDate = new Date("2026-07-13T12:00:00.000Z");
   const fixedClock = new FixedClock(fixedDate);
-  assert(fixedClock.now().getTime() === fixedDate.getTime(), "FixedClock must return configured Date");
+  assert(
+    fixedClock.now().getTime() === fixedDate.getTime(),
+    "FixedClock must return configured Date"
+  );
   // eslint-disable-next-line no-console
   console.log("   ✓ Clock abstraction validated.");
 
@@ -70,7 +73,13 @@ async function runTests() {
   console.log("\n2. Running LogEntryFactory & Immutability Tests...");
   const factory = new LogEntryFactory(fixedClock);
   const rawMeta = { user: "dileep", role: "admin" };
-  const entry = factory.create(LogLevel.INFO, "Hello World", "AuthModule", { moduleName: "AuthModule" }, rawMeta);
+  const entry = factory.create(
+    LogLevel.INFO,
+    "Hello World",
+    "AuthModule",
+    { moduleName: "AuthModule" },
+    rawMeta
+  );
 
   assert(entry.timestamp.getTime() === fixedDate.getTime(), "Factory must read time from Clock");
   assert(entry.id.length === 36, "Factory must populate UUID");
@@ -117,7 +126,10 @@ async function runTests() {
   childLogger.info("Child log message");
 
   const childEntry = mockTransport.entries[1];
-  assert(childEntry.context.correlationId === rootCorrId, "Child logger must inherit correlationId");
+  assert(
+    childEntry.context.correlationId === rootCorrId,
+    "Child logger must inherit correlationId"
+  );
   assert(childEntry.context.job === "generate-video", "Child context appended");
 
   // Child override
@@ -125,7 +137,10 @@ async function runTests() {
   childOverrideLogger.info("Child override message");
 
   const childOverrideEntry = mockTransport.entries[2];
-  assert(childOverrideEntry.context.correlationId === "override-id-999", "Child logger must support override");
+  assert(
+    childOverrideEntry.context.correlationId === "override-id-999",
+    "Child logger must support override"
+  );
   // eslint-disable-next-line no-console
   console.log("   ✓ Correlation ID propagation and override verified.");
 
@@ -142,13 +157,18 @@ async function runTests() {
   const failHandler = new TestFailureHandler();
   pipeline.registerFailureHandler(failHandler);
 
-  const pipelineEntry = factory.create(LogLevel.ERROR, "Pipeline testing", "System", { moduleName: "System" });
+  const pipelineEntry = factory.create(LogLevel.ERROR, "Pipeline testing", "System", {
+    moduleName: "System",
+  });
   pipeline.send(pipelineEntry);
 
   assert(pipelineTrans1.entries.length === 1, "Transport 1 must run successfully");
   assert(pipelineTrans3.entries.length === 1, "Transport 3 must run despite Transport 2 crash");
   assert(failHandler.failures.length === 1, "Pipeline must capture crash in failure handler");
-  assert(failHandler.failures[0].error.message.includes("Intentional crash"), "Crash message matches");
+  assert(
+    failHandler.failures[0].error.message.includes("Intentional crash"),
+    "Crash message matches"
+  );
   assert(failHandler.failures[0].entry === pipelineEntry, "Failed entry preserved");
   assert(failHandler.failures[0].transport === pipelineTrans2, "Crashing transport reported");
   // eslint-disable-next-line no-console
@@ -177,7 +197,10 @@ async function runTests() {
   const jsonOutput = jsonFormatter.format(errorEntry);
   const parsedJson = JSON.parse(jsonOutput);
 
-  assert(parsedJson.error.message === "Failed to process transaction", "JSON Error message matches");
+  assert(
+    parsedJson.error.message === "Failed to process transaction",
+    "JSON Error message matches"
+  );
   assert(parsedJson.error.cause.message === "Database timeout", "Nested Error cause matches");
   // eslint-disable-next-line no-console
   console.log("   ✓ Nested error cause serialized to JSON accurately.");

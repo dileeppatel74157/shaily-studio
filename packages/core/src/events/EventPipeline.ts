@@ -12,7 +12,9 @@ export class EventPipeline {
   public async execute(event: Event, subscriptions: EventSubscription[]): Promise<void> {
     const sorted = [...subscriptions].sort((a, b) => b.priority - a.priority);
 
-    this._logger?.debug(`Executing event pipeline for event "${event.name}" (${event.id}) with ${sorted.length} handlers.`);
+    this._logger?.debug(
+      `Executing event pipeline for event "${event.name}" (${event.id}) with ${sorted.length} handlers.`
+    );
 
     for (const sub of sorted) {
       try {

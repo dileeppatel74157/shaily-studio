@@ -84,7 +84,10 @@ async function runTests() {
     Version.parse("invalid-version");
     throw new Error("Should have failed parsing invalid semver");
   } catch (err: any) {
-    assert(err.message.includes("Invalid version format"), "Version parsing must throw validation error");
+    assert(
+      err.message.includes("Invalid version format"),
+      "Version parsing must throw validation error"
+    );
     // eslint-disable-next-line no-console
     console.log("   ✓ Version parsing validation errors verified.");
   }
@@ -133,7 +136,10 @@ async function runTests() {
     kernel.register(CONFIG_TOKEN, { apiPort: 80 } as ConfigService);
     throw new Error("Should have thrown ServiceAlreadyRegisteredException");
   } catch (err) {
-    assert(err instanceof ServiceAlreadyRegisteredException, "Throws ServiceAlreadyRegisteredException");
+    assert(
+      err instanceof ServiceAlreadyRegisteredException,
+      "Throws ServiceAlreadyRegisteredException"
+    );
     // eslint-disable-next-line no-console
     console.log("   ✓ Throws ServiceAlreadyRegisteredException on double token registration.");
   }
@@ -145,7 +151,10 @@ async function runTests() {
     kernel.register(new ServiceToken<any>("late"), {});
     throw new Error("Should have thrown InvalidKernelStateException");
   } catch (err) {
-    assert(err instanceof InvalidKernelStateException, "Throws InvalidKernelStateException on running registration");
+    assert(
+      err instanceof InvalidKernelStateException,
+      "Throws InvalidKernelStateException on running registration"
+    );
     // eslint-disable-next-line no-console
     console.log("   ✓ Throws InvalidKernelStateException on late service registration.");
   }
@@ -176,7 +185,10 @@ async function runTests() {
   assert(context.metadata.kernelId === initialHealth.kernelId, "Context metadata identity check");
   assert(context.serviceCount === 2, "Context registry service count");
   assert(context.serviceMetadata.length === 2, "Metadata array length matches");
-  assert(context.serviceMetadata[0].tokenDescription === "config", "Metadata service description matches");
+  assert(
+    context.serviceMetadata[0].tokenDescription === "config",
+    "Metadata service description matches"
+  );
 
   // Verify health properties
   const currentHealth = kernel.health();

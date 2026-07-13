@@ -13,7 +13,11 @@ export interface ServiceRegistrySnapshot {
 
 export interface IServiceRegistry {
   register<T>(token: ServiceToken<T>, instance: T): void;
-  registerFactory<T>(token: ServiceToken<T>, factory: ServiceFactory<T>, lifetime: ServiceLifetime): void;
+  registerFactory<T>(
+    token: ServiceToken<T>,
+    factory: ServiceFactory<T>,
+    lifetime: ServiceLifetime
+  ): void;
   resolve<T>(token: ServiceToken<T>): T;
   has(token: ServiceToken<any>): boolean;
   remove(token: ServiceToken<any>): boolean;

@@ -127,7 +127,10 @@ async function runTests() {
   const asyncEvent = new EventBuilder().withName("async.test").build();
   await bus.publish(asyncEvent);
 
-  assert(isFinished() === true, "Publish promise must resolve only after async handler executes completely");
+  assert(
+    isFinished() === true,
+    "Publish promise must resolve only after async handler executes completely"
+  );
   // eslint-disable-next-line no-console
   console.log("   ✓ Verified async handler await behaviors.");
   bus.clear();
@@ -171,12 +174,18 @@ async function runTests() {
 
   const snap = bus.snapshot();
   assert(snap.subscriptionCount === 3, "Correct total subscriptions count");
-  assert(snap.eventNames.includes("snap.test1") && snap.eventNames.includes("snap.test2"), "Event names listed");
+  assert(
+    snap.eventNames.includes("snap.test1") && snap.eventNames.includes("snap.test2"),
+    "Event names listed"
+  );
   assert(snap.subscriptionsByEvent["snap.test1"] === 2, "Event subscription count check");
 
   assert(Object.isFrozen(snap), "Snapshot must be frozen");
   assert(Object.isFrozen(snap.eventNames), "Event names array must be frozen");
-  assert(Object.isFrozen(snap.subscriptionsByEvent), "Subscriptions breakdown object must be frozen");
+  assert(
+    Object.isFrozen(snap.subscriptionsByEvent),
+    "Subscriptions breakdown object must be frozen"
+  );
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

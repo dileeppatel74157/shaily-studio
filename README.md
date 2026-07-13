@@ -1,6 +1,6 @@
 # Shaily Studio - AI Content OS
 
-Shaily Studio is a production-grade personal Artificial Intelligence Content Operating System. It is custom-tailored for a **single user (the Founder)** to manage, orchestrate, and coordinate automated content creation pipelines (ideation, scriptwriting, and editing coordination). 
+Shaily Studio is a production-grade personal Artificial Intelligence Content Operating System. It is custom-tailored for a **single user (the Founder)** to manage, orchestrate, and coordinate automated content creation pipelines (ideation, scriptwriting, and editing coordination).
 
 ---
 
@@ -49,24 +49,27 @@ shaily-studio/
 ## 3. Setup
 
 ### System Prerequisites
+
 Ensure the following packages are installed on your host system:
-* **Node.js** (v22.0.0+) & **pnpm** (v11.0.0+)
-* **Python** (3.12+)
-* **Docker & Docker Compose**
+
+- **Node.js** (v22.0.0+) & **pnpm** (v11.0.0+)
+- **Python** (3.12+)
+- **Docker & Docker Compose**
 
 ### Quickstart Installation
 
 1. Clone the repository and navigate to the project directory:
+
    ```bash
    cd "c:\Users\asus\AI video OS\shaily studio"
    ```
 
 2. Run the automated initialization script:
-   * **Windows PowerShell**:
+   - **Windows PowerShell**:
      ```powershell
      .\scripts\setup.ps1
      ```
-   * **Unix / macOS**:
+   - **Unix / macOS**:
      ```bash
      chmod +x scripts/setup.sh
      ./scripts/setup.sh
@@ -77,12 +80,14 @@ Ensure the following packages are installed on your host system:
 ## 4. Development Commands
 
 ### Docker Orchestration (Recommended)
+
 Launch the entire stack (PostgreSQL, Redis, Web App, API, Worker) inside isolated containers with live-reload enabled:
-* **Windows**:
+
+- **Windows**:
   ```powershell
   .\scripts\run-dev.ps1
   ```
-* **Unix**:
+- **Unix**:
   ```bash
   ./scripts/run-dev.sh
   ```
@@ -91,21 +96,21 @@ Launch the entire stack (PostgreSQL, Redis, Web App, API, Worker) inside isolate
 
 To run packages outside Docker Compose, use these root pnpm shortcuts:
 
-| Command | Action |
-|---|---|
-| `pnpm install` | Install all TS workspace package dependencies |
-| `pnpm run dev` | Launch the Next.js web application on port `3000` |
-| `pnpm run build` | Compile all TypeScript apps and libraries in the workspace |
-| `pnpm run lint` | Run ESLint across all JS/TS projects |
-| `pnpm run format` | Run Prettier code formatting on the entire workspace |
+| Command           | Action                                                     |
+| ----------------- | ---------------------------------------------------------- |
+| `pnpm install`    | Install all TS workspace package dependencies              |
+| `pnpm run dev`    | Launch the Next.js web application on port `3000`          |
+| `pnpm run build`  | Compile all TypeScript apps and libraries in the workspace |
+| `pnpm run lint`   | Run ESLint across all JS/TS projects                       |
+| `pnpm run format` | Run Prettier code formatting on the entire workspace       |
 
 ---
 
 ## 5. Coding Standards & Project Rules
 
-* **Modular Framework**: Every package under `packages/` is strictly encapsulated. Code must communicate via exported APIs; never import files directly across package boundaries.
-* **Strict Type Safety**: All TypeScript files must compile under TypeScript strict mode. Python codebases must be strictly typed using `pydantic` schemas.
-* **No Business Placeholders**: Avoid hardcoded values in core configurations. Declare parameters inside `.env` and load them through `settings` configurations.
-* **Keep Code Single-Responsibility**: Do not write large files. Ensure every database connection, agent implementation, or page component serves one single duty.
-* **Kernel Finality**: The Kernel is final. Modules integrate with the Kernel through interfaces and registration. Modules never extend the Kernel. Lifecycle hooks are reserved for internal infrastructure.
-* **AI Architecture Readiness**: Extend the Python agent registry `packages/agents` to hook into future automation services.
+- **Modular Framework**: Every package under `packages/` is strictly encapsulated. Code must communicate via exported APIs; never import files directly across package boundaries.
+- **Strict Type Safety**: All TypeScript files must compile under TypeScript strict mode. Python codebases must be strictly typed using `pydantic` schemas.
+- **No Business Placeholders**: Avoid hardcoded values in core configurations. Declare parameters inside `.env` and load them through `settings` configurations.
+- **Keep Code Single-Responsibility**: Do not write large files. Ensure every database connection, agent implementation, or page component serves one single duty.
+- **Kernel Finality**: The Kernel is final. Modules integrate with the Kernel through interfaces and registration. Modules never extend the Kernel. Lifecycle hooks are reserved for internal infrastructure.
+- **AI Architecture Readiness**: Extend the Python agent registry `packages/agents` to hook into future automation services.

@@ -11,7 +11,11 @@ async function runTests() {
   const schema: ConfigSchema = {
     "app.port": { type: "number", required: true },
     "app.debug": { type: "boolean", default: false },
-    "app.env": { type: "enum", required: true, enumValues: ["development", "staging", "production"] },
+    "app.env": {
+      type: "enum",
+      required: true,
+      enumValues: ["development", "staging", "production"],
+    },
     "app.title": { type: "string", default: "Shaily Studio Application" },
   };
 
@@ -47,9 +51,15 @@ async function runTests() {
 
   const prioritizedConfig = await builder2.build();
 
-  assert(prioritizedConfig.get<number>("app.port") === 9090, "EnvSource should override MemorySource (9090)");
+  assert(
+    prioritizedConfig.get<number>("app.port") === 9090,
+    "EnvSource should override MemorySource (9090)"
+  );
   assert(prioritizedConfig.get<boolean>("app.debug") === true, "EnvSource sets debug to true");
-  assert(prioritizedConfig.get<string>("app.env") === "production", "EnvSource overrides env to production");
+  assert(
+    prioritizedConfig.get<string>("app.env") === "production",
+    "EnvSource overrides env to production"
+  );
   // eslint-disable-next-line no-console
   console.log("   ✓ Verified EnvironmentSource parsing and later-source priority overrides.");
 
@@ -66,7 +76,10 @@ async function runTests() {
     await invalidBuilder.build();
     throw new Error("Should have thrown validation error for missing required properties");
   } catch (err: any) {
-    assert(err.message.includes("is required but was not provided"), "Catches required field error");
+    assert(
+      err.message.includes("is required but was not provided"),
+      "Catches required field error"
+    );
     // eslint-disable-next-line no-console
     console.log("   ✓ Prevented empty schema required fields.");
   }

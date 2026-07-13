@@ -25,7 +25,9 @@ export default function Home() {
   const [promptInput, setPromptInput] = useState("");
   const [selectedAgent, setSelectedAgent] = useState(DEFAULT_AGENTS[0]?.id || "");
   const [isSimulating, setIsSimulating] = useState(false);
-  const [logs, setLogs] = useState<Array<{ time: string; msg: string; type: "info" | "success" | "error" }>>([
+  const [logs, setLogs] = useState<
+    Array<{ time: string; msg: string; type: "info" | "success" | "error" }>
+  >([
     { time: new Date().toLocaleTimeString(), msg: "Shaily Studio Core initialized.", type: "info" },
     { time: new Date().toLocaleTimeString(), msg: "FastAPI server heartbeat OK.", type: "info" },
     { time: new Date().toLocaleTimeString(), msg: "Worker queue listener active.", type: "info" },
@@ -86,9 +88,21 @@ export default function Home() {
     addLog("Initiating Content Generation Pipeline Simulation...", "info");
 
     const pipelineTasks = [
-      { id: "agent-ideator", name: "Ideator", prompt: "Create 3 viral video topics about personal finance" },
-      { id: "agent-writer", name: "Writer", prompt: "Write a 60-second video script based on the chosen topic" },
-      { id: "agent-editor", name: "Editor", prompt: "Assemble final video frames and schedule export" }
+      {
+        id: "agent-ideator",
+        name: "Ideator",
+        prompt: "Create 3 viral video topics about personal finance",
+      },
+      {
+        id: "agent-writer",
+        name: "Writer",
+        prompt: "Write a 60-second video script based on the chosen topic",
+      },
+      {
+        id: "agent-editor",
+        name: "Editor",
+        prompt: "Assemble final video frames and schedule export",
+      },
     ];
 
     let currentStep = 0;
@@ -221,10 +235,13 @@ export default function Home() {
               {/* Info Banner */}
               <div className="p-6 rounded-2xl bg-gradient-to-br from-zinc-900 to-black border border-zinc-800 relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl -z-10"></div>
-                <h3 className="text-2xl font-bold tracking-tight font-display mb-2">Welcome to Shaily Studio OS</h3>
+                <h3 className="text-2xl font-bold tracking-tight font-display mb-2">
+                  Welcome to Shaily Studio OS
+                </h3>
                 <p className="text-zinc-400 max-w-2xl text-sm leading-relaxed">
-                  A modular personal AI Content Operating System constructed with FastAPI, Next.js, and Redis.
-                  All background workers and API endpoints are wired through Docker orchestration. Start customizing agent behaviors in the Python layers.
+                  A modular personal AI Content Operating System constructed with FastAPI, Next.js,
+                  and Redis. All background workers and API endpoints are wired through Docker
+                  orchestration. Start customizing agent behaviors in the Python layers.
                 </p>
               </div>
 
@@ -233,7 +250,9 @@ export default function Home() {
                 <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
                   <CardContent className="p-6 flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">API Backend</p>
+                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">
+                        API Backend
+                      </p>
                       <h4 className="text-lg font-bold">FastAPI</h4>
                       <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
                         <CheckCircle2 size={12} /> Live / Port 8000
@@ -246,7 +265,9 @@ export default function Home() {
                 <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
                   <CardContent className="p-6 flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Work Queue</p>
+                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">
+                        Work Queue
+                      </p>
                       <h4 className="text-lg font-bold">Redis Queue</h4>
                       <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
                         <CheckCircle2 size={12} /> Active / Port 6379
@@ -259,7 +280,9 @@ export default function Home() {
                 <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
                   <CardContent className="p-6 flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Database</p>
+                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">
+                        Database
+                      </p>
                       <h4 className="text-lg font-bold">PostgreSQL</h4>
                       <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
                         <CheckCircle2 size={12} /> Connected / Port 5432
@@ -272,7 +295,9 @@ export default function Home() {
                 <Card className="bg-zinc-900/40 border-zinc-800 backdrop-blur-sm">
                   <CardContent className="p-6 flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">Worker Pool</p>
+                      <p className="text-xs text-zinc-400 font-medium uppercase tracking-wider mb-1">
+                        Worker Pool
+                      </p>
                       <h4 className="text-lg font-bold">Arq Service</h4>
                       <p className="text-xs text-emerald-400 flex items-center gap-1 mt-1">
                         <CheckCircle2 size={12} /> Idle / Listening
@@ -293,12 +318,15 @@ export default function Home() {
                         <Activity size={18} className="text-violet-400" />
                         <span>Active Pipeline Monitor</span>
                       </CardTitle>
-                      <CardDescription>Real-time task tracking for all local agent workflows.</CardDescription>
+                      <CardDescription>
+                        Real-time task tracking for all local agent workflows.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
                       {simulatedTasks.length === 0 ? (
                         <div className="text-center py-12 text-zinc-500 text-sm">
-                          No tasks have been executed in this session. Trigger a simulation run or enter a prompt.
+                          No tasks have been executed in this session. Trigger a simulation run or
+                          enter a prompt.
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -311,8 +339,12 @@ export default function Home() {
                               >
                                 <div className="space-y-1">
                                   <div className="flex items-center space-x-3">
-                                    <span className="font-semibold text-sm">{agent?.name || "Agent"}</span>
-                                    <span className="text-xs text-zinc-500 font-mono">ID: {task.taskId}</span>
+                                    <span className="font-semibold text-sm">
+                                      {agent?.name || "Agent"}
+                                    </span>
+                                    <span className="text-xs text-zinc-500 font-mono">
+                                      ID: {task.taskId}
+                                    </span>
                                   </div>
                                   <p className="text-xs text-zinc-400 max-w-md truncate">
                                     Prompt: {String(task.inputData.prompt)}
@@ -350,7 +382,9 @@ export default function Home() {
                         <Terminal size={18} className="text-violet-400" />
                         <span>Core Shell Output</span>
                       </CardTitle>
-                      <CardDescription>Live operational outputs from the local event loops.</CardDescription>
+                      <CardDescription>
+                        Live operational outputs from the local event loops.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="p-6 flex-1 flex flex-col justify-between overflow-hidden">
                       <div className="font-mono text-2xs space-y-2 h-[260px] overflow-y-auto pr-2 bg-black/60 p-4 rounded-xl border border-zinc-850">
@@ -399,7 +433,9 @@ export default function Home() {
                       <CardContent className="p-6 space-y-4">
                         <p className="text-zinc-400 text-xs leading-relaxed">{agent.description}</p>
                         <div>
-                          <p className="text-2xs text-zinc-500 font-bold uppercase tracking-wider mb-2">Capabilities</p>
+                          <p className="text-2xs text-zinc-500 font-bold uppercase tracking-wider mb-2">
+                            Capabilities
+                          </p>
                           <div className="flex flex-wrap gap-1.5">
                             {agent.capabilities.map((cap) => (
                               <span
@@ -425,12 +461,16 @@ export default function Home() {
                       <Play size={18} className="text-violet-400" />
                       <span>Console Trigger</span>
                     </CardTitle>
-                    <CardDescription>Dispatch parameters directly to an agent runtime.</CardDescription>
+                    <CardDescription>
+                      Dispatch parameters directly to an agent runtime.
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="p-6">
                     <form onSubmit={handleSimulateTask} className="space-y-4">
                       <div className="space-y-2">
-                        <label className="text-xs text-zinc-400 font-semibold block">Target Agent</label>
+                        <label className="text-xs text-zinc-400 font-semibold block">
+                          Target Agent
+                        </label>
                         <select
                           value={selectedAgent}
                           onChange={(e) => setSelectedAgent(e.target.value)}
@@ -445,7 +485,9 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-xs text-zinc-400 font-semibold block">Prompt Input</label>
+                        <label className="text-xs text-zinc-400 font-semibold block">
+                          Prompt Input
+                        </label>
                         <textarea
                           value={promptInput}
                           onChange={(e) => setPromptInput(e.target.value)}
@@ -475,7 +517,9 @@ export default function Home() {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-lg">Structured Output Shell</CardTitle>
-                    <CardDescription>Inspect system actions, status evaluations, and Docker status messages.</CardDescription>
+                    <CardDescription>
+                      Inspect system actions, status evaluations, and Docker status messages.
+                    </CardDescription>
                   </div>
                   <Button
                     variant="outline"

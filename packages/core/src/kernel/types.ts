@@ -1,11 +1,23 @@
 import { KernelState } from "./KernelState";
+import { ServiceToken } from "./ServiceToken";
+import { Version } from "./Version";
 
 export interface KernelHealth {
-  state: KernelState;
-  uptime: number; // Uptime in milliseconds
-  version: string;
-  environment: string;
-  registeredServiceCount: number;
+  readonly kernelId: string;
+  readonly version: Version;
+  readonly state: KernelState;
+  readonly environment: string;
+  readonly bootTime: Date | null;
+  readonly uptime: number;
+  readonly registeredServiceCount: number;
+  readonly isHealthy: boolean;
+  readonly timestamp: Date;
+}
+
+export interface KernelStatus {
+  readonly state: KernelState;
+  readonly timestamp: Date;
+  readonly kernelId: string;
 }
 
 export class KernelException extends Error {
@@ -17,14 +29,16 @@ export class KernelException extends Error {
 }
 
 export class ServiceNotFoundException extends KernelException {
-  constructor(serviceName: string) {
-    super(`Service "${serviceName}" was not found in the Kernel registry.`);
+  constructor(token: ServiceToken<unknown> | string) {
+    const name = typeof token === "string" ? token : token.description;
+    super(`Service "${name}" was not found in the Kernel registry.`);
   }
 }
 
 export class ServiceAlreadyRegisteredException extends KernelException {
-  constructor(serviceName: string) {
-    super(`Service "${serviceName}" has already been registered in the Kernel.`);
+  constructor(token: ServiceToken<unknown> | string) {
+    const name = typeof token === "string" ? token : token.description;
+    super(`Service "${name}" has already been registered in the Kernel.`);
   }
 }
 

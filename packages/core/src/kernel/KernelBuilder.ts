@@ -1,14 +1,16 @@
 import { IKernel } from "./IKernel";
 import { Kernel } from "./Kernel";
+import { ServiceToken } from "./ServiceToken";
+import { Version } from "./Version";
 
 export class KernelBuilder {
-  private _version = "1.0.0";
+  private _version: Version = new Version(1, 0, 0);
   private _environment = "development";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly _initialServices: Array<{ name: string; service: any }> = [];
+  private readonly _initialServices: Array<{ token: ServiceToken<any>; service: any }> = [];
 
-  public withVersion(version: string): this {
-    this._version = version;
+  public withVersion(version: Version | string): this {
+    this._version = typeof version === "string" ? Version.parse(version) : version;
     return this;
   }
 
@@ -17,16 +19,15 @@ export class KernelBuilder {
     return this;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  public registerService(name: string, service: any): this {
-    this._initialServices.push({ name, service });
+  public registerService<T>(token: ServiceToken<T>, service: T): this {
+    this._initialServices.push({ token, service });
     return this;
   }
 
   public build(): IKernel {
     const kernel = new Kernel(this._version, this._environment);
-    for (const { name, service } of this._initialServices) {
-      kernel.register(name, service);
+    for (const { token, service } of this._initialServices) {
+      kernel.register(token, service);
     }
     return kernel;
   }

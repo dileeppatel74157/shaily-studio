@@ -1,12 +1,13 @@
 import { KernelState } from "./KernelState";
-import { KernelHealth } from "./types";
+import { ServiceToken } from "./ServiceToken";
+import { KernelHealth, KernelStatus } from "./types";
 
 export interface IKernel {
   initialize(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
-  register<T>(name: string, service: T): void;
-  resolve<T>(name: string): T;
+  register<T>(token: ServiceToken<T>, service: T): void;
+  resolve<T>(token: ServiceToken<T>): T;
   health(): KernelHealth;
-  status(): KernelState;
+  status(): KernelStatus;
 }

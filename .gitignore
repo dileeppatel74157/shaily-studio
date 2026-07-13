@@ -1,0 +1,43 @@
+# Node
+node_modules/
+dist/
+build/
+.next/
+out/
+.pnpm-debug.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+ENV/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.pdm-build/
+
+# Databases
+*.db
+*.sqlite
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment
+.env
+.env.local
+.env.production
+.env.development
+.env.dev
+
+# Logs & Local Storage
+logs/*
+!logs/.gitkeep
+storage/*
+!storage/.gitkeep
+*.log

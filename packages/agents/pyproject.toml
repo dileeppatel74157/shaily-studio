@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agents"
+version = "1.0.0"
+description = "Modular core framework for AI agents"
+dependencies = [
+    "pydantic>=2.0.0"
+]

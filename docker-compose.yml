@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: shaily-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-shaily_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shaily_secure_password_123}
+      POSTGRES_DB: ${POSTGRES_DB:-shaily_studio_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shaily_admin} -d ${POSTGRES_DB:-shaily_studio_dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: shaily-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: shaily-api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-shaily_admin}:${POSTGRES_PASSWORD:-shaily_secure_password_123}@postgres:5432/${POSTGRES_DB:-shaily_studio_dev}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHON_ENV=development
+    volumes:
+      - .:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: shaily-worker
+    environment:
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-shaily_admin}:${POSTGRES_PASSWORD:-shaily_secure_password_123}@postgres:5432/${POSTGRES_DB:-shaily_studio_dev}
+      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - PYTHON_ENV=development
+    volumes:
+      - .:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    container_name: shaily-web
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NEXT_PUBLIC_API_URL=http://api:8000
+      - NODE_ENV=development
+    volumes:
+      - .:/app
+      - /app/apps/web/node_modules
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

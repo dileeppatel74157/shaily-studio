@@ -11,3 +11,4 @@ export * from "./IProvider";
 export * from "./Provider";
 export * from "./ProviderBuilder";
 export * from "./ProviderRegistry";
+export * from "./IProviderRegistry";

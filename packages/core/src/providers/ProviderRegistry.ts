@@ -1,7 +1,8 @@
 import { IProvider } from "./IProvider";
 import { ProviderRegistrySnapshot } from "./types";
+import { IProviderRegistry } from "./IProviderRegistry";
 
-export class ProviderRegistry {
+export class ProviderRegistry implements IProviderRegistry {
   private readonly _providers = new Map<string, IProvider>();
 
   public register(provider: IProvider): void {

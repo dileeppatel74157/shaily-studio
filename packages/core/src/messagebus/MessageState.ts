@@ -1,0 +1,8 @@
+export enum MessageState {
+  CREATED = "CREATED",
+  QUEUED = "QUEUED",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  DEAD_LETTER = "DEAD_LETTER",
+}

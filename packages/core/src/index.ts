@@ -52,3 +52,4 @@ export * from "./plugins/index";
 export * from "./tools/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";
+export * from "./rag/index";

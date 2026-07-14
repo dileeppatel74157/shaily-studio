@@ -1,7 +1,8 @@
 import { IAgent } from "./IAgent";
 import { AgentRegistrySnapshot } from "./types";
+import { IAgentRegistry } from "./IAgentRegistry";
 
-export class AgentRegistry {
+export class AgentRegistry implements IAgentRegistry {
   private readonly _agents = new Map<string, IAgent>();
 
   public register(agent: IAgent): void {

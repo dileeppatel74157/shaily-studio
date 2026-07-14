@@ -9,3 +9,4 @@ export * from "./IAgent";
 export * from "./Agent";
 export * from "./AgentBuilder";
 export * from "./AgentRegistry";
+export * from "./IAgentRegistry";

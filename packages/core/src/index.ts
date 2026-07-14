@@ -50,3 +50,4 @@ export * from "./router/index";
 export * from "./orchestrator/index";
 export * from "./plugins/index";
 export * from "./tools/index";
+export * from "./prompts/index";

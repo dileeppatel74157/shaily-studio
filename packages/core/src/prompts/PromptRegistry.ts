@@ -1,13 +1,14 @@
 import { IPrompt } from "./IPrompt";
 import { PromptSnapshot } from "./PromptSnapshot";
 import { PromptValidationException, deepFreeze } from "./types";
+import { IPromptRegistry } from "./IPromptRegistry";
 
 export interface PromptRegistrySnapshot {
   readonly promptsCount: number;
   readonly prompts: readonly PromptSnapshot[];
 }
 
-export class PromptRegistry {
+export class PromptRegistry implements IPromptRegistry {
   private readonly _prompts = new Map<string, IPrompt>();
 
   public register(prompt: IPrompt): void {

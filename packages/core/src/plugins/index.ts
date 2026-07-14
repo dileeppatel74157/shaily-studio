@@ -9,3 +9,4 @@ export * from "./IPlugin";
 export * from "./Plugin";
 export * from "./PluginBuilder";
 export * from "./PluginRegistry";
+export * from "./IPluginRegistry";

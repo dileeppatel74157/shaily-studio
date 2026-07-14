@@ -1,13 +1,14 @@
 import { IPlugin } from "./IPlugin";
 import { PluginSnapshot } from "./PluginSnapshot";
 import { PluginValidationException } from "./types";
+import { IPluginRegistry } from "./IPluginRegistry";
 
 export interface PluginRegistrySnapshot {
   readonly pluginsCount: number;
   readonly plugins: readonly PluginSnapshot[];
 }
 
-export class PluginRegistry {
+export class PluginRegistry implements IPluginRegistry {
   private readonly _plugins = new Map<string, IPlugin>();
 
   public register(plugin: IPlugin): void {

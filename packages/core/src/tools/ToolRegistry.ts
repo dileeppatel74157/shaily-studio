@@ -3,13 +3,14 @@ import { ToolRequest } from "./ToolRequest";
 import { ToolResponse } from "./ToolResponse";
 import { ToolSnapshot } from "./ToolSnapshot";
 import { ToolValidationException, deepFreeze } from "./types";
+import { IToolRegistry } from "./IToolRegistry";
 
 export interface ToolRegistrySnapshot {
   readonly toolsCount: number;
   readonly tools: readonly ToolSnapshot[];
 }
 
-export class ToolRegistry {
+export class ToolRegistry implements IToolRegistry {
   private readonly _tools = new Map<string, ITool>();
 
   public register(tool: ITool): void {

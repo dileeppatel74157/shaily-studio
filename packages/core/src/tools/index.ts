@@ -11,3 +11,4 @@ export * from "./ITool";
 export * from "./Tool";
 export * from "./ToolBuilder";
 export * from "./ToolRegistry";
+export * from "./IToolRegistry";

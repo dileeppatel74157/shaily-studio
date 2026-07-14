@@ -53,3 +53,4 @@ export * from "./tools/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";
 export * from "./rag/index";
+export * from "./mcp/index";

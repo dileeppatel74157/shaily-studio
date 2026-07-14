@@ -12,3 +12,4 @@ export * from "./IPrompt";
 export * from "./Prompt";
 export * from "./PromptBuilder";
 export * from "./PromptRegistry";
+export * from "./IPromptRegistry";

@@ -48,3 +48,4 @@ export * from "./workflow/index";
 export * from "./providers/index";
 export * from "./router/index";
 export * from "./orchestrator/index";
+export * from "./plugins/index";

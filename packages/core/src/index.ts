@@ -58,6 +58,8 @@ export * from "./messagebus/index";
 export * from "./observability/index";
 export * from "./security/index";
 export * from "./configuration/index";
+export * from "./scheduler/index";
+
 
 
 

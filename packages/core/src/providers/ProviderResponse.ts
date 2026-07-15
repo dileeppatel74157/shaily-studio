@@ -1,15 +1,18 @@
-export interface TokenUsage {
-  readonly promptTokens: number;
-  readonly completionTokens: number;
-  readonly totalTokens: number;
-}
-
 export interface ProviderResponse {
-  readonly text: string;
-  readonly finishReason: "stop" | "length" | "tool_calls" | "content_filter" | "error" | string;
-  readonly tokenUsage?: TokenUsage;
-  readonly latency: number; // in milliseconds
-  readonly model: string;
-  readonly provider: string;
-  readonly metadata?: Record<string, unknown>;
+  readonly responseId?: string;
+  readonly providerId?: string;
+  readonly model?: string;
+  readonly content?: string;
+  readonly text?: string; // For backward compatibility
+  readonly provider?: string; // For backward compatibility
+  readonly tokenUsage?: any; // For backward compatibility
+  readonly toolCalls?: readonly any[];
+  readonly usage?: {
+    readonly promptTokens: number;
+    readonly completionTokens: number;
+    readonly totalTokens: number;
+  };
+  readonly latency: number;
+  readonly finishReason?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }

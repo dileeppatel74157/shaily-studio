@@ -1,0 +1,12 @@
+export enum ProviderType {
+  CHAT = "CHAT",
+  EMBEDDING = "EMBEDDING",
+  IMAGE = "IMAGE",
+  AUDIO = "AUDIO",
+  VIDEO = "VIDEO",
+  VISION = "VISION",
+  MULTIMODAL = "MULTIMODAL",
+  RERANK = "RERANK",
+  REASONING = "REASONING",
+  CUSTOM = "CUSTOM",
+}

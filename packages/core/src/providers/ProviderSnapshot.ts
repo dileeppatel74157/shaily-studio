@@ -1,12 +1,19 @@
+import { ProviderDescriptor } from "./ProviderDescriptor";
+import { ProviderConfiguration } from "./ProviderConfiguration";
+import { ProviderHealth } from "./ProviderHealth";
 import { ProviderState } from "./ProviderState";
-import { ProviderCapabilities } from "./ProviderCapability";
 
 export interface ProviderSnapshot {
-  readonly id: string;
-  readonly name: string;
-  readonly version: string;
-  readonly state: ProviderState;
-  readonly capabilities: ProviderCapabilities;
-  readonly metadata: Record<string, unknown>;
-  readonly timestamp: Date;
+  readonly descriptor: ProviderDescriptor;
+  readonly configuration: ProviderConfiguration;
+  readonly metadata: Readonly<Record<string, unknown>>;
+  readonly health: ProviderHealth;
+  readonly capabilities: any;
+  readonly lifecycle: ProviderState;
+  // Backward compatibility fields
+  readonly id?: string;
+  readonly name?: string;
+  readonly version?: string;
+  readonly state?: ProviderState;
+  readonly timestamp?: Date;
 }

@@ -1,8 +1,8 @@
-import { ProviderCapabilities } from "./ProviderCapability";
-
 export interface ProviderMetadata {
-  readonly id: string;
-  readonly name: string;
   readonly version: string;
-  readonly capabilities: ProviderCapabilities;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  // Backward compatibility fields
+  readonly id?: string;
+  readonly name?: string;
+  readonly capabilities?: any;
 }

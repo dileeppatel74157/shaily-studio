@@ -1,0 +1,16 @@
+export enum ProviderFeature {
+  Streaming = "Streaming",
+  JSONMode = "JSONMode",
+  Tools = "Tools",
+  Vision = "Vision",
+  Images = "Images",
+  Embeddings = "Embeddings",
+  FunctionCalling = "FunctionCalling",
+  Thinking = "Thinking",
+  Reasoning = "Reasoning",
+  Audio = "Audio",
+  Video = "Video",
+  Batch = "Batch",
+  Caching = "Caching",
+  StructuredOutput = "StructuredOutput",
+}

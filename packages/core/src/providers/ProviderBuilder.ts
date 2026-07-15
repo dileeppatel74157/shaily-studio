@@ -1,35 +1,37 @@
-import { Provider } from "./Provider";
-import { ProviderMetadata } from "./ProviderMetadata";
-import { ProviderCapabilities } from "./ProviderCapability";
+import { Provider, ProviderHandler } from "./Provider";
 import { ProviderContext } from "./ProviderContext";
-import { ProviderHandler } from "./Provider";
-import { ProviderValidator } from "./ProviderValidator";
+import { ProviderConfiguration } from "./ProviderConfiguration";
+import { ProviderType } from "./ProviderType";
+import { ProviderFeature } from "./ProviderFeature";
+import { ProviderCapabilities } from "./ProviderCapability";
+import { ProviderRequest } from "./ProviderRequest";
+import { ProviderResponse } from "./ProviderResponse";
+import { ProviderValidationException } from "./types";
 
-function generateUUID(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+class ConcreteProvider extends Provider {
+  protected async performExecute(request: ProviderRequest): Promise<ProviderResponse> {
+    return {
+      responseId: "resp-123",
+      providerId: this.id,
+      model: request.model || "gpt-4",
+      content: "Default mock response content",
+      text: "Default mock response content",
+      latency: 10,
+    };
+  }
 }
 
 export class ProviderBuilder {
-  private _id = generateUUID();
+  private _id?: string;
   private _name?: string;
   private _version = "1.0.0";
-  private _capabilities: ProviderCapabilities = {
-    chat: false,
-    vision: false,
-    imageGeneration: false,
-    audioInput: false,
-    audioOutput: false,
-    toolCalling: false,
-    jsonMode: false,
-    streaming: false,
-  };
+  private _type?: ProviderType;
+  private _capabilities?: readonly ProviderFeature[];
+  private _oldCapabilities?: ProviderCapabilities;
   private _context?: ProviderContext;
+  private _configuration?: ProviderConfiguration;
   private _handler?: ProviderHandler;
-  private _customMetadata: Record<string, unknown> = {};
+  private _metadata: Record<string, unknown> = {};
 
   public withId(id: string): this {
     this._id = id;
@@ -46,11 +48,27 @@ export class ProviderBuilder {
     return this;
   }
 
-  public withCapabilities(capabilities: Partial<ProviderCapabilities>): this {
-    this._capabilities = {
-      ...this._capabilities,
-      ...capabilities,
-    };
+  public withType(type: ProviderType): this {
+    this._type = type;
+    return this;
+  }
+
+  public withCapabilities(capabilities: readonly ProviderFeature[] | Partial<ProviderCapabilities>): this {
+    if (Array.isArray(capabilities)) {
+      this._capabilities = capabilities;
+    } else {
+      this._oldCapabilities = {
+        chat: false,
+        vision: false,
+        imageGeneration: false,
+        audioInput: false,
+        audioOutput: false,
+        toolCalling: false,
+        jsonMode: false,
+        streaming: false,
+        ...capabilities,
+      };
+    }
     return this;
   }
 
@@ -59,37 +77,72 @@ export class ProviderBuilder {
     return this;
   }
 
+  public withConfiguration(configuration: ProviderConfiguration): this {
+    this._configuration = configuration;
+    return this;
+  }
+
   public withHandler(handler: ProviderHandler): this {
     this._handler = handler;
     return this;
   }
 
+  public withMetadata(metadata: Record<string, unknown>): this {
+    this._metadata = { ...this._metadata, ...metadata };
+    return this;
+  }
+
   public withCustomMetadata(metadata: Record<string, unknown>): this {
-    this._customMetadata = { ...metadata };
+    this._metadata = { ...this._metadata, ...metadata };
     return this;
   }
 
   public build(): Provider {
-    if (!this._name) {
-      throw new Error("Provider name is required.");
-    }
-    if (!this._context) {
-      throw new Error("Provider context is required.");
-    }
-    if (!this._handler) {
-      throw new Error("Provider handler is required.");
+    // If constructed using handler/old way
+    if (this._handler) {
+      if (!this._name) throw new ProviderValidationException("Provider Name is required.");
+      if (!this._context) throw new ProviderValidationException("Provider Context is required.");
+
+      const metadata = {
+        id: this._id || "default-id",
+        name: this._name,
+        version: this._version,
+        capabilities: this._oldCapabilities || {
+          chat: true,
+          vision: false,
+          imageGeneration: false,
+          audioInput: false,
+          audioOutput: false,
+          toolCalling: false,
+          jsonMode: false,
+          streaming: false,
+        },
+      };
+
+      return new ConcreteProvider(
+        metadata,
+        this._context,
+        this._handler,
+        this._metadata
+      );
     }
 
-    const metadata: ProviderMetadata = {
-      id: this._id,
-      name: this._name,
-      version: this._version,
-      capabilities: this._capabilities,
-    };
+    // New way
+    if (!this._id) throw new ProviderValidationException("Provider ID is required.");
+    if (!this._name) throw new ProviderValidationException("Provider Name is required.");
+    if (!this._type) throw new ProviderValidationException("Provider Type is required.");
+    if (!this._capabilities) throw new ProviderValidationException("Provider Capabilities are required.");
+    if (!this._context) throw new ProviderValidationException("Provider Context is required.");
+    if (!this._configuration) throw new ProviderValidationException("Provider Configuration is required.");
 
-    const validator = new ProviderValidator();
-    validator.validateMetadata(metadata);
-
-    return new Provider(metadata, this._context, this._handler, this._customMetadata);
+    return new ConcreteProvider(
+      this._id,
+      this._name,
+      this._type,
+      this._capabilities,
+      this._context,
+      this._configuration,
+      this._metadata
+    );
   }
 }

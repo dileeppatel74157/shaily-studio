@@ -1,6 +1,7 @@
 export enum ProviderState {
   CREATED = "CREATED",
+  INITIALIZING = "INITIALIZING",
   READY = "READY",
   RUNNING = "RUNNING",
-  FAILED = "FAILED",
+  STOPPED = "STOPPED",
 }

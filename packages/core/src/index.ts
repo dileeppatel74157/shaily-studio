@@ -45,7 +45,6 @@ export * from "./jobs/index";
 export * from "./memory/index";
 export * from "./agents/index";
 export * from "./workflow/index";
-export * from "./providers/index";
 export * from "./router/index";
 export * from "./orchestrator/index";
 export * from "./plugins/index";
@@ -100,6 +99,25 @@ export {
   ReadinessValidationException,
   InvalidReadinessStateException
 } from "./readiness/index";
+export {
+  IProvider,
+  Provider,
+  ProviderBuilder,
+  ProviderRegistry,
+  IProviderRegistry,
+  ProviderState,
+  ProviderType,
+  ProviderFeature,
+  ProviderCapabilities,
+  ProviderMessage,
+  ProviderRegistrySnapshot,
+  ProviderValidator,
+  ProviderException,
+  ProviderValidationException,
+  InvalidProviderStateException
+} from "./providers/index";
+
+
 
 
 

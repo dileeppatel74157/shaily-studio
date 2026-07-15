@@ -5,18 +5,21 @@ export interface ProviderMessage {
 }
 
 export interface ProviderRequest {
-  readonly prompt?: string;
+  readonly requestId?: string;
+  readonly providerId?: string;
+  readonly model?: string;
+  readonly messages?: readonly any[];
   readonly systemPrompt?: string;
-  readonly messages?: ReadonlyArray<ProviderMessage>;
   readonly temperature?: number;
   readonly topP?: number;
   readonly maxTokens?: number;
-  readonly stop?: ReadonlyArray<string>;
-  readonly jsonMode?: boolean;
+  readonly stopSequences?: readonly string[];
   readonly stream?: boolean;
-  readonly attachments?: ReadonlyArray<{
-    readonly type: string;
-    readonly data: string; // Base64 encoded or URL
-  }>;
-  readonly metadata?: Record<string, unknown>;
+  readonly tools?: readonly any[];
+  readonly attachments?: readonly any[];
+  readonly metadata?: Readonly<Record<string, unknown>>;
+  // Backward compatibility fields
+  readonly prompt?: string;
+  readonly stop?: readonly string[];
+  readonly jsonMode?: boolean;
 }

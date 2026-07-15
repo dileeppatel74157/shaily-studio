@@ -1,3 +1,10 @@
+import { ProviderFeature } from "./ProviderFeature";
+
+export interface ProviderCapability {
+  readonly feature: ProviderFeature;
+  readonly supported: boolean;
+}
+
 export interface ProviderCapabilities {
   readonly chat: boolean;
   readonly vision: boolean;

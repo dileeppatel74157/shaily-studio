@@ -1,0 +1,8 @@
+export enum BootstrapState {
+  CREATED = "CREATED",
+  READY = "READY",
+  BOOTSTRAPPING = "BOOTSTRAPPING",
+  RUNNING = "RUNNING",
+  STOPPED = "STOPPED",
+  FAILED = "FAILED",
+}

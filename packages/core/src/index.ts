@@ -60,6 +60,8 @@ export * from "./security/index";
 export * from "./configuration/index";
 export * from "./scheduler/index";
 export * from "./storage/index";
+export * from "./bootstrap/index";
+
 
 
 

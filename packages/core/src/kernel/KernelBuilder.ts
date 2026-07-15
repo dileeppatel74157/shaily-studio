@@ -1,34 +1,30 @@
 import { IKernel } from "./IKernel";
 import { Kernel } from "./Kernel";
-import { ServiceToken } from "./ServiceToken";
-import { Version } from "./Version";
+import { KernelContext } from "./KernelContext";
+import { KernelValidationException } from "./types";
 
 export class KernelBuilder {
-  private _version: Version = new Version(1, 0, 0);
-  private _environment = "development";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly _initialServices: Array<{ token: ServiceToken<any>; service: any }> = [];
+  private _context?: KernelContext;
+  private _metadata: Record<string, unknown> = {};
 
-  public withVersion(version: Version | string): this {
-    this._version = typeof version === "string" ? Version.parse(version) : version;
+  public withContext(context: KernelContext): this {
+    this._context = context;
     return this;
   }
 
-  public withEnvironment(environment: string): this {
-    this._environment = environment;
-    return this;
-  }
-
-  public registerService<T>(token: ServiceToken<T>, service: T): this {
-    this._initialServices.push({ token, service });
+  public withMetadata(metadata: Record<string, unknown>): this {
+    this._metadata = { ...this._metadata, ...metadata };
     return this;
   }
 
   public build(): IKernel {
-    const kernel = new Kernel(this._version, this._environment);
-    for (const { token, service } of this._initialServices) {
-      kernel.register(token, service);
+    if (!this._context) {
+      throw new KernelValidationException("KernelContext is required to build Kernel.");
     }
-    return kernel;
+
+    return new Kernel(
+      this._context,
+      this._metadata
+    );
   }
 }

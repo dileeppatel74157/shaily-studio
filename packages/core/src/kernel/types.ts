@@ -1,24 +1,4 @@
 import { KernelState } from "./KernelState";
-import { ServiceToken } from "./ServiceToken";
-import { Version } from "./Version";
-
-export interface KernelHealth {
-  readonly kernelId: string;
-  readonly version: Version;
-  readonly state: KernelState;
-  readonly environment: string;
-  readonly bootTime: Date | null;
-  readonly uptime: number;
-  readonly registeredServiceCount: number;
-  readonly isHealthy: boolean;
-  readonly timestamp: Date;
-}
-
-export interface KernelStatus {
-  readonly state: KernelState;
-  readonly timestamp: Date;
-  readonly kernelId: string;
-}
 
 export class KernelException extends Error {
   constructor(message: string) {
@@ -28,17 +8,9 @@ export class KernelException extends Error {
   }
 }
 
-export class ServiceNotFoundException extends KernelException {
-  constructor(token: ServiceToken<unknown> | string) {
-    const name = typeof token === "string" ? token : token.description;
-    super(`Service "${name}" was not found in the Kernel registry.`);
-  }
-}
-
-export class ServiceAlreadyRegisteredException extends KernelException {
-  constructor(token: ServiceToken<unknown> | string) {
-    const name = typeof token === "string" ? token : token.description;
-    super(`Service "${name}" has already been registered in the Kernel.`);
+export class KernelValidationException extends KernelException {
+  constructor(message: string) {
+    super(message);
   }
 }
 
@@ -46,4 +18,40 @@ export class InvalidKernelStateException extends KernelException {
   constructor(action: string, currentState: KernelState) {
     super(`Cannot perform "${action}" while Kernel is in "${currentState}" state.`);
   }
+}
+
+export class CircularDependencyException extends KernelValidationException {
+  constructor(cycle: string[]) {
+    super(`Circular dependency detected: ${cycle.join(" -> ")}`);
+  }
+}
+
+export class MissingDependencyException extends KernelValidationException {
+  constructor(moduleId: string, dependencyId: string) {
+    super(`Module "${moduleId}" depends on missing module "${dependencyId}"`);
+  }
+}
+
+/**
+ * Recursively deep-freezes a given object, enforcing immutability.
+ * Uses type constraints and avoids 'any' to conform to strict TypeScript.
+ */
+export function deepFreeze<T>(obj: T): T {
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+  Object.freeze(obj);
+  
+  const typedObj = obj as unknown as Record<string, unknown>;
+  Object.getOwnPropertyNames(typedObj).forEach((prop) => {
+    if (
+      Object.prototype.hasOwnProperty.call(typedObj, prop) &&
+      typedObj[prop] !== null &&
+      (typeof typedObj[prop] === "object" || typeof typedObj[prop] === "function") &&
+      !Object.isFrozen(typedObj[prop])
+    ) {
+      deepFreeze(typedObj[prop]);
+    }
+  });
+  return obj;
 }

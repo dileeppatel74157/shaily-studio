@@ -3,7 +3,6 @@ export enum KernelState {
   INITIALIZING = "INITIALIZING",
   READY = "READY",
   RUNNING = "RUNNING",
-  STOPPING = "STOPPING",
   STOPPED = "STOPPED",
-  ERROR = "ERROR",
+  FAILED = "FAILED",
 }

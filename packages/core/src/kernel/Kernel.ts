@@ -1,117 +1,57 @@
 import { IKernel } from "./IKernel";
+import { KernelModule } from "./KernelModule";
+import { KernelSnapshot } from "./KernelSnapshot";
 import { KernelContext } from "./KernelContext";
-import { KernelMetadata } from "./KernelMetadata";
+import { KernelRegistry } from "./KernelRegistry";
 import { KernelState } from "./KernelState";
-import { ServiceToken } from "./ServiceToken";
-import { Version } from "./Version";
+import { DependencyResolver } from "./DependencyResolver";
+import { DependencyGraph } from "./DependencyGraph";
+import { KernelValidator } from "./KernelValidator";
 import {
+  KernelValidationException,
   InvalidKernelStateException,
-  KernelHealth,
-  KernelStatus,
-  ServiceAlreadyRegisteredException,
-  ServiceNotFoundException,
+  deepFreeze,
 } from "./types";
 
-function generateUUID(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-/**
- * The Kernel class is the permanent foundation of Shaily Studio.
- *
- * ARCHITECTURAL RULE:
- * "The Kernel is final.
- * Modules integrate with the Kernel through interfaces and registration.
- * Modules never extend the Kernel."
- *
- * All application modules (e.g. Story Engine, Research Engine, Plugins, AI Agents)
- * must NEVER extend or subclass the Kernel.
- */
 export class Kernel implements IKernel {
-  private readonly _kernelId: string;
+  private readonly _context: KernelContext;
+  private readonly _registry = new KernelRegistry();
+  private readonly _metadata: Readonly<Record<string, unknown>>;
   private _state: KernelState = KernelState.CREATED;
-  private readonly _createdTime: Date;
-  private _bootTime: Date | null = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private readonly _services = new Map<ServiceToken<any>, any>();
-  private readonly _version: Version;
-  private readonly _environment: string;
+  private _startupOrder: string[] = [];
+  private _shutdownOrder: string[] = [];
 
-  constructor(version: Version, environment: string) {
-    this._kernelId = generateUUID();
-    this._createdTime = new Date();
-    this._version = version;
-    this._environment = environment;
+  constructor(
+    context: KernelContext,
+    metadata?: Record<string, unknown>
+  ) {
+    KernelValidator.validateContext(context);
+    this._context = context;
+    this._metadata = metadata ? { ...metadata } : {};
   }
-
-  // Internal Lifecycle Hooks
-
-  /**
-   * @internal
-   * This hook is reserved for internal kernel infrastructure.
-   * Feature modules must never override Kernel behavior.
-   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
-   */
-  protected async beforeInitialize(): Promise<void> {}
-
-  /**
-   * @internal
-   * This hook is reserved for internal kernel infrastructure.
-   * Feature modules must never override Kernel behavior.
-   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
-   */
-  protected async afterInitialize(): Promise<void> {}
-
-  /**
-   * @internal
-   * This hook is reserved for internal kernel infrastructure.
-   * Feature modules must never override Kernel behavior.
-   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
-   */
-  protected async beforeStart(): Promise<void> {}
-
-  /**
-   * @internal
-   * This hook is reserved for internal kernel infrastructure.
-   * Feature modules must never override Kernel behavior.
-   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
-   */
-  protected async afterStart(): Promise<void> {}
-
-  /**
-   * @internal
-   * This hook is reserved for internal kernel infrastructure.
-   * Feature modules must never override Kernel behavior.
-   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
-   */
-  protected async beforeStop(): Promise<void> {}
-
-  /**
-   * @internal
-   * This hook is reserved for internal kernel infrastructure.
-   * Feature modules must never override Kernel behavior.
-   * Future lifecycle integrations will occur through lifecycle registration, not inheritance.
-   */
-  protected async afterStop(): Promise<void> {}
 
   public async initialize(): Promise<void> {
     if (this._state !== KernelState.CREATED) {
       throw new InvalidKernelStateException("initialize", this._state);
     }
-
     this._state = KernelState.INITIALIZING;
     try {
-      await this.beforeInitialize();
-      await Promise.resolve();
-      await this.afterInitialize();
+      const modules = this._registry.list();
+      const { startupOrder, shutdownOrder } = DependencyResolver.resolve(modules);
+      this._startupOrder = [...startupOrder];
+      this._shutdownOrder = [...shutdownOrder];
+
+      // Initialize in dependency order
+      for (const id of this._startupOrder) {
+        const mod = this._registry.get(id);
+        if (mod) {
+          await mod.initialize();
+        }
+      }
       this._state = KernelState.READY;
-    } catch (error) {
-      this._state = KernelState.ERROR;
-      throw error;
+    } catch (err) {
+      this._state = KernelState.FAILED;
+      throw err;
     }
   }
 
@@ -119,107 +59,90 @@ export class Kernel implements IKernel {
     if (this._state !== KernelState.READY) {
       throw new InvalidKernelStateException("start", this._state);
     }
-
     try {
+      // Start in dependency order
+      for (const id of this._startupOrder) {
+        const mod = this._registry.get(id);
+        if (mod) {
+          await mod.start();
+        }
+      }
       this._state = KernelState.RUNNING;
-      this._bootTime = new Date();
-      await this.beforeStart();
-      await Promise.resolve();
-      await this.afterStart();
-    } catch (error) {
-      this._state = KernelState.ERROR;
-      throw error;
+    } catch (err) {
+      this._state = KernelState.FAILED;
+      throw err;
     }
   }
 
   public async stop(): Promise<void> {
-    if (this._state !== KernelState.RUNNING && this._state !== KernelState.READY) {
+    if (this._state !== KernelState.RUNNING) {
       throw new InvalidKernelStateException("stop", this._state);
     }
-
-    this._state = KernelState.STOPPING;
     try {
-      await this.beforeStop();
-      await Promise.resolve();
-      await this.afterStop();
+      // Stop in reverse dependency order
+      for (const id of this._shutdownOrder) {
+        const mod = this._registry.get(id);
+        if (mod) {
+          await mod.stop();
+        }
+      }
       this._state = KernelState.STOPPED;
-    } catch (error) {
-      this._state = KernelState.ERROR;
-      throw error;
+    } catch (err) {
+      this._state = KernelState.FAILED;
+      throw err;
     }
   }
 
-  public register<T>(token: ServiceToken<T>, service: T): void {
-    if (
-      this._state !== KernelState.CREATED &&
-      this._state !== KernelState.INITIALIZING &&
-      this._state !== KernelState.READY
-    ) {
-      throw new InvalidKernelStateException(`register service: ${token.description}`, this._state);
+  public async register(module: KernelModule): Promise<void> {
+    if (this._state !== KernelState.CREATED) {
+      throw new InvalidKernelStateException("register", this._state);
+    }
+    KernelValidator.validateModule(module);
+    this._registry.register(module);
+  }
+
+  public async unregister(moduleId: string): Promise<void> {
+    if (this._state !== KernelState.CREATED) {
+      throw new InvalidKernelStateException("unregister", this._state);
+    }
+    KernelValidator.validateIdentifier(moduleId, "Module ID");
+    this._registry.unregister(moduleId);
+  }
+
+  public has(moduleId: string): boolean {
+    return this._registry.has(moduleId);
+  }
+
+  public get(moduleId: string): KernelModule | undefined {
+    return this._registry.get(moduleId);
+  }
+
+  public list(): readonly KernelModule[] {
+    return this._registry.list();
+  }
+
+  public snapshot(): KernelSnapshot {
+    if (this._state !== KernelState.RUNNING && this._state !== KernelState.STOPPED) {
+      throw new InvalidKernelStateException("snapshot", this._state);
     }
 
-    if (this._services.has(token)) {
-      throw new ServiceAlreadyRegisteredException(token);
-    }
-
-    this._services.set(token, service);
-  }
-
-  public resolve<T>(token: ServiceToken<T>): T {
-    const service = this._services.get(token);
-    if (service === undefined) {
-      throw new ServiceNotFoundException(token);
-    }
-    return service as T;
-  }
-
-  public health(): KernelHealth {
-    const uptime = this._bootTime ? Date.now() - this._bootTime.getTime() : 0;
-    const isHealthy = this._state !== KernelState.ERROR;
-    return {
-      kernelId: this._kernelId,
-      version: this._version,
-      state: this._state,
-      environment: this._environment,
-      bootTime: this._bootTime,
-      uptime,
-      registeredServiceCount: this._services.size,
-      isHealthy,
-      timestamp: new Date(),
-    };
-  }
-
-  public status(): KernelStatus {
-    return {
-      state: this._state,
-      timestamp: new Date(),
-      kernelId: this._kernelId,
-    };
-  }
-
-  public getMetadata(): KernelMetadata {
-    return {
-      kernelId: this._kernelId,
-      version: this._version,
-      environment: this._environment,
-      createdTime: this._createdTime,
-      bootTime: this._bootTime,
-      state: this._state,
-    };
-  }
-
-  public getContext(): KernelContext {
-    const serviceMetadata = Array.from(this._services.keys()).map((token) => ({
-      tokenDescription: token.description,
+    const modules = this._registry.list();
+    const nodes = modules.map((m) => ({
+      id: m.id,
+      dependencies: [...m.dependencies],
     }));
+    const graph = new DependencyGraph(nodes);
 
-    return {
-      metadata: this.getMetadata(),
+    const snapshotObj: KernelSnapshot = {
+      timestamp: new Date(),
       state: this._state,
-      bootTime: this._bootTime,
-      environment: this._environment,
-      serviceCount: this._services.size,
-      serviceMetadata,
+      modules,
+      dependencyGraph: graph,
+      startupOrder: [...this._startupOrder],
+      shutdownOrder: [...this._shutdownOrder],
+      metadata: { ...this._context.metadata, ...this._metadata },
     };
+
+    return deepFreeze(snapshotObj);
   }
 }

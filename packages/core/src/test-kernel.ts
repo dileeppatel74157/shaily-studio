@@ -1,245 +1,15 @@
-import { Kernel } from "./kernel/Kernel";
 import { KernelBuilder } from "./kernel/KernelBuilder";
+import { KernelContext } from "./kernel/KernelContext";
+import { KernelModule } from "./kernel/KernelModule";
 import { KernelState } from "./kernel/KernelState";
-import { ServiceToken } from "./kernel/ServiceToken";
-import { Version } from "./kernel/Version";
+import { KernelValidator } from "./kernel/KernelValidator";
+import { DependencyResolver } from "./kernel/DependencyResolver";
 import {
+  KernelValidationException,
   InvalidKernelStateException,
-  ServiceAlreadyRegisteredException,
-  ServiceNotFoundException,
+  CircularDependencyException,
+  MissingDependencyException,
 } from "./kernel/types";
-
-// Define mock service interfaces
-interface ConfigService {
-  apiPort: number;
-}
-
-interface LoggerService {
-  info(msg: string): void;
-}
-
-// Define typed Service Tokens
-const CONFIG_TOKEN = new ServiceToken<ConfigService>("config");
-const LOGGER_TOKEN = new ServiceToken<LoggerService>("logger");
-const UNREGISTERED_TOKEN = new ServiceToken<unknown>("database");
-
-/**
- * TestKernel is an internal test spy subclassing Kernel.
- *
- * ARCHITECTURAL EXCEPTION FOR UNIT TESTING:
- * This class exists strictly for testing internal kernel hook coordination.
- * Application and feature modules must never extend the Kernel.
- * Future lifecycle integrations will occur through registration or events.
- */
-class TestKernel extends Kernel {
-  public hookCalls: string[] = [];
-
-  protected override async beforeInitialize(): Promise<void> {
-    this.hookCalls.push("beforeInitialize");
-  }
-  protected override async afterInitialize(): Promise<void> {
-    this.hookCalls.push("afterInitialize");
-  }
-  protected override async beforeStart(): Promise<void> {
-    this.hookCalls.push("beforeStart");
-  }
-  protected override async afterStart(): Promise<void> {
-    this.hookCalls.push("afterStart");
-  }
-  protected override async beforeStop(): Promise<void> {
-    this.hookCalls.push("beforeStop");
-  }
-  protected override async afterStop(): Promise<void> {
-    this.hookCalls.push("afterStop");
-  }
-}
-
-async function runTests() {
-  // eslint-disable-next-line no-console
-  console.log("=== START KERNEL ARCHITECTURAL REFINEMENT TESTS ===");
-
-  // ==========================================
-  // Test 1: Version Model Tests
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("\n1. Running Version Model Tests...");
-  const v1 = Version.parse("1.2.3-alpha+build01");
-  assert(v1.major === 1, "Major version should be 1");
-  assert(v1.minor === 2, "Minor version should be 2");
-  assert(v1.patch === 3, "Patch version should be 3");
-  assert(v1.label === "alpha", "Label should be alpha");
-  assert(v1.build === "build01", "Build should be build01");
-  assert(v1.toString() === "1.2.3-alpha+build01", "toString format matches");
-
-  // Version Comparison
-  const v2 = Version.parse("1.2.3");
-  const v3 = Version.parse("2.0.0");
-  assert(v1.compare(v2) < 0, "1.2.3-alpha should be older than 1.2.3");
-  assert(v3.compare(v2) > 0, "2.0.0 is newer than 1.2.3");
-  assert(v2.compare(Version.parse("1.2.3")) === 0, "Versions must be equal");
-  assert(v2.equals(Version.parse("1.2.3")), "equals validation");
-
-  // Validation error
-  try {
-    Version.parse("invalid-version");
-    throw new Error("Should have failed parsing invalid semver");
-  } catch (err: any) {
-    assert(
-      err.message.includes("Invalid version format"),
-      "Version parsing must throw validation error"
-    );
-    // eslint-disable-next-line no-console
-    console.log("   ✓ Version parsing validation errors verified.");
-  }
-
-  // ==========================================
-  // Test 2: Kernel Identity and Builder
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("\n2. Running Kernel Identity & Builder Tests...");
-  const versionObj = Version.parse("0.1.0-beta");
-  const builder = new KernelBuilder().withVersion(versionObj).withEnvironment("staging");
-
-  const kernel = builder.build();
-  assert(kernel.status().state === KernelState.CREATED, "State should be CREATED");
-
-  const initialHealth = kernel.health();
-  assert(initialHealth.kernelId !== undefined, "Kernel ID must be defined");
-  assert(initialHealth.kernelId.length === 36, "Kernel ID must be a valid UUID");
-  assert(initialHealth.version.equals(versionObj), "Version model check in health");
-  assert(initialHealth.environment === "staging", "Environment value in health");
-
-  // Verify stable identity (never changes)
-  const health2 = kernel.health();
-  assert(initialHealth.kernelId === health2.kernelId, "Kernel ID must never change");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Stable Kernel UUID generated:", initialHealth.kernelId);
-
-  // ==========================================
-  // Test 3: Service Token Registration & Resolution
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("\n3. Running ServiceToken Registry Tests...");
-  const mockConfig: ConfigService = { apiPort: 3000 };
-  const mockLogger: LoggerService = {
-    info: (msg: string) => {
-      // eslint-disable-next-line no-console
-      console.log(`[MOCK LOGGER] ${msg}`);
-    },
-  };
-
-  kernel.register(CONFIG_TOKEN, mockConfig);
-  kernel.register(LOGGER_TOKEN, mockLogger);
-
-  // Double registration
-  try {
-    kernel.register(CONFIG_TOKEN, { apiPort: 80 } as ConfigService);
-    throw new Error("Should have thrown ServiceAlreadyRegisteredException");
-  } catch (err) {
-    assert(
-      err instanceof ServiceAlreadyRegisteredException,
-      "Throws ServiceAlreadyRegisteredException"
-    );
-    // eslint-disable-next-line no-console
-    console.log("   ✓ Throws ServiceAlreadyRegisteredException on double token registration.");
-  }
-
-  // Register in invalid state (should fail once started)
-  await kernel.initialize();
-  await kernel.start();
-  try {
-    kernel.register(new ServiceToken<any>("late"), {});
-    throw new Error("Should have thrown InvalidKernelStateException");
-  } catch (err) {
-    assert(
-      err instanceof InvalidKernelStateException,
-      "Throws InvalidKernelStateException on running registration"
-    );
-    // eslint-disable-next-line no-console
-    console.log("   ✓ Throws InvalidKernelStateException on late service registration.");
-  }
-
-  // Resolve services (types are inferred)
-  const resolvedConfig: ConfigService = kernel.resolve(CONFIG_TOKEN);
-  assert(resolvedConfig.apiPort === 3000, "Resolved service parameter validation");
-
-  const resolvedLogger: LoggerService = kernel.resolve(LOGGER_TOKEN);
-  resolvedLogger.info("Resolved services via typed ServiceTokens successfully.");
-
-  // Resolve unregistered
-  try {
-    kernel.resolve(UNREGISTERED_TOKEN);
-    throw new Error("Should have thrown ServiceNotFoundException");
-  } catch (err) {
-    assert(err instanceof ServiceNotFoundException, "Throws ServiceNotFoundException");
-    // eslint-disable-next-line no-console
-    console.log("   ✓ Threw ServiceNotFoundException on missing token correctly.");
-  }
-
-  // ==========================================
-  // Test 4: Context and Health Immutability
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("\n4. Running Context & Health Tests...");
-  const context = (kernel as any).getContext();
-  assert(context.metadata.kernelId === initialHealth.kernelId, "Context metadata identity check");
-  assert(context.serviceCount === 2, "Context registry service count");
-  assert(context.serviceMetadata.length === 2, "Metadata array length matches");
-  assert(
-    context.serviceMetadata[0].tokenDescription === "config",
-    "Metadata service description matches"
-  );
-
-  // Verify health properties
-  const currentHealth = kernel.health();
-  assert(currentHealth.isHealthy === true, "Health status flag");
-  assert(currentHealth.uptime >= 0, "Uptime calculation");
-  assert(currentHealth.timestamp instanceof Date, "Timestamp exists");
-
-  // ==========================================
-  // Test 5: Status Details
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("\n5. Running Status Tests...");
-  const status = kernel.status();
-  assert(status.state === KernelState.RUNNING, "Status state");
-  assert(status.kernelId === initialHealth.kernelId, "Status contains ID");
-  assert(status.timestamp instanceof Date, "Status contains timestamp");
-
-  await kernel.stop();
-  assert(kernel.status().state === KernelState.STOPPED, "Stopped state");
-
-  // ==========================================
-  // Test 6: Lifecycle Hooks Execution
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("\n6. Running Lifecycle Hooks Tests...");
-  const hookKernel = new TestKernel(Version.parse("1.0.0"), "test");
-  assert(hookKernel.hookCalls.length === 0, "No hooks executed on CREATED");
-
-  await hookKernel.initialize();
-  assert(
-    hookKernel.hookCalls[0] === "beforeInitialize" && hookKernel.hookCalls[1] === "afterInitialize",
-    "before/after initialize hooks"
-  );
-
-  await hookKernel.start();
-  assert(
-    hookKernel.hookCalls[2] === "beforeStart" && hookKernel.hookCalls[3] === "afterStart",
-    "before/after start hooks"
-  );
-
-  await hookKernel.stop();
-  assert(
-    hookKernel.hookCalls[4] === "beforeStop" && hookKernel.hookCalls[5] === "afterStop",
-    "before/after stop hooks"
-  );
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Protected hooks ran in correct order:", hookKernel.hookCalls.join(" -> "));
-
-  // eslint-disable-next-line no-console
-  console.log("\n=== ALL KERNEL ARCHITECTURAL REFINEMENT TESTS PASSED SUCCESSFULLY ===");
-}
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -247,6 +17,308 @@ function assert(condition: boolean, message: string) {
     console.error("Assertion Failed:", message);
     process.exit(1);
   }
+}
+
+class TestModule implements KernelModule {
+  public initialized = false;
+  public started = false;
+  public stopped = false;
+
+  constructor(
+    public readonly id: string,
+    public readonly dependencies: readonly string[],
+    private readonly tracker?: {
+      initOrder: string[];
+      startOrder: string[];
+      stopOrder: string[];
+    }
+  ) {}
+
+  public async initialize(): Promise<void> {
+    this.initialized = true;
+    if (this.tracker) {
+      this.tracker.initOrder.push(this.id);
+    }
+  }
+
+  public async start(): Promise<void> {
+    this.started = true;
+    if (this.tracker) {
+      this.tracker.startOrder.push(this.id);
+    }
+  }
+
+  public async stop(): Promise<void> {
+    this.stopped = true;
+    if (this.tracker) {
+      this.tracker.stopOrder.push(this.id);
+    }
+  }
+}
+
+async function runTests() {
+  // eslint-disable-next-line no-console
+  console.log("=== START KERNEL INTEGRATION TESTS ===");
+
+  const context: KernelContext = {
+    env: "test",
+    namespace: "studio-kernel",
+    metadata: { version: "1.0.0" },
+  };
+
+  // ==========================================
+  // 1. Builder Validation
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n1. Running Builder Validation...");
+  const kernel = new KernelBuilder()
+    .withContext(context)
+    .withMetadata({ debug: true })
+    .build();
+
+  assert(kernel !== null, "Kernel must build successfully");
+
+  try {
+    new KernelBuilder().build();
+    throw new Error("Should have rejected missing context");
+  } catch (err: unknown) {
+    assert(
+      err instanceof KernelValidationException,
+      "Expected KernelValidationException for missing context"
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified Builder Validation.");
+
+  // ==========================================
+  // 2. Module Registration
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n2. Running Module Registration...");
+  const activeKernel = new KernelBuilder().withContext(context).build();
+  
+  const modA = new TestModule("moduleA", []);
+  await activeKernel.register(modA);
+
+  assert(activeKernel.has("moduleA"), "Should register moduleA");
+  assert(activeKernel.get("moduleA") === modA, "Get module returns correct reference");
+  assert(activeKernel.list().length === 1, "List contains exactly 1 module");
+
+  // Duplicate prevention
+  try {
+    await activeKernel.register(new TestModule("moduleA", []));
+    throw new Error("Should have prevented duplicate module ID registration");
+  } catch (err: unknown) {
+    assert(
+      err instanceof KernelValidationException,
+      "Expected KernelValidationException for duplicate ID"
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified registration, lookup, duplicates.");
+
+  // ==========================================
+  // 3. Dependency Resolution
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n3. Running Dependency Resolution...");
+  // Set up: A -> B -> C (A depends on B, B depends on C)
+  // Expected startup: C, B, A
+  const tracker = { initOrder: [], startOrder: [], stopOrder: [] };
+  const dKernel = new KernelBuilder().withContext(context).build();
+  
+  const mC = new TestModule("moduleC", [], tracker);
+  const mB = new TestModule("moduleB", ["moduleC"], tracker);
+  const mA = new TestModule("moduleA", ["moduleB"], tracker);
+
+  await dKernel.register(mA);
+  await dKernel.register(mB);
+  await dKernel.register(mC);
+
+  const { startupOrder, shutdownOrder } = DependencyResolver.resolve(dKernel.list());
+  
+  assert(startupOrder[0] === "moduleC", "First startup should be C");
+  assert(startupOrder[1] === "moduleB", "Second startup should be B");
+  assert(startupOrder[2] === "moduleA", "Third startup should be A");
+
+  assert(shutdownOrder[0] === "moduleA", "First shutdown should be A");
+  assert(shutdownOrder[1] === "moduleB", "Second shutdown should be B");
+  assert(shutdownOrder[2] === "moduleC", "Third shutdown should be C");
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified dependency graph and topological ordering.");
+
+  // ==========================================
+  // 4. Circular Dependency Detection
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n4. Running Circular Dependency Detection...");
+  // Circle: A -> B -> C -> A
+  const circularModules = [
+    new TestModule("A", ["B"]),
+    new TestModule("B", ["C"]),
+    new TestModule("C", ["A"]),
+  ];
+
+  try {
+    DependencyResolver.resolve(circularModules);
+    throw new Error("Should have detected circular dependency");
+  } catch (err: unknown) {
+    assert(
+      err instanceof CircularDependencyException,
+      "Expected CircularDependencyException for cycle"
+    );
+  }
+
+  // Missing dependency check
+  const missingDepModules = [
+    new TestModule("A", ["nonExistent"]),
+  ];
+
+  try {
+    DependencyResolver.resolve(missingDepModules);
+    throw new Error("Should have detected missing dependency");
+  } catch (err: unknown) {
+    assert(
+      err instanceof MissingDependencyException,
+      "Expected MissingDependencyException"
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified circular dependency prevention.");
+
+  // ==========================================
+  // 5. Lifecycle Validation
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n5. Running Lifecycle Validation...");
+  const lifeKernel = new KernelBuilder().withContext(context).build();
+  
+  const m1 = new TestModule("m1", [], tracker);
+  await lifeKernel.register(m1);
+
+  // Illegal start before initialize
+  try {
+    await lifeKernel.start();
+    throw new Error("Should have prevented start before initialize");
+  } catch (err: unknown) {
+    assert(
+      err instanceof InvalidKernelStateException,
+      "Expected InvalidKernelStateException for START before INITIALIZE"
+    );
+  }
+
+  // Proper sequence: initialize -> start
+  tracker.initOrder = [];
+  tracker.startOrder = [];
+  tracker.stopOrder = [];
+
+  await lifeKernel.initialize();
+  assert(tracker.initOrder.length === 1 && tracker.initOrder[0] === "m1", "m1 initialized");
+
+  await lifeKernel.start();
+  assert(tracker.startOrder.length === 1 && tracker.startOrder[0] === "m1", "m1 started");
+
+  // Attempting to register module after initialization
+  try {
+    await lifeKernel.register(new TestModule("m2", []));
+    throw new Error("Should have prevented registration after initialization");
+  } catch (err: unknown) {
+    assert(
+      err instanceof InvalidKernelStateException,
+      "Expected InvalidKernelStateException for registering in RUNNING state"
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified initialize/start/stop ordering.");
+
+  // ==========================================
+  // 6. Reverse Shutdown Ordering
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n6. Running Reverse Shutdown Ordering...");
+  
+  const shutdownTracker = { initOrder: [], startOrder: [], stopOrder: [] };
+  const sdKernel = new KernelBuilder().withContext(context).build();
+
+  const sdModC = new TestModule("C", [], shutdownTracker);
+  const sdModB = new TestModule("B", ["C"], shutdownTracker);
+  const sdModA = new TestModule("A", ["B"], shutdownTracker);
+
+  await sdKernel.register(sdModA);
+  await sdKernel.register(sdModB);
+  await sdKernel.register(sdModC);
+
+  await sdKernel.initialize();
+  await sdKernel.start();
+  await sdKernel.stop();
+
+  assert(shutdownTracker.stopOrder[0] === "A", "A stopped first (reverse)");
+  assert(shutdownTracker.stopOrder[1] === "B", "B stopped second");
+  assert(shutdownTracker.stopOrder[2] === "C", "C stopped last");
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified reverse shutdown sequence.");
+
+  // ==========================================
+  // 7. Snapshot Immutability Validation
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n7. Running Snapshot Immutability Validation...");
+  const snapKernel = new KernelBuilder().withContext(context).build();
+  await snapKernel.initialize();
+  await snapKernel.start();
+
+  const snap = snapKernel.snapshot();
+
+  // Root mutation
+  try {
+    (snap as any).state = KernelState.FAILED;
+    throw new Error("Should have frozen snapshot root");
+  } catch (err: unknown) {
+    assert(err instanceof TypeError, "Expected TypeError on frozen snapshot root");
+  }
+
+  // StartupOrder mutation
+  try {
+    (snap.startupOrder as any)[0] = "hacked";
+    throw new Error("Should have frozen startupOrder");
+  } catch (err: unknown) {
+    assert(err instanceof TypeError, "Expected TypeError on startupOrder modification");
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified deep freeze immutability.");
+
+  // ==========================================
+  // 8. Validator Rule Checks
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("\n8. Running Validator Rule Checks...");
+
+  // Space check
+  try {
+    KernelValidator.validateIdentifier("invalid module space", "Module ID");
+    throw new Error("Should have failed space check");
+  } catch (err: unknown) {
+    assert(
+      err instanceof KernelValidationException,
+      "Expected KernelValidationException for space check"
+    );
+  }
+
+  // Symbol check
+  try {
+    KernelValidator.validateIdentifier("invalid_mod_@_char", "Module ID");
+    throw new Error("Should have failed symbol check");
+  } catch (err: unknown) {
+    assert(
+      err instanceof KernelValidationException,
+      "Expected KernelValidationException for symbol check"
+    );
+  }
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified validator rule constraints.");
+
+  // eslint-disable-next-line no-console
+  console.log("\n=== ALL KERNEL INTEGRATION TESTS PASSED SUCCESSFULLY ===");
 }
 
 runTests().catch((err) => {

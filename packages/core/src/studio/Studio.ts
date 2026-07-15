@@ -8,6 +8,12 @@ import { ISecurity } from "../security/ISecurity";
 import { IObservability } from "../observability/IObservability";
 import { IStorage } from "../storage/IStorage";
 import { IScheduler } from "../scheduler/IScheduler";
+import { IGateway } from "../gateway/IGateway";
+import { IMCPServer } from "../mcp/IMCPServer";
+import { IMessageBus } from "../messagebus/IMessageBus";
+import { IKnowledgeBase } from "../knowledge/IKnowledgeBase";
+import { IPromptRegistry } from "../prompts/IPromptRegistry";
+import { IRAGEngine } from "../rag/IRAGEngine";
 import { StudioSnapshot } from "./StudioSnapshot";
 import { StudioContext } from "./StudioContext";
 import { StudioState } from "./StudioState";
@@ -28,12 +34,12 @@ export class Studio implements IStudio {
   public readonly observability: IObservability;
   public readonly storage: IStorage;
   public readonly scheduler: IScheduler;
-  public readonly gateway: unknown;
-  public readonly mcp: unknown;
-  public readonly messageBus: unknown;
-  public readonly knowledgeBase: unknown;
-  public readonly promptRegistry: unknown;
-  public readonly rag: unknown;
+  public readonly gateway: IGateway;
+  public readonly mcp: IMCPServer;
+  public readonly messageBus: IMessageBus;
+  public readonly knowledgeBase: IKnowledgeBase;
+  public readonly promptRegistry: IPromptRegistry;
+  public readonly rag: IRAGEngine;
 
   private readonly _context: StudioContext;
   private readonly _metadata: Readonly<Record<string, unknown>>;
@@ -51,12 +57,12 @@ export class Studio implements IStudio {
       observability: IObservability;
       storage: IStorage;
       scheduler: IScheduler;
-      gateway: unknown;
-      mcp: unknown;
-      messageBus: unknown;
-      knowledgeBase: unknown;
-      promptRegistry: unknown;
-      rag: unknown;
+      gateway: IGateway;
+      mcp: IMCPServer;
+      messageBus: IMessageBus;
+      knowledgeBase: IKnowledgeBase;
+      promptRegistry: IPromptRegistry;
+      rag: IRAGEngine;
     },
     metadata?: Record<string, unknown>
   ) {

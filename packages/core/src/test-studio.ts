@@ -11,6 +11,44 @@ import { ISecurity } from "./security/ISecurity";
 import { IObservability } from "./observability/IObservability";
 import { IStorage } from "./storage/IStorage";
 import { IScheduler } from "./scheduler/IScheduler";
+import { IGateway } from "./gateway/IGateway";
+import { GatewayState } from "./gateway/GatewayState";
+import { GatewayContext } from "./gateway/GatewayContext";
+import { RouteDefinition } from "./gateway/RouteDefinition";
+import { GatewayRequest } from "./gateway/GatewayRequest";
+import { GatewayResponse } from "./gateway/GatewayResponse";
+import { GatewaySnapshot } from "./gateway/GatewaySnapshot";
+
+import { IMCPServer } from "./mcp/IMCPServer";
+import { MCPServerState } from "./mcp/types";
+import { MCPContext } from "./mcp/MCPContext";
+import { MCPTool } from "./mcp/MCPTool";
+import { MCPPrompt } from "./mcp/MCPPrompt";
+import { MCPResource } from "./mcp/MCPResource";
+import { MCPRequest } from "./mcp/MCPRequest";
+import { MCPResponse } from "./mcp/MCPResponse";
+import { MCPSnapshot } from "./mcp/MCPSnapshot";
+
+import { IMessageBus } from "./messagebus/IMessageBus";
+import { Message } from "./messagebus/Message";
+import { MessageSnapshot } from "./messagebus/MessageSnapshot";
+
+import { IKnowledgeBase } from "./knowledge/IKnowledgeBase";
+import { KnowledgeDocument } from "./knowledge/KnowledgeDocument";
+import { KnowledgeQuery } from "./knowledge/KnowledgeQuery";
+import { KnowledgeResult } from "./knowledge/KnowledgeResult";
+import { KnowledgeSnapshot } from "./knowledge/KnowledgeSnapshot";
+
+import { IPromptRegistry } from "./prompts/IPromptRegistry";
+import { IPrompt } from "./prompts/IPrompt";
+import { PromptRegistrySnapshot } from "./prompts/PromptRegistry";
+
+import { IRAGEngine } from "./rag/IRAGEngine";
+import { RAGContext } from "./rag/RAGContext";
+import { RAGRequest } from "./rag/RAGRequest";
+import { RAGResponse } from "./rag/RAGResponse";
+import { RAGSnapshot } from "./rag/RAGSnapshot";
+
 import {
   StudioValidationException,
   InvalidStudioStateException,
@@ -26,6 +64,7 @@ function assert(condition: boolean, message: string) {
 
 // Sequence execution tracker
 const executionOrder: string[] = [];
+
 
 class MockRuntime implements IRuntime {
   public async initialize(): Promise<void> {
@@ -224,6 +263,142 @@ class MockScheduler implements IScheduler {
   }
 }
 
+class MockGateway implements IGateway {
+  public get state(): GatewayState {
+    return GatewayState.CREATED;
+  }
+  public get context(): GatewayContext {
+    return {} as any;
+  }
+  public async initialize(): Promise<void> {}
+  public async start(): Promise<void> {}
+  public async stop(): Promise<void> {}
+  public registerRoute(route: RouteDefinition): void {}
+  public unregisterRoute(path: string): boolean {
+    return true;
+  }
+  public async handle(request: GatewayRequest): Promise<GatewayResponse> {
+    return { status: 200, headers: {}, body: {} };
+  }
+  public snapshot(): GatewaySnapshot {
+    return {
+      state: GatewayState.CREATED,
+      routesCount: 0,
+      routes: [],
+      middlewaresCount: 0,
+      timestamp: new Date(),
+      metadata: {},
+    };
+  }
+}
+
+class MockMCPServer implements IMCPServer {
+  public get state(): MCPServerState {
+    return MCPServerState.CREATED;
+  }
+  public get context(): MCPContext {
+    return {} as any;
+  }
+  public async initialize(): Promise<void> {}
+  public async start(): Promise<void> {}
+  public async stop(): Promise<void> {}
+  public registerTool(tool: MCPTool): void {}
+  public registerPrompt(prompt: MCPPrompt): void {}
+  public registerResource(resource: MCPResource): void {}
+  public async handle(request: MCPRequest): Promise<MCPResponse> {
+    return { id: request.id || "1", result: {} };
+  }
+  public snapshot(): MCPSnapshot {
+    return {
+      state: MCPServerState.CREATED,
+      toolsCount: 0,
+      promptsCount: 0,
+      resourcesCount: 0,
+      timestamp: new Date(),
+      metadata: {},
+    };
+  }
+}
+
+class MockMessageBus implements IMessageBus {
+  public async publish(message: Message, options?: any): Promise<void> {}
+  public async send(queue: string, message: Message, options?: any): Promise<void> {}
+  public async request(message: Message, options?: any): Promise<Message> {
+    return message;
+  }
+  public async reply(correlationId: string, response: Message): Promise<void> {}
+  public subscribe(queue: string, handler: any): string {
+    return "sub-123";
+  }
+  public unsubscribe(subscriptionId: string): boolean {
+    return true;
+  }
+  public snapshot(): MessageSnapshot {
+    return {
+      timestamp: new Date(),
+      queues: [],
+      subscriptionsCount: 0,
+      deadLetterCount: 0,
+      deadLetters: [],
+      metadata: {},
+    };
+  }
+}
+
+class MockKnowledgeBase implements IKnowledgeBase {
+  public get id(): string { return "kb-1"; }
+  public get name(): string { return "Mock KB"; }
+  public get metadata(): Readonly<Record<string, any>> { return {}; }
+  public addDocument(document: KnowledgeDocument): void {}
+  public removeDocument(documentId: string): boolean { return true; }
+  public getDocument(documentId: string): KnowledgeDocument | undefined { return undefined; }
+  public hasDocument(documentId: string): boolean { return false; }
+  public search(query: KnowledgeQuery): KnowledgeResult[] { return []; }
+  public snapshot(): KnowledgeSnapshot {
+    return {
+      id: "kb-1",
+      name: "Mock KB",
+      collectionsCount: 0,
+      documentsCount: 0,
+      chunksCount: 0,
+      timestamp: new Date(),
+      metadata: {},
+    };
+  }
+}
+
+class MockPromptRegistry implements IPromptRegistry {
+  public register(prompt: IPrompt): void {}
+  public unregister(id: string): boolean { return true; }
+  public get(id: string): IPrompt | undefined { return undefined; }
+  public has(id: string): boolean { return false; }
+  public render(id: string, variables: Record<string, unknown>): string { return ""; }
+  public snapshot(): PromptRegistrySnapshot {
+    return {
+      promptsCount: 0,
+      prompts: [],
+    };
+  }
+}
+
+class MockRAGEngine implements IRAGEngine {
+  public get context(): RAGContext { return {} as any; }
+  public async retrieve(request: RAGRequest): Promise<RAGResponse> {
+    return { documents: [], context: "", strategyUsed: "vector", executionTime: 0 };
+  }
+  public snapshot(): RAGSnapshot {
+    return {
+      knowledgeBaseId: "kb-1",
+      promptsCount: 0,
+      contextWindow: {},
+      timestamp: new Date(),
+      metadata: {},
+    };
+  }
+}
+
+
+
 async function runTests() {
   // eslint-disable-next-line no-console
   console.log("=== START STUDIO COMPOSITION TESTS ===");
@@ -244,23 +419,40 @@ async function runTests() {
   const mStorage = new MockStorage();
   const mScheduler = new MockScheduler();
 
+  const mGateway = new MockGateway();
+  const mMCPServer = new MockMCPServer();
+  const mMessageBus = new MockMessageBus();
+  const mKnowledgeBase = new MockKnowledgeBase();
+  const mPromptRegistry = new MockPromptRegistry();
+  const mRAGEngine = new MockRAGEngine();
+
+  const createBaseBuilder = () => {
+    return new StudioBuilder()
+      .withContext(context)
+      .withRuntime(mRuntime)
+      .withHost(mHost)
+      .withBootstrapper(mBootstrapper)
+      .withKernel(mKernel)
+      .withConfiguration(mConfiguration)
+      .withSecurity(mSecurity)
+      .withObservability(mObservability)
+      .withStorage(mStorage)
+      .withScheduler(mScheduler)
+      .withGateway(mGateway)
+      .withMCP(mMCPServer)
+      .withMessageBus(mMessageBus)
+      .withKnowledgeBase(mKnowledgeBase)
+      .withPromptRegistry(mPromptRegistry)
+      .withRAG(mRAGEngine);
+  };
+
   // ==========================================
   // 1. Running Builder Validation...
   // ==========================================
   // eslint-disable-next-line no-console
   console.log("1. Running Builder Validation...");
   
-  const studio = new StudioBuilder()
-    .withContext(context)
-    .withRuntime(mRuntime)
-    .withHost(mHost)
-    .withBootstrapper(mBootstrapper)
-    .withKernel(mKernel)
-    .withConfiguration(mConfiguration)
-    .withSecurity(mSecurity)
-    .withObservability(mObservability)
-    .withStorage(mStorage)
-    .withScheduler(mScheduler)
+  const studio = createBaseBuilder()
     .withMetadata({ app: "shaily-studio-app" })
     .build();
 
@@ -296,6 +488,12 @@ async function runTests() {
       .withObservability(mObservability)
       .withStorage(mStorage)
       .withScheduler(mScheduler)
+      .withGateway(mGateway)
+      .withMCP(mMCPServer)
+      .withMessageBus(mMessageBus)
+      .withKnowledgeBase(mKnowledgeBase)
+      .withPromptRegistry(mPromptRegistry)
+      .withRAG(mRAGEngine)
       .build();
     throw new Error("Should have rejected missing host dependency");
   } catch (err: unknown) {
@@ -322,6 +520,12 @@ async function runTests() {
   assert(studio.observability === mObservability, "Observability reference matches");
   assert(studio.storage === mStorage, "Storage reference matches");
   assert(studio.scheduler === mScheduler, "Scheduler reference matches");
+  assert(studio.gateway === mGateway, "Gateway reference matches");
+  assert(studio.mcp === mMCPServer, "MCP reference matches");
+  assert(studio.messageBus === mMessageBus, "MessageBus reference matches");
+  assert(studio.knowledgeBase === mKnowledgeBase, "KnowledgeBase reference matches");
+  assert(studio.promptRegistry === mPromptRegistry, "PromptRegistry reference matches");
+  assert(studio.rag === mRAGEngine, "RAG reference matches");
 
   // eslint-disable-next-line no-console
   console.log("✓ Verified composition root.");
@@ -332,18 +536,7 @@ async function runTests() {
   // eslint-disable-next-line no-console
   console.log("\n4. Running Lifecycle Validation...");
 
-  const lifeStudio = new StudioBuilder()
-    .withContext(context)
-    .withRuntime(mRuntime)
-    .withHost(mHost)
-    .withBootstrapper(mBootstrapper)
-    .withKernel(mKernel)
-    .withConfiguration(mConfiguration)
-    .withSecurity(mSecurity)
-    .withObservability(mObservability)
-    .withStorage(mStorage)
-    .withScheduler(mScheduler)
-    .build();
+  const lifeStudio = createBaseBuilder().build();
 
   // Illegal start before initialize
   try {
@@ -371,18 +564,7 @@ async function runTests() {
   console.log("\n5. Running Startup Ordering...");
   
   executionOrder.length = 0; // reset
-  const orderStudio = new StudioBuilder()
-    .withContext(context)
-    .withRuntime(mRuntime)
-    .withHost(mHost)
-    .withBootstrapper(mBootstrapper)
-    .withKernel(mKernel)
-    .withConfiguration(mConfiguration)
-    .withSecurity(mSecurity)
-    .withObservability(mObservability)
-    .withStorage(mStorage)
-    .withScheduler(mScheduler)
-    .build();
+  const orderStudio = createBaseBuilder().build();
 
   await orderStudio.initialize();
   await orderStudio.start();
@@ -413,18 +595,7 @@ async function runTests() {
   // eslint-disable-next-line no-console
   console.log("\n7. Running Snapshot Immutability Validation...");
 
-  const snapStudio = new StudioBuilder()
-    .withContext(context)
-    .withRuntime(mRuntime)
-    .withHost(mHost)
-    .withBootstrapper(mBootstrapper)
-    .withKernel(mKernel)
-    .withConfiguration(mConfiguration)
-    .withSecurity(mSecurity)
-    .withObservability(mObservability)
-    .withStorage(mStorage)
-    .withScheduler(mScheduler)
-    .build();
+  const snapStudio = createBaseBuilder().build();
 
   await snapStudio.initialize();
   await snapStudio.start();
@@ -487,3 +658,4 @@ runTests().catch((err) => {
   console.error("Test execution failed:", err);
   process.exit(1);
 });
+

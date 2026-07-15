@@ -1,3 +1,4 @@
+import { IGateway } from "@shaily/core";
 import { GatewayServer } from "./GatewayServer";
 import { RouteDefinition } from "./RouteDefinition";
 import { GatewayRequest } from "./GatewayRequest";
@@ -7,7 +8,8 @@ import { GatewayContext } from "./GatewayContext";
 import { GatewayState } from "./GatewayState";
 import { GatewayMiddleware } from "./GatewayMiddleware";
 
-export class Gateway {
+export class Gateway implements IGateway {
+
   private readonly _server: GatewayServer;
 
   constructor(
@@ -70,7 +72,7 @@ export class Gateway {
       method: "GET",
       path: "/health",
       metadata: { builtIn: true },
-      handler: async (req) => ({
+      handler: async (req: any) => ({
         status: 200,
         headers: { "Content-Type": "application/json" },
         body: { status: "ok", timestamp: new Date().toISOString() },
@@ -82,7 +84,7 @@ export class Gateway {
       method: "GET",
       path: "/snapshot",
       metadata: { builtIn: true },
-      handler: async (req) => ({
+      handler: async (req: any) => ({
         status: 200,
         headers: { "Content-Type": "application/json" },
         body: this.snapshot(),
@@ -94,7 +96,7 @@ export class Gateway {
       method: "POST",
       path: "/orchestrator/execute",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.orchestrator.execute(req.body);
         return {
           status: 200,
@@ -109,7 +111,7 @@ export class Gateway {
       method: "POST",
       path: "/router/route",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.router.route(req.body);
         return {
           status: 200,
@@ -124,7 +126,7 @@ export class Gateway {
       method: "POST",
       path: "/providers/:id",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.providers.execute(req.params.id, req.body);
         return {
           status: 200,
@@ -134,12 +136,13 @@ export class Gateway {
       },
     });
 
+
     // 6. POST /agents/:id
     this.registerRoute({
       method: "POST",
       path: "/agents/:id",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const agent = this.context.agents.get(req.params.id);
         if (!agent) {
           return {
@@ -165,7 +168,7 @@ export class Gateway {
       method: "POST",
       path: "/workflow/:id",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.workflow.execute(req.params.id);
         return {
           status: 200,
@@ -180,7 +183,7 @@ export class Gateway {
       method: "POST",
       path: "/tools/:id",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.tools.execute(req.params.id, req.body);
         return {
           status: 200,
@@ -195,7 +198,7 @@ export class Gateway {
       method: "POST",
       path: "/rag/query",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.rag.retrieve(req.body);
         return {
           status: 200,
@@ -210,7 +213,7 @@ export class Gateway {
       method: "POST",
       path: "/prompts/render",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = this.context.prompts.render(
           req.body.id,
           req.body.variables
@@ -228,7 +231,7 @@ export class Gateway {
       method: "GET",
       path: "/knowledge/search",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = this.context.knowledge.search({
           keyword: req.query.keyword,
           exact: req.query.exact === "true",
@@ -247,7 +250,7 @@ export class Gateway {
       method: "POST",
       path: "/mcp",
       metadata: { builtIn: true },
-      handler: async (req) => {
+      handler: async (req: any) => {
         const res = await this.context.mcp.handle(req.body);
         return {
           status: 200,
@@ -256,5 +259,6 @@ export class Gateway {
         };
       },
     });
+
   }
 }

@@ -236,7 +236,7 @@ async function runTests() {
     method: "POST",
     path: "/custom/endpoint",
     metadata: { rateLimit: 60 },
-    handler: async (req) => ({
+    handler: async (req: any) => ({
       status: 200,
       headers: { "Content-Type": "application/json" },
       body: { echo: req.body.val },
@@ -257,9 +257,10 @@ async function runTests() {
   const unregResult = gateway.unregisterRoute("/custom/endpoint");
   assert(unregResult === true, "Unregister route returns true");
   assert(
-    gateway.snapshot().routes.find((r) => r.path === "/custom/endpoint") === undefined,
+    gateway.snapshot().routes.find((r: any) => r.path === "/custom/endpoint") === undefined,
     "Route is no longer registered"
   );
+
 
   const unregNonExist = gateway.unregisterRoute("/not-existing");
   assert(unregNonExist === false, "Unregistering non-existent route returns false");

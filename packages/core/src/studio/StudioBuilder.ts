@@ -10,6 +10,12 @@ import { ISecurity } from "../security/ISecurity";
 import { IObservability } from "../observability/IObservability";
 import { IStorage } from "../storage/IStorage";
 import { IScheduler } from "../scheduler/IScheduler";
+import { IGateway } from "../gateway/IGateway";
+import { IMCPServer } from "../mcp/IMCPServer";
+import { IMessageBus } from "../messagebus/IMessageBus";
+import { IKnowledgeBase } from "../knowledge/IKnowledgeBase";
+import { IPromptRegistry } from "../prompts/IPromptRegistry";
+import { IRAGEngine } from "../rag/IRAGEngine";
 import { StudioValidationException } from "./types";
 
 export class StudioBuilder {
@@ -23,12 +29,12 @@ export class StudioBuilder {
   private _observability?: IObservability;
   private _storage?: IStorage;
   private _scheduler?: IScheduler;
-  private _gateway?: unknown;
-  private _mcp?: unknown;
-  private _messageBus?: unknown;
-  private _knowledgeBase?: unknown;
-  private _promptRegistry?: unknown;
-  private _rag?: unknown;
+  private _gateway?: IGateway;
+  private _mcp?: IMCPServer;
+  private _messageBus?: IMessageBus;
+  private _knowledgeBase?: IKnowledgeBase;
+  private _promptRegistry?: IPromptRegistry;
+  private _rag?: IRAGEngine;
   private _metadata: Record<string, unknown> = {};
 
   public withContext(context: StudioContext): this {
@@ -81,32 +87,32 @@ export class StudioBuilder {
     return this;
   }
 
-  public withGateway(gateway: unknown): this {
+  public withGateway(gateway: IGateway): this {
     this._gateway = gateway;
     return this;
   }
 
-  public withMCP(mcp: unknown): this {
+  public withMCP(mcp: IMCPServer): this {
     this._mcp = mcp;
     return this;
   }
 
-  public withMessageBus(messageBus: unknown): this {
+  public withMessageBus(messageBus: IMessageBus): this {
     this._messageBus = messageBus;
     return this;
   }
 
-  public withKnowledgeBase(knowledgeBase: unknown): this {
+  public withKnowledgeBase(knowledgeBase: IKnowledgeBase): this {
     this._knowledgeBase = knowledgeBase;
     return this;
   }
 
-  public withPromptRegistry(promptRegistry: unknown): this {
+  public withPromptRegistry(promptRegistry: IPromptRegistry): this {
     this._promptRegistry = promptRegistry;
     return this;
   }
 
-  public withRAG(rag: unknown): this {
+  public withRAG(rag: IRAGEngine): this {
     this._rag = rag;
     return this;
   }
@@ -133,14 +139,15 @@ export class StudioBuilder {
         observability: this._observability!,
         storage: this._storage!,
         scheduler: this._scheduler!,
-        gateway: this._gateway,
-        mcp: this._mcp,
-        messageBus: this._messageBus,
-        knowledgeBase: this._knowledgeBase,
-        promptRegistry: this._promptRegistry,
-        rag: this._rag,
+        gateway: this._gateway!,
+        mcp: this._mcp!,
+        messageBus: this._messageBus!,
+        knowledgeBase: this._knowledgeBase!,
+        promptRegistry: this._promptRegistry!,
+        rag: this._rag!,
       },
       this._metadata
     );
   }
 }
+

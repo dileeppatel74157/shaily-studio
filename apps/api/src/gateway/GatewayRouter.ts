@@ -83,14 +83,14 @@ export class GatewayRouter {
     path: string
   ): { route: RouteDefinition; params: Record<string, string> } | null {
     const reqMethod = method.toUpperCase();
-    const reqParts = path.split("/").filter((p) => p !== "");
+    const reqParts = path.split("/").filter((p: string) => p !== "");
 
     for (const route of this._routes) {
       if (route.method.toUpperCase() !== reqMethod) {
         continue;
       }
 
-      const routeParts = route.path.split("/").filter((p) => p !== "");
+      const routeParts = route.path.split("/").filter((p: string) => p !== "");
       if (routeParts.length !== reqParts.length) {
         continue;
       }

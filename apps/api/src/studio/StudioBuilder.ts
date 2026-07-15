@@ -97,19 +97,14 @@ export class StudioBuilder {
     const workflowEngine = new WorkflowEngine();
 
     // 9. Kernel
-    const parsedVersion = Version.parse(this._version);
     const kernel = new KernelBuilder()
-      .withVersion(parsedVersion)
-      .withEnvironment(this._environment)
-      .registerService(LOGGER_TOKEN, logger)
-      .registerService(CONFIG_TOKEN, config)
-      .registerService(REGISTRY_TOKEN, registry)
-      .registerService(EVENT_BUS_TOKEN, eventBus)
-      .registerService(JOB_ENGINE_TOKEN, jobEngine)
-      .registerService(MEMORY_STORE_TOKEN, memoryStore)
-      .registerService(AGENT_REGISTRY_TOKEN, agentRegistry)
-      .registerService(WORKFLOW_ENGINE_TOKEN, workflowEngine)
+      .withContext({
+        env: this._environment,
+        namespace: "api-kernel",
+        metadata: { version: this._version },
+      })
       .build();
+
 
     // Register all services in the main Service Registry
     registry.register(LOGGER_TOKEN, logger);

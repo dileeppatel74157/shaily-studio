@@ -63,7 +63,9 @@ export * from "./storage/index";
 export * from "./bootstrap/index";
 export * from "./host/index";
 export * from "./runtime/index";
+export * from "./gateway/index";
 export * from "./studio/index";
+
 
 
 

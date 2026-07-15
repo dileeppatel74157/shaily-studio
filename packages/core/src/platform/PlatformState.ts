@@ -1,0 +1,7 @@
+export enum PlatformState {
+  CREATED = "CREATED",
+  INITIALIZING = "INITIALIZING",
+  READY = "READY",
+  RUNNING = "RUNNING",
+  STOPPED = "STOPPED",
+}

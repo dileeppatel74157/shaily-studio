@@ -78,6 +78,17 @@ export {
   CompositionValidationException,
   InvalidCompositionStateException
 } from "./composition/index";
+export {
+  IPlatform,
+  Platform,
+  PlatformBuilder,
+  PlatformState,
+  PlatformValidator,
+  PlatformException,
+  PlatformValidationException,
+  InvalidPlatformStateException
+} from "./platform/index";
+
 
 
 

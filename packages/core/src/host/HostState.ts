@@ -1,0 +1,8 @@
+export enum HostState {
+  CREATED = "CREATED",
+  INITIALIZING = "INITIALIZING",
+  READY = "READY",
+  RUNNING = "RUNNING",
+  STOPPED = "STOPPED",
+  FAILED = "FAILED",
+}

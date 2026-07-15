@@ -56,4 +56,6 @@ export * from "./rag/index";
 export * from "./mcp/index";
 export * from "./messagebus/index";
 export * from "./observability/index";
+export * from "./security/index";
+
 

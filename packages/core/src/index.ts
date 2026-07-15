@@ -65,6 +65,21 @@ export * from "./host/index";
 export * from "./runtime/index";
 export * from "./gateway/index";
 export * from "./studio/index";
+export {
+  CompositionRoot,
+  CompositionBuilder,
+  CompositionContext,
+  CompositionValidator,
+  CompositionSnapshot,
+  DependencyContainer,
+  IServiceProvider,
+  IServiceCollection,
+  CompositionException,
+  CompositionValidationException,
+  InvalidCompositionStateException
+} from "./composition/index";
+
+
 
 
 

@@ -1,6 +1,7 @@
 import { NvidiaProvider } from "@shaily/provider-nvidia";
 import { NvidiaBuilder } from "@shaily/provider-nvidia";
-import { IProviderTransport, ProviderContext, ProviderState } from "@shaily/core";
+import { IProviderTransport, ProviderContext } from "@shaily/core";
+import { ProviderState } from "./providers/ProviderState";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {

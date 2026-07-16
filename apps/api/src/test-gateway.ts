@@ -83,16 +83,21 @@ async function runTests() {
     registerModel: () => {},
     unregisterModel: () => true,
     route: async () => ({ modelId: "test-model", latency: 10 } as any),
+    routeStream: async function* () {},
     snapshot: () => ({} as any),
   };
 
   const mockProviders: IProviderRegistry = {
     register: () => {},
     unregister: () => true,
-    get: () => undefined,
+    get: () => ({} as any),
     has: () => false,
+    list: () => [],
     execute: async (id, req) => ({ success: true, providerId: id }),
     snapshot: () => ({} as any),
+    modelLookup: () => undefined,
+    capabilityLookup: () => [],
+    providerLookup: () => undefined,
   };
 
   const mockAgent: IAgent = {

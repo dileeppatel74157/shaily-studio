@@ -17,3 +17,22 @@ export class OrchestratorValidationException extends OrchestratorException {
     super(message);
   }
 }
+
+export function deepFreeze<T>(obj: T): T {
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+  Object.freeze(obj);
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const val = (obj as any)[prop];
+    if (
+      Object.prototype.hasOwnProperty.call(obj, prop) &&
+      val !== null &&
+      (typeof val === "object" || typeof val === "function") &&
+      !Object.isFrozen(val)
+    ) {
+      deepFreeze(val);
+    }
+  });
+  return obj;
+}

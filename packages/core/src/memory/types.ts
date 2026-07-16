@@ -24,19 +24,20 @@ export class InvalidMemoryStateException extends MemoryException {
   }
 }
 
-export function deepFreeze<T>(obj: any): T {
+export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
   Object.freeze(obj);
   Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const val = (obj as any)[prop];
     if (
-      obj.hasOwnProperty(prop) &&
-      obj[prop] !== null &&
-      (typeof obj[prop] === "object" || typeof obj[prop] === "function") &&
-      !Object.isFrozen(obj[prop])
+      Object.prototype.hasOwnProperty.call(obj, prop) &&
+      val !== null &&
+      (typeof val === "object" || typeof val === "function") &&
+      !Object.isFrozen(val)
     ) {
-      deepFreeze(obj[prop]);
+      deepFreeze(val);
     }
   });
   return obj;

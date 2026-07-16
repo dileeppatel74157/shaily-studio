@@ -131,6 +131,8 @@ export * from "./ai/index";
 export * from "./conversation/index";
 export * from "./prompts/index";
 
+export * as workflows from "./workflows/index";
+
 
 
 

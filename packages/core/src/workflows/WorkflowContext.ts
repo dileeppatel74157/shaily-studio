@@ -4,11 +4,12 @@ import { IToolRegistry } from "../tools/IToolRegistry";
 import { IAgentRegistry } from "../agents/IAgentRegistry";
 import { IRAGEngine } from "../rag/IRAGEngine";
 import { IConversationManager } from "../conversation/IConversationManager";
+import { IEventBus } from "../events/IEventBus";
 
 export interface WorkflowContext {
   readonly logger: ILogger;
   readonly config?: any;
-  readonly eventBus?: any;
+  readonly eventBus?: IEventBus;
   readonly memory?: any;
   readonly registry?: any;
   readonly aiEngine: IAIEngine;

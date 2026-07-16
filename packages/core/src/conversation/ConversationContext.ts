@@ -3,6 +3,7 @@ import { ISecurity } from "../security/ISecurity";
 import { IObservability } from "../observability/IObservability";
 import { IMessageBus } from "../messagebus/IMessageBus";
 import { ILogger } from "../logger/ILogger";
+import { IEventBus } from "../events/IEventBus";
 
 export interface ConversationContext {
   readonly env?: string;
@@ -12,5 +13,6 @@ export interface ConversationContext {
   readonly security?: ISecurity;
   readonly observability?: IObservability;
   readonly messageBus?: IMessageBus;
+  readonly eventBus?: IEventBus;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }

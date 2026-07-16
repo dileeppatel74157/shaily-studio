@@ -56,6 +56,18 @@ export class Tool implements ITool {
     this._state = ToolState.RUNNING;
     const startTime = Date.now();
 
+    if (this.context.eventBus) {
+      await this.context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "ToolStarted",
+        timestamp: new Date(),
+        correlationId: request.correlationId || "corr-tool",
+        source: "Tool:" + this.metadata.id,
+        payload: { toolId: this.metadata.id, input: request.input },
+        metadata: {},
+      });
+    }
+
     try {
       const response = await this._handler.execute(request, this.context);
       this._state = ToolState.READY;
@@ -68,6 +80,30 @@ export class Tool implements ITool {
         executionTime: response.executionTime ?? (Date.now() - startTime),
         error: response.error,
       };
+
+      if (this.context.eventBus) {
+        if (finalResponse.success) {
+          await this.context.eventBus.publish({
+            id: "evt-" + Math.random().toString(36).substring(2, 11),
+            name: "ToolCompleted",
+            timestamp: new Date(),
+            correlationId: request.correlationId || "corr-tool",
+            source: "Tool:" + this.metadata.id,
+            payload: { toolId: this.metadata.id, output: finalResponse.output },
+            metadata: {},
+          });
+        } else {
+          await this.context.eventBus.publish({
+            id: "evt-" + Math.random().toString(36).substring(2, 11),
+            name: "ToolFailed",
+            timestamp: new Date(),
+            correlationId: request.correlationId || "corr-tool",
+            source: "Tool:" + this.metadata.id,
+            payload: { toolId: this.metadata.id, error: finalResponse.error?.message || "Execution failed" },
+            metadata: {},
+          });
+        }
+      }
 
       return deepFreeze(finalResponse);
     } catch (err: any) {
@@ -83,6 +119,19 @@ export class Tool implements ITool {
       } as any;
 
       deepFreeze(finalResponse);
+
+      if (this.context.eventBus) {
+        await this.context.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "ToolFailed",
+          timestamp: new Date(),
+          correlationId: request.correlationId || "corr-tool",
+          source: "Tool:" + this.metadata.id,
+          payload: { toolId: this.metadata.id, error: err.message },
+          metadata: {},
+        });
+      }
+
       throw err;
     }
   }

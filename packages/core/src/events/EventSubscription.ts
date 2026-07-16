@@ -1,5 +1,6 @@
 import { EventHandler } from "./EventHandler";
 import { EventPriority } from "./EventPriority";
+import { EventFilter } from "./EventFilter";
 
 export interface EventSubscription {
   readonly id: string;
@@ -7,5 +8,6 @@ export interface EventSubscription {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   readonly handler: EventHandler<any>;
   readonly priority: EventPriority;
-  unsubscribe(): void;
+  readonly filter?: EventFilter;
+  unsubscribe(): boolean;
 }

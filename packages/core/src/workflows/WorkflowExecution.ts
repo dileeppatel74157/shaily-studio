@@ -8,6 +8,7 @@ import { WorkflowConditionOperator, WorkflowCondition } from "./WorkflowConditio
 import { RetrievalStrategy } from "../rag/RetrievalStrategy";
 import { AITaskType } from "../ai/AITaskType";
 import { deepFreeze } from "./types";
+import { IEventBus } from "../events/IEventBus";
 
 export class WorkflowExecution {
   private _isCancelled = false;
@@ -47,6 +48,18 @@ export class WorkflowExecution {
 
     this._systemContext.logger.info(`Starting workflow execution: ${this._definition.name} (${this._executionId})`);
     execContext.logEvent("START_WORKFLOW", { workflowId: this._definition.id });
+
+    if (this._systemContext.eventBus) {
+      await this._systemContext.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "WorkflowStarted",
+        timestamp: new Date(),
+        correlationId: this._executionId,
+        source: "WorkflowEngine",
+        payload: { workflowId: this._definition.id },
+        metadata: {},
+      });
+    }
 
     let status: "COMPLETED" | "FAILED" | "CANCELLED" = "COMPLETED";
     let executionError: string | undefined;
@@ -99,6 +112,30 @@ export class WorkflowExecution {
       statistics: stats,
       error: executionError,
     };
+
+    if (this._systemContext.eventBus) {
+      if (status === "COMPLETED") {
+        await this._systemContext.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "WorkflowCompleted",
+          timestamp: new Date(),
+          correlationId: this._executionId,
+          source: "WorkflowEngine",
+          payload: { workflowId: this._definition.id, output },
+          metadata: {},
+        });
+      } else if (status === "CANCELLED") {
+        await this._systemContext.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "WorkflowCancelled",
+          timestamp: new Date(),
+          correlationId: this._executionId,
+          source: "WorkflowEngine",
+          payload: { workflowId: this._definition.id, error: executionError },
+          metadata: {},
+        });
+      }
+    }
 
     return deepFreeze(result);
   }

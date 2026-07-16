@@ -7,6 +7,7 @@ import { AIExecutionOptions } from "./AIExecutionOptions";
 import { AIEngineContext } from "./AIEngineContext";
 import { AIEngineState } from "./AIEngineState";
 import { AIEngineValidator } from "./AIEngineValidator";
+import { IEventBus } from "../events/IEventBus";
 import { AITaskType } from "./AITaskType";
 import { MetricType } from "../observability/MetricType";
 import {
@@ -96,6 +97,18 @@ export class AIEngine implements IAIEngine {
     this._requestCount++;
     const startTime = Date.now();
     const correlationId = options?.correlationId || "corr-" + generateUUID();
+
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: "evt-" + generateUUID(),
+        name: "AIExecutionStarted",
+        timestamp: new Date(),
+        correlationId,
+        source: "AIEngine",
+        payload: { requestId: request.requestId, taskType: request.taskType },
+        metadata: {},
+      });
+    }
 
     // 1. Security Authorization & Auditing
     if (this._context.security && !options?.bypassSecurity) {
@@ -314,6 +327,18 @@ export class AIEngine implements IAIEngine {
         this._context.observability?.endSpan(span.id);
       }
 
+      if (this._context.eventBus) {
+        await this._context.eventBus.publish({
+          id: "evt-" + generateUUID(),
+          name: "AIExecutionFinished",
+          timestamp: new Date(),
+          correlationId,
+          source: "AIEngine",
+          payload: { success: true, responseId: result.responseId },
+          metadata: {},
+        });
+      }
+
       return deepFreeze(response);
     } catch (err: any) {
       this._failureCount++;
@@ -356,6 +381,18 @@ export class AIEngine implements IAIEngine {
       // End Observability Span
       if (span) {
         this._context.observability?.endSpan(span.id);
+      }
+
+      if (this._context.eventBus) {
+        await this._context.eventBus.publish({
+          id: "evt-" + generateUUID(),
+          name: "AIExecutionFinished",
+          timestamp: new Date(),
+          correlationId,
+          source: "AIEngine",
+          payload: { success: false, error: err.message },
+          metadata: {},
+        });
       }
 
       throw err;

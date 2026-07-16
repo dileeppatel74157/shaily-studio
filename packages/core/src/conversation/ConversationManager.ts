@@ -17,6 +17,7 @@ import {
   ConversationValidationException,
   deepFreeze,
 } from "./types";
+import { IEventBus } from "../events/IEventBus";
 
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -71,6 +72,18 @@ export class ConversationManager implements IConversationManager {
     try {
       this._startedAt = new Date();
       this._state = ConversationState.RUNNING;
+
+      if (this._context.eventBus) {
+        await this._context.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "SessionStarted",
+          timestamp: new Date(),
+          correlationId: "corr-conv",
+          source: "ConversationManager",
+          payload: { startedAt: this._startedAt },
+          metadata: {},
+        });
+      }
     } catch (err) {
       this._state = ConversationState.FAILED;
       throw err;
@@ -84,6 +97,18 @@ export class ConversationManager implements IConversationManager {
     try {
       this._stoppedAt = new Date();
       this._state = ConversationState.STOPPED;
+
+      if (this._context.eventBus) {
+        await this._context.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "SessionStopped",
+          timestamp: new Date(),
+          correlationId: "corr-conv",
+          source: "ConversationManager",
+          payload: { stoppedAt: this._stoppedAt },
+          metadata: {},
+        });
+      }
     } catch (err) {
       this._state = ConversationState.FAILED;
       throw err;
@@ -138,15 +163,15 @@ export class ConversationManager implements IConversationManager {
 
     this._conversations.set(conversationId, conversation);
 
-    // Audit and message bus integration
-    if (this._context.security) {
-      this._context.security.audit("conversation.create", undefined, "SUCCESS", { conversationId });
-    }
-    if (this._context.messageBus) {
-      await this._context.messageBus.publish({
-        id: generateUUID(),
-        type: "conversation.created",
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "ConversationCreated",
+        timestamp: new Date(),
+        correlationId: "corr-conv",
+        source: "ConversationManager",
         payload: { conversationId, sessionId },
+        metadata: {},
       });
     }
 
@@ -254,6 +279,18 @@ export class ConversationManager implements IConversationManager {
         payload: { conversationId, messageId: message.id },
       });
     }
+
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "ConversationUpdated",
+        timestamp: new Date(),
+        correlationId: "corr-conv",
+        source: "ConversationManager",
+        payload: { conversationId, type: "message.appended", messageId: message.id },
+        metadata: {},
+      });
+    }
   }
 
   public async editMessage(
@@ -292,6 +329,18 @@ export class ConversationManager implements IConversationManager {
       updatedAt: new Date(),
     };
     this._conversations.set(conversationId, updatedConv);
+
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "ConversationUpdated",
+        timestamp: new Date(),
+        correlationId: "corr-conv",
+        source: "ConversationManager",
+        payload: { conversationId, type: "message.edited", messageId },
+        metadata: {},
+      });
+    }
   }
 
   public async softDeleteMessage(
@@ -324,6 +373,18 @@ export class ConversationManager implements IConversationManager {
       updatedAt: new Date(),
     };
     this._conversations.set(conversationId, updatedConv);
+
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "ConversationUpdated",
+        timestamp: new Date(),
+        correlationId: "corr-conv",
+        source: "ConversationManager",
+        payload: { conversationId, type: "message.deleted", messageId },
+        metadata: {},
+      });
+    }
   }
 
   public history(
@@ -503,6 +564,19 @@ export class ConversationManager implements IConversationManager {
     };
 
     this._sessions.set(sessId, session);
+
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "SessionStarted",
+        timestamp: new Date(),
+        correlationId: "corr-conv",
+        source: "ConversationManager",
+        payload: { sessionId: sessId },
+        metadata: {},
+      });
+    }
+
     return deepFreeze(session);
   }
 

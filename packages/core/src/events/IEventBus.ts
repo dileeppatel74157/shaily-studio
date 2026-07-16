@@ -1,24 +1,13 @@
 import { Event } from "./Event";
-import { EventHandler } from "./EventHandler";
-import { EventPriority } from "./EventPriority";
-import { EventSubscription } from "./EventSubscription";
+import { EventPublisher } from "./EventPublisher";
+import { EventSubscriber } from "./EventSubscriber";
+import { EventSnapshot } from "./EventSnapshot";
+import { EventState } from "./EventState";
 
-export interface EventBusSnapshot {
-  readonly timestamp: Date;
-  readonly eventNames: ReadonlyArray<string>;
-  readonly subscriptionCount: number;
-  readonly subscriptionsByEvent: Record<string, number>;
-}
-
-export interface IEventBus {
-  publish(event: Event): Promise<void>;
-  subscribe<TEvent extends Event = Event>(
-    eventName: string,
-    handler: EventHandler<TEvent>,
-    priority?: EventPriority
-  ): EventSubscription;
-  unsubscribe(subscriptionId: string): boolean;
+export interface IEventBus extends EventPublisher, EventSubscriber {
+  readonly state: EventState;
   hasSubscribers(eventName: string): boolean;
   clear(): void;
-  snapshot(): EventBusSnapshot;
+  snapshot(): EventSnapshot;
+  use(middleware: (event: Event, next: () => Promise<void>) => Promise<void>): void;
 }

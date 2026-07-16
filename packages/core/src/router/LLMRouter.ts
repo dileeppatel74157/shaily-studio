@@ -9,6 +9,7 @@ import { RoutingPolicy } from "./RoutingPolicy";
 import { RouterValidator } from "./RouterValidator";
 import { ProviderState } from "../providers/ProviderState";
 import { ProviderResponseChunk } from "../providers/ProviderResponse";
+import { IEventBus } from "../events/IEventBus";
 
 export class LLMRouter implements ILLMRouter {
   private readonly _modelRegistry = new ModelRegistry();
@@ -191,6 +192,19 @@ export class LLMRouter implements ILLMRouter {
         this._cooldownUntil.delete(provider.id);
         this._lastSelectedModelId = model.id;
 
+        if (this.context.eventBus) {
+          const isFallback = lastError !== null;
+          await this.context.eventBus.publish({
+            id: "evt-" + Math.random().toString(36).substring(2, 11),
+            name: isFallback ? "ProviderRecovered" : "ProviderSelected",
+            timestamp: new Date(),
+            correlationId: "corr-router",
+            source: "LLMRouter",
+            payload: { providerId: model.providerId, modelId: model.id, latency: overallLatency },
+            metadata: {},
+          });
+        }
+
         return {
           providerId: model.providerId,
           modelId: model.id,
@@ -206,6 +220,18 @@ export class LLMRouter implements ILLMRouter {
       } catch (err: any) {
         this.context.logger.warn(`Routing execution failed on model "${model.id}": ${err.message}. Retrying on fallback...`);
         lastError = err;
+
+        if (this.context.eventBus) {
+          await this.context.eventBus.publish({
+            id: "evt-" + Math.random().toString(36).substring(2, 11),
+            name: "ProviderFailed",
+            timestamp: new Date(),
+            correlationId: "corr-router",
+            source: "LLMRouter",
+            payload: { providerId: model.providerId, modelId: model.id, error: err.message },
+            metadata: {},
+          });
+        }
 
         // Record failure
         const streak = (this._failedStreak.get(provider.id) || 0) + 1;

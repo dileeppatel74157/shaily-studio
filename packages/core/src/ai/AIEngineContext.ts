@@ -5,6 +5,7 @@ import { IMessageBus } from "../messagebus/IMessageBus";
 import { ILogger } from "../logger/ILogger";
 import { IConversationManager } from "../conversation/IConversationManager";
 import { IPromptRegistry } from "../prompts/IPromptRegistry";
+import { IEventBus } from "../events/IEventBus";
 
 export interface AIEngineContext {
   readonly env?: string;
@@ -16,5 +17,6 @@ export interface AIEngineContext {
   readonly messageBus?: IMessageBus;
   readonly conversationManager?: IConversationManager;
   readonly promptRegistry?: IPromptRegistry;
+  readonly eventBus?: IEventBus;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }

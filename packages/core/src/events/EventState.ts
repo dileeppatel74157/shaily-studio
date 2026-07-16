@@ -1,0 +1,7 @@
+export enum EventState {
+  CREATED = "CREATED",
+  INITIALIZED = "INITIALIZED",
+  RUNNING = "RUNNING",
+  STOPPED = "STOPPED",
+  FAILED = "FAILED",
+}

@@ -72,18 +72,56 @@ export class Agent implements IAgent {
     this._state = AgentState.RUNNING;
     this.context.logger.info(`Executing agent task: ${this.name} (${this.id})`);
 
+    if (this.context.eventBus) {
+      await this.context.eventBus.publish({
+        id: "evt-" + Math.random().toString(36).substring(2, 11),
+        name: "AgentStarted",
+        timestamp: new Date(),
+        correlationId: "corr-agent",
+        source: "Agent:" + this.id,
+        payload: { agentId: this.id, input },
+        metadata: {},
+      });
+    }
+
     try {
       const result = await this._lifecycle.execute(this.context, input);
       this._state = AgentState.COMPLETED;
       this.context.logger.info(`Agent execution COMPLETED: ${this.name} (${this.id})`);
+
+      if (this.context.eventBus) {
+        await this.context.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "AgentFinished",
+          timestamp: new Date(),
+          correlationId: "corr-agent",
+          source: "Agent:" + this.id,
+          payload: { agentId: this.id, success: true },
+          metadata: {},
+        });
+      }
+
       return result;
-    } catch (err) {
+    } catch (err: any) {
       this._state = AgentState.FAILED;
       this.context.logger.error(
         `Agent execution FAILED: ${this.name} (${this.id})`,
         {},
         err instanceof Error ? err : undefined
       );
+
+      if (this.context.eventBus) {
+        await this.context.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "AgentFinished",
+          timestamp: new Date(),
+          correlationId: "corr-agent",
+          source: "Agent:" + this.id,
+          payload: { agentId: this.id, success: false, error: err.message },
+          metadata: {},
+        });
+      }
+
       throw err;
     }
   }

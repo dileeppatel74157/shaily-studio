@@ -1,5 +1,5 @@
 import { IAgent } from "./IAgent";
-import { AgentRegistrySnapshot } from "./types";
+import { AgentRegistrySnapshot, deepFreeze } from "./types";
 import { IAgentRegistry } from "./IAgentRegistry";
 
 export class AgentRegistry implements IAgentRegistry {
@@ -24,6 +24,10 @@ export class AgentRegistry implements IAgentRegistry {
     return this._agents.has(agentId);
   }
 
+  public list(): IAgent[] {
+    return Array.from(this._agents.values());
+  }
+
   public async execute(agentId: string, input?: unknown): Promise<unknown> {
     const agent = this._agents.get(agentId);
     if (!agent) {
@@ -32,12 +36,26 @@ export class AgentRegistry implements IAgentRegistry {
     return agent.execute(input);
   }
 
+  public async broadcast(input: unknown): Promise<Record<string, unknown>> {
+    const results: Record<string, unknown> = {};
+    const promises = Array.from(this._agents.entries()).map(async ([id, agent]) => {
+      try {
+        const res = await agent.execute(input);
+        results[id] = res;
+      } catch (err: any) {
+        results[id] = { error: err.message };
+      }
+    });
+    await Promise.all(promises);
+    return results;
+  }
+
   public snapshot(): AgentRegistrySnapshot {
     const snapshots = Array.from(this._agents.values()).map((a) => a.snapshot());
-    return Object.freeze({
+    return deepFreeze({
       timestamp: new Date(),
       count: snapshots.length,
-      agents: Object.freeze(snapshots),
+      agents: snapshots,
     });
   }
 }

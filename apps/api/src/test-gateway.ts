@@ -105,11 +105,17 @@ async function runTests() {
     name: "Mock Agent",
     version: "1.0.0",
     description: "Mock Agent",
+    role: "Generalist",
     state: "READY" as any,
     capabilities: [],
+    goals: [],
     metadata: {},
     context: {} as any,
     initialize: async () => {},
+    start: async () => {},
+    pause: async () => {},
+    resume: async () => {},
+    stop: async () => {},
     execute: async (input) => ({ out: "Agent execution successful", input }),
     shutdown: async () => {},
     snapshot: () => ({} as any),
@@ -120,6 +126,15 @@ async function runTests() {
     unregister: () => true,
     get: (id) => (id === "agent-1" ? mockAgent : undefined),
     has: (id) => id === "agent-1",
+    list: () => [mockAgent],
+    execute: async (id, input) => {
+      if (id === mockAgent.id) return mockAgent.execute(input);
+      throw new Error("Agent not found");
+    },
+    broadcast: async (input) => {
+      const res = await mockAgent.execute(input);
+      return { [mockAgent.id]: res };
+    },
     snapshot: () => ({} as any),
   };
 

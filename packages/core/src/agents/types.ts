@@ -21,3 +21,21 @@ export interface AgentRegistrySnapshot {
   readonly count: number;
   readonly agents: ReadonlyArray<AgentSnapshot>;
 }
+
+export function deepFreeze<T>(obj: any): T {
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+  Object.freeze(obj);
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    if (
+      obj.hasOwnProperty(prop) &&
+      obj[prop] !== null &&
+      (typeof obj[prop] === "object" || typeof obj[prop] === "function") &&
+      !Object.isFrozen(obj[prop])
+    ) {
+      deepFreeze(obj[prop]);
+    }
+  });
+  return obj;
+}

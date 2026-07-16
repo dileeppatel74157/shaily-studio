@@ -212,6 +212,100 @@ async function runTests() {
     console.log("   ✓ Snapshot immutability verified.");
   }
 
+  // ==================================================
+  // Test 5: Builder and Validator validation rules
+  // ==================================================
+  console.log("\n5. Running Builder and Validator Validation Tests...");
+  {
+    // Try building with empty name
+    try {
+      new AgentBuilder()
+        .withVersion("1.0.0")
+        .withContext(context)
+        .withLifecycle(lifecycle)
+        .build();
+      throw new Error("Should fail with empty name");
+    } catch (err: any) {
+      assert(err.message.includes("Agent name is required"), "Throws error for missing name");
+    }
+
+    // Try building with invalid role via validator
+    try {
+      new AgentBuilder()
+        .withName("TestAgent")
+        .withRole("") // invalid role
+        .withContext(context)
+        .withLifecycle(lifecycle)
+        .build();
+      throw new Error("Should fail with invalid role");
+    } catch (err: any) {
+      assert(err.message.includes("Invalid agent role"), "Throws error for invalid role");
+    }
+
+    // Try building with invalid capabilities
+    try {
+      new AgentBuilder()
+        .withName("TestAgent")
+        .withCapabilities([""]) // invalid capability
+        .withContext(context)
+        .withLifecycle(lifecycle)
+        .build();
+      throw new Error("Should fail with invalid capabilities");
+    } catch (err: any) {
+      assert(err.message.includes("Invalid capability"), "Throws error for invalid capability");
+    }
+
+    // Test lifecycle validator transition error
+    try {
+      await agent.pause(); // should throw, since STOPPED -> PAUSED is invalid!
+      throw new Error("Should not allow pausing from STOPPED state");
+    } catch (err: any) {
+      assert(err.message.includes("Invalid lifecycle transition"), "Throws lifecycle validation error");
+    }
+
+    console.log("   ✓ Builder and Validator validation rules verified.");
+  }
+
+  // ==================================================
+  // Test 6: Broadcast Execution Test
+  // ==================================================
+  console.log("\n6. Running Broadcast Execution Tests...");
+  {
+    const registry = new AgentRegistry();
+    const lifecycle1 = new TestLifecycle();
+    const agent1 = new AgentBuilder()
+      .withName("Agent1")
+      .withContext(context)
+      .withLifecycle(lifecycle1)
+      .build();
+
+    const lifecycle2 = new TestLifecycle();
+    const agent2 = new AgentBuilder()
+      .withName("Agent2")
+      .withContext(context)
+      .withLifecycle(lifecycle2)
+      .build();
+
+    registry.register(agent1);
+    registry.register(agent2);
+
+    await agent1.initialize();
+    await agent2.initialize();
+
+    const broadcastResult = await registry.broadcast("broadcast-task");
+    assert(lifecycle1.executed === true, "Agent 1 executed broadcast");
+    assert(lifecycle2.executed === true, "Agent 2 executed broadcast");
+    assert(lifecycle1.lastInput === "broadcast-task", "Agent 1 received broadcast input");
+    assert(lifecycle2.lastInput === "broadcast-task", "Agent 2 received broadcast input");
+
+    const res1 = broadcastResult[agent1.id] as any;
+    const res2 = broadcastResult[agent2.id] as any;
+    assert(res1.output === "test-lifecycle-result", "Agent 1 returned correct output");
+    assert(res2.output === "test-lifecycle-result", "Agent 2 returned correct output");
+
+    console.log("   ✓ Broadcast execution verified.");
+  }
+
   console.log("\n=== ALL AGENT SDK TESTS PASSED SUCCESSFULLY ===");
 }
 

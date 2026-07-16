@@ -99,14 +99,32 @@ class MockAgent implements IAgent {
   public readonly name = "Mock Agent";
   public readonly version = "1.0.0";
   public readonly description = "Mock Agent for testing";
-  public state = AgentState.CREATED;
+  public readonly role = "Tester";
   public readonly capabilities = ["test"];
+  public readonly goals = [];
   public readonly metadata = {};
+  public state = AgentState.CREATED;
 
   constructor(public readonly context: AgentContext) {}
 
   public async initialize(): Promise<void> {
     this.state = AgentState.READY;
+  }
+
+  public async start(): Promise<void> {
+    this.state = AgentState.RUNNING;
+  }
+
+  public async pause(): Promise<void> {
+    this.state = AgentState.PAUSED;
+  }
+
+  public async resume(): Promise<void> {
+    this.state = AgentState.RUNNING;
+  }
+
+  public async stop(): Promise<void> {
+    this.state = AgentState.STOPPED;
   }
 
   public async execute(input?: any): Promise<any> {
@@ -124,10 +142,12 @@ class MockAgent implements IAgent {
     return {
       id: this.id,
       name: this.name,
+      role: this.role,
       version: this.version,
       description: this.description,
       state: this.state,
       capabilities: this.capabilities,
+      goals: this.goals,
       metadata: this.metadata,
       timestamp: new Date(),
     };

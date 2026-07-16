@@ -29,14 +29,15 @@ export class AIEngineValidator {
     const hasMessages = Array.isArray(request.messages) && request.messages.length > 0;
     const hasConversation = !!request.conversation?.messages && request.conversation.messages.length > 0;
     const hasConversationId = !!request.conversationId?.trim();
+    const hasPromptId = !!request.promptId?.trim();
 
     if (request.taskType === AITaskType.EMBEDDINGS) {
-      if (!hasPrompt && !hasMessages && !hasConversation && !hasConversationId) {
-        throw new AIEngineValidationException("Embeddings request must provide a prompt, messages, or conversationId.");
+      if (!hasPrompt && !hasMessages && !hasConversation && !hasConversationId && !hasPromptId) {
+        throw new AIEngineValidationException("Embeddings request must provide a prompt, messages, conversationId, or promptId.");
       }
     } else {
-      if (!hasPrompt && !hasMessages && !hasConversation && !hasConversationId) {
-        throw new AIEngineValidationException("AIRequest prompt, messages, or conversationId cannot be empty.");
+      if (!hasPrompt && !hasMessages && !hasConversation && !hasConversationId && !hasPromptId) {
+        throw new AIEngineValidationException("AIRequest prompt, messages, conversationId, or promptId cannot be empty.");
       }
     }
 

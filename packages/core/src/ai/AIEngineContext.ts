@@ -4,6 +4,7 @@ import { IObservability } from "../observability/IObservability";
 import { IMessageBus } from "../messagebus/IMessageBus";
 import { ILogger } from "../logger/ILogger";
 import { IConversationManager } from "../conversation/IConversationManager";
+import { IPromptRegistry } from "../prompts/IPromptRegistry";
 
 export interface AIEngineContext {
   readonly env?: string;
@@ -14,5 +15,6 @@ export interface AIEngineContext {
   readonly observability?: IObservability;
   readonly messageBus?: IMessageBus;
   readonly conversationManager?: IConversationManager;
+  readonly promptRegistry?: IPromptRegistry;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }

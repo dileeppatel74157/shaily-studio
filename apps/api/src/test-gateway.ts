@@ -143,11 +143,21 @@ async function runTests() {
   };
 
   const mockPrompts: IPromptRegistry = {
-    register: () => {},
-    unregister: () => true,
+    initialize: async () => {},
+    start: async () => {},
+    stop: async () => {},
+    register: async () => {},
+    unregister: async () => {},
     get: () => undefined,
     has: () => false,
-    render: (id, vars) => `Rendered prompt ${id} with: ${JSON.stringify(vars)}`,
+    list: () => [],
+    render: async (id, vars) => ({
+      promptId: id,
+      version: "1.0.0",
+      renderedAt: new Date(),
+      variables: vars || {},
+      userPrompt: `Rendered prompt ${id} with: ${JSON.stringify(vars)}`,
+    }),
     snapshot: () => ({} as any),
   };
 

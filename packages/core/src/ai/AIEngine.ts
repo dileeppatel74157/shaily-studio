@@ -136,7 +136,21 @@ export class AIEngine implements IAIEngine {
       if (request.systemPrompt) {
         messages.push({ role: "system", content: request.systemPrompt });
       }
-      if (request.conversationId) {
+      if (request.promptId) {
+        if (!this._context.promptRegistry) {
+          throw new Error("PromptRegistry is not configured on AIEngineContext.");
+        }
+        const exec = await this._context.promptRegistry.render(request.promptId, request.promptVariables);
+        if (exec.systemPrompt) {
+          messages.push({ role: "system", content: exec.systemPrompt });
+        }
+        if (exec.developerPrompt) {
+          messages.push({ role: "system", content: exec.developerPrompt });
+        }
+        if (exec.userPrompt) {
+          messages.push({ role: "user", content: exec.userPrompt });
+        }
+      } else if (request.conversationId) {
         if (!this._context.conversationManager) {
           throw new Error("ConversationManager is not configured on AIEngineContext.");
         }
@@ -402,7 +416,21 @@ export class AIEngine implements IAIEngine {
       if (request.systemPrompt) {
         messages.push({ role: "system", content: request.systemPrompt });
       }
-      if (request.conversationId) {
+      if (request.promptId) {
+        if (!this._context.promptRegistry) {
+          throw new Error("PromptRegistry is not configured on AIEngineContext.");
+        }
+        const exec = await this._context.promptRegistry.render(request.promptId, request.promptVariables);
+        if (exec.systemPrompt) {
+          messages.push({ role: "system", content: exec.systemPrompt });
+        }
+        if (exec.developerPrompt) {
+          messages.push({ role: "system", content: exec.developerPrompt });
+        }
+        if (exec.userPrompt) {
+          messages.push({ role: "user", content: exec.userPrompt });
+        }
+      } else if (request.conversationId) {
         if (!this._context.conversationManager) {
           throw new Error("ConversationManager is not configured on AIEngineContext.");
         }

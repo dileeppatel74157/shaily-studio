@@ -14,7 +14,13 @@ export class RAGEngine implements IRAGEngine {
 
   constructor(public readonly context: RAGContext) {
     this._validator.validateContext(context);
-    deepFreeze(this.context);
+    if (context.contextWindow) {
+      deepFreeze(context.contextWindow);
+    }
+    if (context.metadata) {
+      deepFreeze(context.metadata);
+    }
+    Object.freeze(context);
   }
 
   public async retrieve(request: RAGRequest): Promise<RAGResponse> {
@@ -100,7 +106,7 @@ export class RAGEngine implements IRAGEngine {
           ...request.promptVariables,
           context: assembledContext,
         };
-        promptText = prompt.render(vars);
+        promptText = prompt.render!(vars);
       }
     }
 

@@ -59,7 +59,9 @@ async function runTests() {
     .build();
 
   const promptRegistry = new PromptRegistry();
-  promptRegistry.register(prompt);
+  await promptRegistry.initialize();
+  await promptRegistry.start();
+  await promptRegistry.register(prompt);
 
   // 2. RAG Builder
   console.log("\n1. Verifying RAG Builder...");
@@ -240,6 +242,8 @@ async function runTests() {
     assert(o1.documents[i].score === o2.documents[i].score, `Scores match at index ${i}`);
   }
   console.log("   ✓ Deterministic ordering verified.");
+
+  await promptRegistry.stop();
 
   console.log("\n=== ALL RAG FRAMEWORK TESTS PASSED SUCCESSFULLY ===");
 }

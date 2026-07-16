@@ -1,11 +1,14 @@
 import {
   PromptBuilder,
-  PromptCapability,
-  PromptVersion,
-  PromptValidationException,
-  PromptRegistry,
-  PromptValidator,
+  PromptCategory,
+  PromptState,
+  PromptTemplate,
   PromptVariable,
+  IPromptRegistry,
+  AIEngineBuilder,
+  AITaskType,
+  PromptValidationException,
+  InvalidPromptStateException,
 } from "./index";
 
 function assert(condition: boolean, message: string): void {
@@ -15,190 +18,275 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-async function runTests() {
-  console.log("=== START PROMPT FRAMEWORK TESTS ===");
+// Mock LLMRouter for AIEngine
+class MockLLMRouter {
+  public routeCalls: any[] = [];
+  public context: any = {
+    providerRegistry: {
+      list: () => []
+    }
+  };
+  public registerModel() {}
+  public unregisterModel() { return true; }
+  public async route(request: any): Promise<any> {
+    this.routeCalls.push(request);
+    return {
+      providerId: "mock-provider",
+      modelId: "mock-model",
+      providerResponse: {
+        responseId: "resp-1",
+        content: "Mock template response",
+        usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+        latency: 10,
+        finishReason: "stop",
+      },
+      latency: 12,
+    };
+  }
+  public async *routeStream() {}
+  public snapshot() { return {} as any; }
+}
 
-  // 1. Prompt Builder
-  console.log("\n1. Verifying Prompt Builder...");
-  const prompt = new PromptBuilder()
-    .withId("prompt-1")
-    .withName("Greeting Prompt")
-    .withVersion("1.0.2")
-    .withDescription("Greets a user by name")
-    .withAuthor("Shaily Studio Team")
-    .withTemplate("Hello, {{userName}}! Welcome to {{platformName}}.")
-    .withVariable("userName", "The name of the user", true)
-    .withVariable("platformName", "The platform name", false, "Shaily Studio")
-    .withCapability(PromptCapability.CHAT)
-    .withCapability(PromptCapability.SYSTEM)
-    .withMetadata({ category: "onboarding" })
+async function runTests() {
+  console.log("=== START PROMPT REGISTRY TESTS ===");
+
+  const context = {
+    env: "test",
+    namespace: "shaily.prompts",
+  };
+
+  // ==========================================
+  // 1. Builder Validation
+  // ==========================================
+  console.log("1. Running Builder Validation...");
+  try {
+    new PromptBuilder().build();
+    throw new Error("Should have thrown for missing context");
+  } catch (err: unknown) {
+    assert(
+      err instanceof PromptValidationException,
+      "Expected PromptValidationException for missing context"
+    );
+  }
+  console.log("✓ Verified Builder Validation.");
+
+  // ==========================================
+  // 2. Lifecycle Validation
+  // ==========================================
+  console.log("\n2. Running Lifecycle Validation...");
+  const registry = new PromptBuilder()
+    .withContext(context)
+    .withMetadata({ module: "prompts" })
     .build();
 
-  assert(prompt.metadata.id === "prompt-1", "Prompt ID matches");
-  assert(prompt.metadata.name === "Greeting Prompt", "Prompt Name matches");
-  assert(prompt.metadata.description === "Greets a user by name", "Description matches");
-  assert(prompt.metadata.author === "Shaily Studio Team", "Author matches");
-  assert(prompt.metadata.category === "onboarding", "Metadata category matches");
-  assert(prompt.version.toString() === "1.0.2", "Version string matches");
-  assert(prompt.capabilities.includes(PromptCapability.CHAT), "Capabilities include CHAT");
-  assert(prompt.template.content === "Hello, {{userName}}! Welcome to {{platformName}}.", "Template matches");
-  assert(prompt.template.variables.length === 2, "Variable count matches");
-  console.log("   ✓ Prompt builder verified successfully.");
+  assert(
+    (registry as any).state === PromptState.CREATED,
+    "Should start in CREATED state"
+  );
 
-  // 2. Registry
-  console.log("\n2. Verifying Prompt Registry...");
-  const registry = new PromptRegistry();
-  registry.register(prompt);
-
-  assert(registry.has("prompt-1"), "Registry has the registered prompt");
-  assert(registry.get("prompt-1") === prompt, "Registry lookup returns correct prompt");
-
-  // Duplicate prevention
-  try {
-    registry.register(prompt);
-    assert(false, "Should have thrown on duplicate register");
-  } catch (err) {
-    assert(err instanceof PromptValidationException, "Expected PromptValidationException on duplicate ID");
-  }
-
-  // Remove (unregister)
-  const unregResult = registry.unregister("prompt-1");
-  assert(unregResult === true, "Unregister returns true");
-  assert(!registry.has("prompt-1"), "Registry no longer has the prompt");
-
-  const unregNonExist = registry.unregister("not-existing");
-  assert(unregNonExist === false, "Unregistering non-existent returns false");
-  console.log("   ✓ Registry operations register, unregister, duplicate prevention, and lookup verified.");
-
-  // Re-register for subsequent tests
-  registry.register(prompt);
-
-  // 3. Rendering
-  console.log("\n3. Verifying Rendering...");
-  // variables replaced correctly
-  const rendered = prompt.render({ userName: "John Doe" });
-  assert(rendered === "Hello, John Doe! Welcome to Shaily Studio.", "Render output matches with default value");
-
-  const renderedOverride = prompt.render({ userName: "Alice", platformName: "Vite App" });
-  assert(renderedOverride === "Hello, Alice! Welcome to Vite App.", "Render output matches with overridden default");
-
-  // Registry render delegation
-  const registryRender = registry.render("prompt-1", { userName: "Bob" });
-  assert(registryRender === "Hello, Bob! Welcome to Shaily Studio.", "Registry render output matches");
-  console.log("   ✓ Prompt template variables rendered and replaced correctly.");
-
-  // 4. Missing Variable Validation
-  console.log("\n4. Verifying Missing Variable Validation...");
-  try {
-    prompt.render({ platformName: "Test App" }); // missing required userName
-    assert(false, "Should have thrown on missing required variable");
-  } catch (err) {
-    assert(err instanceof PromptValidationException, "Expected PromptValidationException on missing variable");
-  }
-  console.log("   ✓ Missing required variables correctly block rendering.");
-
-  // 5. Duplicate Variable Validation
-  console.log("\n5. Verifying Duplicate Variable Validation...");
-  try {
-    new PromptBuilder()
-      .withId("duplicate-vars")
-      .withName("Duplicate Vars")
-      .withVersion("1.0.0")
-      .withTemplate("Hello {{name}}")
-      .withVariable("name", "Variable 1", true)
-      .withVariable("name", "Variable 2", false) // duplicate name
-      .build();
-    assert(false, "Should have thrown on duplicate variables in builder");
-  } catch (err) {
-    assert(err instanceof PromptValidationException, "Expected PromptValidationException on duplicate variable definitions");
-  }
-  console.log("   ✓ Duplicate variable declarations rejected by builder.");
-
-  // 6. Version Validation
-  console.log("\n6. Verifying Semantic Version Validation...");
-  // Valid parsing
-  const v1 = PromptVersion.parse("1.0.0");
-  assert(v1.major === 1 && v1.minor === 0 && v1.patch === 0, "1.0.0 parsed");
-  const v2 = PromptVersion.parse("12.4.56");
-  assert(v2.major === 12 && v2.minor === 4 && v2.patch === 56, "12.4.56 parsed");
-
-  // Invalid parsing -> throws
-  const invalidVersions = ["1.0", "1.0.0.0", "abc", "", "1.-2.3"];
-  for (const iv of invalidVersions) {
-    try {
-      PromptVersion.parse(iv);
-      assert(false, `Should have thrown on invalid version: ${iv}`);
-    } catch (err) {
-      assert(err instanceof PromptValidationException, "Expected PromptValidationException on parsing error");
-    }
-  }
-  console.log("   ✓ Semantic versions parsed and invalid versions rejected successfully.");
-
-  // 7. Snapshot Immutability
-  console.log("\n7. Verifying Snapshot Immutability...");
-  const promptSnapshot = prompt.snapshot();
-  const registrySnapshot = registry.snapshot();
-
-  assert(promptSnapshot.id === "prompt-1", "Snapshot matches ID");
-  assert(registrySnapshot.promptsCount === 1, "Registry snapshot promptsCount matches");
-
-  // Check frozen
-  assert(Object.isFrozen(promptSnapshot), "Prompt snapshot is frozen");
-  assert(Object.isFrozen(promptSnapshot.metadata), "Prompt snapshot metadata is frozen");
-  assert(Object.isFrozen(promptSnapshot.template), "Prompt snapshot template is frozen");
-  assert(Object.isFrozen(promptSnapshot.capabilities), "Prompt snapshot capabilities is frozen");
-  assert(Object.isFrozen(registrySnapshot), "Registry snapshot is frozen");
-  assert(Object.isFrozen(registrySnapshot.prompts), "Registry snapshot prompts list is frozen");
+  const testTemplate: PromptTemplate = {
+    id: "greet",
+    name: "Greetings",
+    description: "Welcome prompt template",
+    category: PromptCategory.SYSTEM,
+    version: "1.0.0",
+    systemPrompt: "You are {{assistant_name}}",
+    variables: [
+      { name: "assistant_name", type: "string", required: true }
+    ],
+    metadata: { author: "tester" },
+    tags: ["test"],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    enabled: true,
+  };
 
   try {
-    (promptSnapshot as any).version = "9.9.9";
-    assert(false, "Should not allow mutating snapshot version");
-  } catch (err) {
-    // correctly threw error
+    await registry.register(testTemplate);
+    throw new Error("Should block operations before start");
+  } catch (err: unknown) {
+    assert(
+      err instanceof InvalidPromptStateException,
+      "Expected InvalidPromptStateException on early register"
+    );
   }
-  console.log("   ✓ Snapshot properties are recursively deep-frozen.");
 
-  // 8. Rendered Output Immutability
-  console.log("\n8. Verifying Rendered Output Immutability...");
-  const renderRes = prompt.render({ userName: "Alice" });
-  assert(typeof renderRes === "string", "Rendered result is string");
-  // JS string primitives are naturally immutable and Object.isFrozen returns true for them in ES6.
-  assert(Object.isFrozen(renderRes), "Rendered string primitive is frozen");
-  console.log("   ✓ Rendered outputs are strictly immutable.");
+  await registry.initialize();
+  assert((registry as any).state === PromptState.READY, "READY state after initialize");
 
-  // 9. Template Validation
-  console.log("\n9. Verifying Template Validation...");
-  const validator = new PromptValidator();
+  await registry.start();
+  assert((registry as any).state === PromptState.RUNNING, "RUNNING state after start");
+  console.log("✓ Verified Lifecycle Validation.");
 
-  // Mismatched brackets - opening brace has no closing brace
+  // ==========================================
+  // 3. Registration & Duplicate Detection
+  // ==========================================
+  console.log("\n3. Testing Template Registration...");
+  await registry.register(testTemplate);
+  assert(registry.has("greet") === true, "Greet template registered");
+
+  // Verify duplicates error
   try {
-    validator.validateTemplate("Hello {{name", [{ name: "name", description: "", required: true }]);
-    assert(false, "Should reject unclosed variable braces");
-  } catch (err) {
-    assert(err instanceof PromptValidationException, "Expected PromptValidationException");
+    await registry.register(testTemplate);
+    throw new Error("Duplicate template registration check failed");
+  } catch (err: unknown) {
+    assert(
+      err instanceof PromptValidationException,
+      "Expected PromptValidationException for duplicate ID + version"
+    );
   }
+  console.log("✓ Template Registration verified.");
 
-  // Nested opening brackets
+  // ==========================================
+  // 4. Versioning & Latest Version Lookup
+  // ==========================================
+  console.log("\n4. Testing Template Versioning...");
+  const greetV2: PromptTemplate = {
+    ...testTemplate,
+    version: "1.1.0",
+    systemPrompt: "You are {{assistant_name}}, version 1.1.0",
+  };
+  const greetV3: PromptTemplate = {
+    ...testTemplate,
+    version: "2.0.0",
+    systemPrompt: "You are {{assistant_name}}, version 2.0.0",
+  };
+
+  await registry.register(greetV2);
+  await registry.register(greetV3);
+
+  const latest = registry.get("greet");
+  assert(latest !== undefined && latest.version === "2.0.0", "Resolves latest semver version");
+  console.log("✓ Template Versioning verified.");
+
+  // ==========================================
+  // 5. Rendering & Variable Substitution
+  // ==========================================
+  console.log("\n5. Testing Variable Substitutions & Types...");
+  const renderRes = await registry.render("greet", { assistant_name: "Shaily" });
+  assert(
+    renderRes.systemPrompt === "You are Shaily, version 2.0.0",
+    "Substitutes variable placeholders correctly"
+  );
+  assert(renderRes.variables.assistant_name === "Shaily", "Variables stored in execution result");
+
+  // Check missing required variables throws
   try {
-    validator.validateTemplate("Hello {{ {{name}} }}", [{ name: "name", description: "", required: true }]);
-    assert(false, "Should reject nested variable braces");
-  } catch (err) {
-    assert(err instanceof PromptValidationException, "Expected PromptValidationException");
+    await registry.render("greet", {});
+    throw new Error("Should block rendering on missing required variable");
+  } catch (err: unknown) {
+    assert(
+      err instanceof PromptValidationException,
+      "Expected PromptValidationException for missing variable"
+    );
   }
+  console.log("✓ Variable Substitutions verified.");
 
-  // Undeclared template variable referenced
+  // ==========================================
+  // 6. Validator Rule Checks
+  // ==========================================
+  console.log("\n6. Testing Validator Rule Checks...");
+  // Version regex mismatch
   try {
-    validator.validateTemplate("Hello {{userName}} from {{company}}", [{ name: "userName", description: "", required: true }]);
-    assert(false, "Should reject template referencing undeclared variable");
-  } catch (err) {
-    assert(err instanceof PromptValidationException, "Expected PromptValidationException");
+    await registry.register({
+      ...testTemplate,
+      id: "ver-fail",
+      version: "1.0", // Invalid semver
+    });
+    throw new Error("Should block invalid version formats");
+  } catch (err: unknown) {
+    assert(
+      err instanceof PromptValidationException,
+      "Expected PromptValidationException for invalid semver format"
+    );
   }
-  console.log("   ✓ Template syntax checks (brackets, undeclared variables) verified.");
 
-  console.log("\n=== ALL PROMPT FRAMEWORK TESTS PASSED SUCCESSFULLY ===");
+  // Undeclared placeholders
+  try {
+    await registry.register({
+      ...testTemplate,
+      id: "place-fail",
+      systemPrompt: "Hello {{username}}", // username not declared in variables
+      variables: [],
+    });
+    throw new Error("Should block undeclared placeholders");
+  } catch (err: unknown) {
+    assert(
+      err instanceof PromptValidationException,
+      "Expected PromptValidationException for undeclared placeholders"
+    );
+  }
+
+  // Duplicate variables
+  try {
+    await registry.register({
+      ...testTemplate,
+      id: "dup-var-fail",
+      variables: [
+        { name: "var1", type: "string", required: true },
+        { name: "var1", type: "number", required: true },
+      ],
+    });
+    throw new Error("Should block duplicate variables declaration");
+  } catch (err: unknown) {
+    assert(
+      err instanceof PromptValidationException,
+      "Expected PromptValidationException for duplicate variables"
+    );
+  }
+  console.log("✓ Validator Rule Checks verified.");
+
+  // ==========================================
+  // 7. AI Engine Integration
+  // ==========================================
+  console.log("\n7. Testing AI Engine prompt pre-rendering...");
+  const mockRouter = new MockLLMRouter();
+  const aiEngine = new AIEngineBuilder()
+    .withRouter(mockRouter)
+    .withPromptRegistry(registry)
+    .build();
+
+  await aiEngine.initialize();
+  await aiEngine.start();
+
+  await aiEngine.execute({
+    taskType: AITaskType.CHAT,
+    promptId: "greet",
+    promptVariables: { assistant_name: "AssistantAI" },
+  });
+
+  const routedRequest = mockRouter.routeCalls[0];
+  assert(routedRequest.messages !== undefined, "Pre-loaded history populated");
+  assert(
+    routedRequest.messages[0].content === "You are AssistantAI, version 2.0.0",
+    "Renders prompt template into request message"
+  );
+  console.log("✓ AI Engine pre-rendering verified.");
+
+  // ==========================================
+  // 8. Snapshot Immutability
+  // ==========================================
+  console.log("\n8. Testing Snapshot Immutability...");
+  const snap = registry.snapshot();
+  assert(snap.templateCount === 3, "Snapshot tracks templates count");
+  assert(Object.isFrozen(snap), "Snapshot object frozen");
+
+  try {
+    (snap as any).templateCount = 999;
+    throw new Error("Blocked snapshot mutation");
+  } catch (err: unknown) {
+    assert(err instanceof TypeError, "Snapshot mutation throws TypeError");
+  }
+  console.log("✓ Snapshot Immutability verified.");
+
+  // Clean up stop
+  await registry.stop();
+  assert((registry as any).state === PromptState.STOPPED, "STOPPED state after stop");
+
+  console.log("\n=== ALL PROMPT REGISTRY TESTS PASSED SUCCESSFULLY ===");
 }
 
 runTests().catch((err) => {
-  console.error("Test execution failed:", err);
+  console.error("Test suite aborted:", err);
   process.exit(1);
 });

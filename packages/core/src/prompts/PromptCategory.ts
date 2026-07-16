@@ -1,0 +1,13 @@
+export enum PromptCategory {
+  SYSTEM = "SYSTEM",
+  CHAT = "CHAT",
+  AGENT = "AGENT",
+  TOOL = "TOOL",
+  RAG = "RAG",
+  VISION = "VISION",
+  CODE = "CODE",
+  TRANSLATION = "TRANSLATION",
+  SUMMARIZATION = "SUMMARIZATION",
+  WORKFLOW = "WORKFLOW",
+  CUSTOM = "CUSTOM",
+}

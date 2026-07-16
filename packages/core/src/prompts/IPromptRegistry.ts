@@ -1,11 +1,34 @@
-import { IPrompt } from "./IPrompt";
-import { PromptRegistrySnapshot } from "./PromptRegistry";
+import { PromptTemplate } from "./PromptTemplate";
+import { PromptExecution } from "./PromptExecution";
+import { PromptSnapshot } from "./PromptSnapshot";
 
 export interface IPromptRegistry {
-  register(prompt: IPrompt): void;
-  unregister(id: string): boolean;
-  get(id: string): IPrompt | undefined;
-  has(id: string): boolean;
-  render(id: string, variables: Record<string, unknown>): string;
-  snapshot(): PromptRegistrySnapshot;
+  initialize(): Promise<void>;
+  start(): Promise<void>;
+  stop(): Promise<void>;
+
+  register(
+    template: PromptTemplate
+  ): Promise<void>;
+
+  unregister(
+    promptId: string
+  ): Promise<void>;
+
+  has(
+    promptId: string
+  ): boolean;
+
+  get(
+    promptId: string
+  ): PromptTemplate | undefined;
+
+  list(): readonly PromptTemplate[];
+
+  render(
+    promptId: string,
+    variables?: Record<string, unknown>
+  ): Promise<PromptExecution>;
+
+  snapshot(): PromptSnapshot;
 }

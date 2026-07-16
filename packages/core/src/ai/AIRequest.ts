@@ -9,6 +9,8 @@ export interface AIRequest {
   readonly messages?: readonly AIMessage[];
   readonly conversation?: AIConversation;
   readonly conversationId?: string;
+  readonly promptId?: string;
+  readonly promptVariables?: Readonly<Record<string, any>>;
   readonly modelId?: string;
   readonly providerId?: string;
   readonly systemPrompt?: string;

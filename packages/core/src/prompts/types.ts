@@ -1,3 +1,5 @@
+import { PromptState } from "./PromptState";
+
 export class PromptException extends Error {
   constructor(message: string) {
     super(message);
@@ -12,19 +14,31 @@ export class PromptValidationException extends PromptException {
   }
 }
 
-export function deepFreeze<T>(obj: any): T {
+export class InvalidPromptStateException extends PromptException {
+  constructor(action: string, currentState: PromptState) {
+    super(`Cannot perform "${action}" while PromptRegistry is in "${currentState}" state.`);
+  }
+}
+
+/**
+ * Recursively deep-freezes a given object, enforcing immutability.
+ * Uses type constraints and avoids 'any' to conform to strict TypeScript.
+ */
+export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
   Object.freeze(obj);
-  Object.getOwnPropertyNames(obj).forEach((prop) => {
+  
+  const typedObj = obj as unknown as Record<string, unknown>;
+  Object.getOwnPropertyNames(typedObj).forEach((prop) => {
     if (
-      obj.hasOwnProperty(prop) &&
-      obj[prop] !== null &&
-      (typeof obj[prop] === "object" || typeof obj[prop] === "function") &&
-      !Object.isFrozen(obj[prop])
+      Object.prototype.hasOwnProperty.call(typedObj, prop) &&
+      typedObj[prop] !== null &&
+      (typeof typedObj[prop] === "object" || typeof typedObj[prop] === "function") &&
+      !Object.isFrozen(typedObj[prop])
     ) {
-      deepFreeze(obj[prop]);
+      deepFreeze(typedObj[prop]);
     }
   });
   return obj;

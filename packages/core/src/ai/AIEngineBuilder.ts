@@ -8,6 +8,7 @@ import { IObservability } from "../observability/IObservability";
 import { IMessageBus } from "../messagebus/IMessageBus";
 import { ILogger } from "../logger/ILogger";
 import { IConversationManager } from "../conversation/IConversationManager";
+import { IPromptRegistry } from "../prompts/IPromptRegistry";
 import { AIEngineValidationException } from "./types";
 
 export class AIEngineBuilder {
@@ -18,6 +19,7 @@ export class AIEngineBuilder {
   private _messageBus?: IMessageBus;
   private _logger?: ILogger;
   private _conversationManager?: IConversationManager;
+  private _promptRegistry?: IPromptRegistry;
   private _metadata: Record<string, unknown> = {};
 
   public withContext(context: AIEngineContext): this {
@@ -55,6 +57,11 @@ export class AIEngineBuilder {
     return this;
   }
 
+  public withPromptRegistry(promptRegistry: IPromptRegistry): this {
+    this._promptRegistry = promptRegistry;
+    return this;
+  }
+
   public withMetadata(metadata: Record<string, unknown>): this {
     this._metadata = { ...this._metadata, ...metadata };
     return this;
@@ -67,6 +74,7 @@ export class AIEngineBuilder {
     let finalMessageBus = this._messageBus;
     let finalLogger = this._logger;
     let finalConversationManager = this._conversationManager;
+    let finalPromptRegistry = this._promptRegistry;
     let env: string | undefined;
     let namespace: string | undefined;
     let contextMetadata = {};
@@ -78,6 +86,7 @@ export class AIEngineBuilder {
       finalMessageBus = finalMessageBus || this._context.messageBus;
       finalLogger = finalLogger || this._context.logger;
       finalConversationManager = finalConversationManager || this._context.conversationManager;
+      finalPromptRegistry = finalPromptRegistry || this._context.promptRegistry;
       env = this._context.env;
       namespace = this._context.namespace;
       contextMetadata = this._context.metadata || {};
@@ -96,6 +105,7 @@ export class AIEngineBuilder {
       observability: finalObservability,
       messageBus: finalMessageBus,
       conversationManager: finalConversationManager,
+      promptRegistry: finalPromptRegistry,
       metadata: { ...contextMetadata, ...this._metadata },
     };
 

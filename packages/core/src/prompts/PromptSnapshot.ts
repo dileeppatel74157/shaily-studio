@@ -1,12 +1,16 @@
-import { PromptTemplate } from "./PromptTemplate";
-import { PromptMetadata } from "./PromptMetadata";
-import { PromptCapability } from "./PromptCapability";
+import { PromptState } from "./PromptState";
 
 export interface PromptSnapshot {
   readonly id: string;
-  readonly metadata: PromptMetadata;
-  readonly template: PromptTemplate;
-  readonly version: string;
-  readonly capabilities: readonly PromptCapability[];
+  readonly state: PromptState;
+  readonly initializedAt?: Date;
+  readonly startedAt?: Date;
+  readonly stoppedAt?: Date;
+  readonly templateCount: number;
+  readonly renderedCount: number;
+  readonly metadata: Readonly<Record<string, unknown>>;
   readonly timestamp: Date;
+
+  // Backward compatibility
+  readonly promptsCount: number;
 }

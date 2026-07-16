@@ -15,6 +15,7 @@ import {
   IPromptRegistry,
   IKnowledgeBase,
   IPluginRegistry,
+  PromptState,
 } from "./index";
 import { deepFreeze as freezeHelper } from "./mcp/types";
 
@@ -52,12 +53,29 @@ async function runTests() {
   };
 
   const mockPrompts: IPromptRegistry = {
-    register: () => {},
-    unregister: () => true,
+    initialize: async () => {},
+    start: async () => {},
+    stop: async () => {},
+    register: async () => {},
+    unregister: async () => {},
     get: () => undefined,
     has: () => false,
-    render: () => "",
-    snapshot: () => ({ promptsCount: 0, prompts: [] }),
+    list: () => [],
+    render: async () => ({
+      promptId: "mock",
+      version: "1.0.0",
+      renderedAt: new Date(),
+      variables: {},
+    }),
+    snapshot: () => ({
+      id: "mock",
+      state: PromptState.RUNNING,
+      templateCount: 0,
+      renderedCount: 0,
+      metadata: {},
+      timestamp: new Date(),
+      promptsCount: 0,
+    }),
   };
 
   const mockKB: IKnowledgeBase = {

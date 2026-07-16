@@ -1,0 +1,8 @@
+export enum PlanningStrategy {
+  SEQUENTIAL = "SEQUENTIAL",
+  PARALLEL = "PARALLEL",
+  TREE = "TREE",
+  GRAPH = "GRAPH",
+  WORKFLOW = "WORKFLOW",
+  AUTONOMOUS = "AUTONOMOUS",
+}

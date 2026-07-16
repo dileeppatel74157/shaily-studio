@@ -44,6 +44,7 @@ export * from "./events/index";
 export * from "./jobs/index";
 export * from "./memory/index";
 export * from "./agents/index";
+export * from "./planning/index";
 export * from "./workflow/index";
 export * from "./router/index";
 export * from "./orchestrator/index";

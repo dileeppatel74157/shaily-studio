@@ -4,13 +4,14 @@ import { ProviderFeature } from "./ProviderFeature";
 import { ProviderState } from "./ProviderState";
 import { ProviderHealth } from "./ProviderHealth";
 import { ProviderRequest } from "./ProviderRequest";
-import { ProviderResponse } from "./ProviderResponse";
+import { ProviderResponse, ProviderResponseChunk } from "./ProviderResponse";
 import { ProviderSnapshot } from "./ProviderSnapshot";
 import { ProviderContext } from "./ProviderContext";
 import { ProviderConfiguration } from "./ProviderConfiguration";
 import { InvalidProviderStateException, deepFreeze } from "./types";
 import { ProviderValidator } from "./ProviderValidator";
 import { ProviderMetadata } from "./ProviderMetadata";
+import { ModelDescriptor } from "../router/ModelDescriptor";
 
 export interface ProviderHandler {
   initialize?(context: ProviderContext): Promise<void>;
@@ -244,5 +245,16 @@ export abstract class Provider implements IProvider {
   }
 
 
+  public abstract get models(): readonly ModelDescriptor[];
+
+  public async *stream(request: ProviderRequest): AsyncGenerator<ProviderResponseChunk> {
+    if (this._state !== ProviderState.RUNNING && this._state !== ProviderState.READY) {
+      throw new InvalidProviderStateException("stream", this._state);
+    }
+    ProviderValidator.validateRequest(request, this);
+    yield* this.performStream(request);
+  }
+
   protected abstract performExecute(request: ProviderRequest): Promise<ProviderResponse>;
+  protected abstract performStream(request: ProviderRequest): AsyncGenerator<ProviderResponseChunk>;
 }

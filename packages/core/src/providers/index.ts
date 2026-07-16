@@ -17,3 +17,4 @@ export * from "./ProviderBuilder";
 export * from "./ProviderRegistry";
 export * from "./IProviderRegistry";
 export * from "./ProviderValidator";
+export * from "./transport/index";

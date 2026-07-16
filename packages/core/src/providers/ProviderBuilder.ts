@@ -5,10 +5,15 @@ import { ProviderType } from "./ProviderType";
 import { ProviderFeature } from "./ProviderFeature";
 import { ProviderCapabilities } from "./ProviderCapability";
 import { ProviderRequest } from "./ProviderRequest";
-import { ProviderResponse } from "./ProviderResponse";
+import { ProviderResponse, ProviderResponseChunk } from "./ProviderResponse";
 import { ProviderValidationException } from "./types";
+import { ModelDescriptor } from "../router/ModelDescriptor";
 
 class ConcreteProvider extends Provider {
+  public get models(): readonly ModelDescriptor[] {
+    return [];
+  }
+
   protected async performExecute(request: ProviderRequest): Promise<ProviderResponse> {
     return {
       responseId: "resp-123",
@@ -17,6 +22,13 @@ class ConcreteProvider extends Provider {
       content: "Default mock response content",
       text: "Default mock response content",
       latency: 10,
+    };
+  }
+
+  protected async *performStream(request: ProviderRequest): AsyncGenerator<ProviderResponseChunk> {
+    yield {
+      chunkId: "chunk-123",
+      content: "Default mock stream chunk response content",
     };
   }
 }

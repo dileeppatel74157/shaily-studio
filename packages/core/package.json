@@ -14,6 +14,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "@shaily/provider-nvidia": "workspace:*",
+    "@shaily/provider-openai": "workspace:*",
+    "@shaily/provider-google": "workspace:*",
+    "@shaily/provider-grok": "workspace:*",
+    "@shaily/provider-ollama": "workspace:*"
   }
 }

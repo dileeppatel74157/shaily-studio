@@ -15,4 +15,11 @@ export interface RouterRequest {
   readonly maxLatency?: number;
   readonly priority?: number;
   readonly metadata?: Record<string, unknown>;
+
+  // V2 parameters
+  readonly routingStrategy?: string;
+  readonly taskType?: string;
+  readonly tokenLimits?: number;
+  readonly contextSize?: number;
+  readonly streamRequirement?: boolean;
 }

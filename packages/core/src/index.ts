@@ -114,7 +114,18 @@ export {
   ProviderValidator,
   ProviderException,
   ProviderValidationException,
-  InvalidProviderStateException
+  InvalidProviderStateException,
+  ProviderRequest,
+  ProviderResponse,
+  ProviderResponseChunk,
+  ProviderContext,
+  ProviderConfiguration,
+  ProviderMetadata,
+  IProviderTransport,
+  TransportBuilder,
+  TransportError,
+  TransportRequest,
+  TransportResponse
 } from "./providers/index";
 
 

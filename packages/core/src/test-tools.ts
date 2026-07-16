@@ -85,6 +85,7 @@ async function runTests() {
     registerModel: () => {},
     unregisterModel: () => true,
     route: async () => ({} as any),
+    routeStream: async function* () {},
     snapshot: () => ({} as any),
   };
 

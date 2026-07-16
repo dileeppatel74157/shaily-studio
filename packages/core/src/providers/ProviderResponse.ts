@@ -16,3 +16,15 @@ export interface ProviderResponse {
   readonly finishReason?: string;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
+
+export interface ProviderResponseChunk {
+  readonly chunkId: string;
+  readonly content: string;
+  readonly usage?: {
+    readonly promptTokens: number;
+    readonly completionTokens: number;
+    readonly totalTokens: number;
+  };
+  readonly finishReason?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
+}

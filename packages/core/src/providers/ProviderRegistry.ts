@@ -2,10 +2,13 @@ import { IProvider } from "./IProvider";
 import { ProviderType } from "./ProviderType";
 import { ProviderValidationException, ProviderRegistrySnapshot, deepFreeze } from "./types";
 import { IProviderRegistry } from "./IProviderRegistry";
+import { ProviderFeature } from "./ProviderFeature";
+import { ModelDescriptor } from "../router/ModelDescriptor";
 
 export class ProviderRegistry implements IProviderRegistry {
   private readonly _providers = new Map<string, IProvider>();
   private readonly _defaults = new Map<ProviderType, string>();
+  private _healthCallbacks: ((providerId: string, health: any) => void)[] = [];
 
   public register(provider: IProvider): void {
     if (!provider) {
@@ -18,7 +21,6 @@ export class ProviderRegistry implements IProviderRegistry {
   }
 
   public unregister(id: string): boolean {
-    // Clean up defaults referencing this provider
     for (const [type, defaultId] of this._defaults.entries()) {
       if (defaultId === id) {
         this._defaults.delete(type);
@@ -46,7 +48,6 @@ export class ProviderRegistry implements IProviderRegistry {
   public default(type: ProviderType): IProvider | undefined {
     const defaultId = this._defaults.get(type);
     if (!defaultId) {
-      // Return first registered provider matching the type if no explicit default is configured
       return this.list().find((p) => p.type === type);
     }
     return this._providers.get(defaultId);
@@ -68,6 +69,40 @@ export class ProviderRegistry implements IProviderRegistry {
   public async execute(providerId: string, request: any): Promise<any> {
     const provider = this.get(providerId);
     return await provider.execute(request);
+  }
+
+  public modelLookup(modelId: string): { provider: IProvider; model: ModelDescriptor } | undefined {
+    for (const provider of this.list()) {
+      if (provider.models) {
+        const foundModel = provider.models.find((m) => m.id === modelId);
+        if (foundModel) {
+          return { provider, model: foundModel };
+        }
+      }
+    }
+    return undefined;
+  }
+
+  public capabilityLookup(feature: ProviderFeature): readonly IProvider[] {
+    return this.list().filter((p) => p.capabilities.includes(feature));
+  }
+
+  public providerLookup(id: string): IProvider | undefined {
+    return this._providers.get(id);
+  }
+
+  public notifyHealthUpdate(providerId: string, health: any): void {
+    for (const cb of this._healthCallbacks) {
+      try {
+        cb(providerId, health);
+      } catch (_) {
+        // Safe execution
+      }
+    }
+  }
+
+  public onHealthUpdate(callback: (providerId: string, health: any) => void): void {
+    this._healthCallbacks.push(callback);
   }
 
   public snapshot(): ProviderRegistrySnapshot {

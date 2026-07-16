@@ -18,4 +18,13 @@ export interface ModelDescriptor {
   readonly costMetadata: ModelCostMetadata;
   readonly latencyMetadata: ModelLatencyMetadata;
   readonly enabled: boolean;
+
+  // V2 fields
+  readonly displayName?: string;
+  readonly vision?: boolean;
+  readonly tools?: boolean;
+  readonly streaming?: boolean;
+  readonly embeddings?: boolean;
+  readonly JSON?: boolean;
+  readonly providerMetadata?: Readonly<Record<string, any>>;
 }

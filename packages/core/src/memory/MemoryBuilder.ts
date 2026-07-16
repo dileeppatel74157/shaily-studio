@@ -1,41 +1,26 @@
-import { MemoryEntry } from "./MemoryEntry";
+import { MemoryEngine } from "./MemoryEngine";
+import { MemoryContext } from "./MemoryContext";
+import { MemoryState } from "./MemoryState";
 
-export class MemoryBuilder<T = any> {
-  private _key?: string;
-  private _namespace?: string;
-  private _value!: T;
-  private _createdAt = new Date();
-  private _updatedAt = new Date();
-  private _version = 1;
+export interface MemoryConfiguration {
+  readonly maxCacheSize?: number;
+  readonly decayRate?: number;
+  readonly learningEnabled?: boolean;
+  readonly reflectionEnabled?: boolean;
+}
+
+export class MemoryBuilder {
+  private _context?: MemoryContext;
+  private _configuration?: MemoryConfiguration;
   private _metadata: Record<string, unknown> = {};
 
-  public withKey(key: string): this {
-    this._key = key;
+  public withContext(context: MemoryContext): this {
+    this._context = context;
     return this;
   }
 
-  public withNamespace(namespace: string): this {
-    this._namespace = namespace;
-    return this;
-  }
-
-  public withValue(value: T): this {
-    this._value = value;
-    return this;
-  }
-
-  public withCreatedAt(createdAt: Date): this {
-    this._createdAt = createdAt;
-    return this;
-  }
-
-  public withUpdatedAt(updatedAt: Date): this {
-    this._updatedAt = updatedAt;
-    return this;
-  }
-
-  public withVersion(version: number): this {
-    this._version = version;
+  public withConfiguration(configuration: MemoryConfiguration): this {
+    this._configuration = configuration;
     return this;
   }
 
@@ -44,21 +29,10 @@ export class MemoryBuilder<T = any> {
     return this;
   }
 
-  public build(): MemoryEntry<T> {
-    if (!this._key) {
-      throw new Error("Key is required to build a MemoryEntry.");
+  public build(): MemoryEngine {
+    if (!this._context) {
+      throw new Error("Context is required to build a MemoryEngine.");
     }
-    if (!this._namespace) {
-      throw new Error("Namespace is required to build a MemoryEntry.");
-    }
-    return new MemoryEntry<T>(
-      this._key,
-      this._namespace,
-      this._value,
-      this._createdAt,
-      this._updatedAt,
-      this._version,
-      this._metadata
-    );
+    return new MemoryEngine(this._context, this._configuration, this._metadata);
   }
 }

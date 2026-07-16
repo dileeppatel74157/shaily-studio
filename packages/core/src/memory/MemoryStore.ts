@@ -4,7 +4,7 @@ import { MemoryCollection } from "./MemoryCollection";
 import { MemorySerializer } from "./MemorySerializer";
 import { MemoryValidator } from "./MemoryValidator";
 import { MemorySnapshot } from "./MemorySnapshot";
-import { MemoryBuilder } from "./MemoryBuilder";
+import { MemoryEntryBuilder } from "./MemoryEntryBuilder";
 
 export class MemoryStore implements IMemoryStore {
   private readonly _collection = new MemoryCollection();
@@ -37,7 +37,7 @@ export class MemoryStore implements IMemoryStore {
     const createdAt = existing ? existing.createdAt : new Date();
     const updatedAt = new Date();
 
-    const entry = new MemoryBuilder<T>()
+    const entry = new MemoryEntryBuilder<T>()
       .withKey(key)
       .withNamespace(namespace)
       .withValue(clonedValue)

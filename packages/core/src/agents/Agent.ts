@@ -261,6 +261,80 @@ export class Agent implements IAgent {
     }
   }
 
+  // Agent Collaboration Methods
+  private getCollaborationEngine(): any {
+    if (this.context.registry) {
+      const token = { name: "IAgentCommunication" } as any;
+      if (this.context.registry.has(token)) {
+        return this.context.registry.resolve(token);
+      }
+    }
+    throw new Error("IAgentCommunication is not registered in the service registry.");
+  }
+
+  public async sendMessage(recipientId: string, content: string, type: any = "TASK"): Promise<any> {
+    const engine = this.getCollaborationEngine();
+    return engine.send({
+      type,
+      priority: "NORMAL",
+      senderId: this.id,
+      recipientId,
+      conversationId: "conv-" + this.id + "-" + recipientId,
+      content,
+      metadata: {},
+    });
+  }
+
+  public async broadcast(content: string, recipientIds: ReadonlyArray<string>): Promise<void> {
+    const engine = this.getCollaborationEngine();
+    await engine.broadcast(
+      {
+        type: "NOTIFICATION",
+        priority: "NORMAL",
+        senderId: this.id,
+        content,
+        metadata: {},
+      },
+      recipientIds
+    );
+  }
+
+  public async delegateTask(delegateeId: string, taskTitle: string, taskDescription: string): Promise<any> {
+    const engine = this.getCollaborationEngine();
+    return engine.delegate({
+      title: taskTitle,
+      description: taskDescription,
+      assigneeId: delegateeId,
+      assignerId: this.id,
+      metadata: {},
+    });
+  }
+
+  public async reply(messageId: string, content: string): Promise<any> {
+    const engine = this.getCollaborationEngine();
+    return engine.reply(messageId, content);
+  }
+
+  public async receive(): Promise<ReadonlyArray<any>> {
+    const engine = this.getCollaborationEngine();
+    return engine.receive(this.id);
+  }
+
+  public async heartbeat(): Promise<void> {
+    const engine = this.getCollaborationEngine();
+    await engine.heartbeat(this.id);
+  }
+
+  public async presence(status: any): Promise<void> {
+    const engine = this.getCollaborationEngine();
+    await engine.presence(this.id, status);
+  }
+
+  public async conversationHistory(conversationId: string): Promise<any> {
+    const engine = this.getCollaborationEngine();
+    return engine.conversationHistory(conversationId);
+  }
+
   public snapshot(): AgentSnapshot {
     return deepFreeze({
       id: this.id,

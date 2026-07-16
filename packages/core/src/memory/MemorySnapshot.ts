@@ -1,3 +1,5 @@
+import { MemoryState } from "./MemoryState";
+
 export interface MemoryEntryMetadataSnapshot {
   readonly key: string;
   readonly namespace: string;
@@ -9,8 +11,17 @@ export interface MemoryEntryMetadataSnapshot {
 
 export interface MemorySnapshot {
   readonly timestamp: Date;
-  readonly totalEntriesCount: number;
-  readonly namespaceCount: number;
-  readonly namespaces: ReadonlyArray<string>;
-  readonly entries: ReadonlyArray<MemoryEntryMetadataSnapshot>;
+  // Old MemoryStore stats
+  readonly totalEntriesCount?: number;
+  readonly namespaceCount?: number;
+  readonly namespaces?: ReadonlyArray<string>;
+  readonly entries?: ReadonlyArray<MemoryEntryMetadataSnapshot>;
+
+  // New MemoryEngine stats
+  readonly state?: MemoryState;
+  readonly learningCount?: number;
+  readonly memoryCount?: number;
+  readonly patternCount?: number;
+  readonly reflectionCount?: number;
+  readonly cacheUsage?: number;
 }

@@ -1,4 +1,4 @@
-export class MemoryException extends Error {
+export class CollaborationException extends Error {
   constructor(message: string) {
     super(message);
     this.name = this.constructor.name;
@@ -6,21 +6,15 @@ export class MemoryException extends Error {
   }
 }
 
-export class InvalidMemoryException extends MemoryException {
+export class CollaborationValidationException extends CollaborationException {
   constructor(message: string) {
     super(message);
   }
 }
 
-export class MemoryValidationException extends MemoryException {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-export class InvalidMemoryStateException extends MemoryException {
+export class InvalidCollaborationStateException extends CollaborationException {
   constructor(action: string, currentState: string) {
-    super(`Cannot perform "${action}" because memory engine is in state "${currentState}".`);
+    super(`Cannot perform "${action}" because collaboration framework is in state "${currentState}".`);
   }
 }
 

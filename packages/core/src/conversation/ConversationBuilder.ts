@@ -1,32 +1,35 @@
-import { IAIEngine } from "./IAIEngine";
-import { AIEngine } from "./AIEngine";
-import { AIEngineContext } from "./AIEngineContext";
-import { AIEngineValidator } from "./AIEngineValidator";
-import { ILLMRouter } from "../router/ILLMRouter";
+import { IConversationManager } from "./IConversationManager";
+import { ConversationManager } from "./ConversationManager";
+import { ConversationContext } from "./ConversationContext";
+import { ConversationValidator } from "./ConversationValidator";
+import { IAIEngine } from "../ai/IAIEngine";
 import { ISecurity } from "../security/ISecurity";
 import { IObservability } from "../observability/IObservability";
 import { IMessageBus } from "../messagebus/IMessageBus";
 import { ILogger } from "../logger/ILogger";
-import { IConversationManager } from "../conversation/IConversationManager";
-import { AIEngineValidationException } from "./types";
+import { ConversationValidationException } from "./types";
 
-export class AIEngineBuilder {
-  private _context?: AIEngineContext;
-  private _router?: ILLMRouter;
+export class ConversationBuilder {
+  private _context?: ConversationContext;
+  private _aiEngine?: IAIEngine;
   private _security?: ISecurity;
   private _observability?: IObservability;
   private _messageBus?: IMessageBus;
   private _logger?: ILogger;
-  private _conversationManager?: IConversationManager;
   private _metadata: Record<string, unknown> = {};
 
-  public withContext(context: AIEngineContext): this {
+  public withContext(context: ConversationContext): this {
     this._context = context;
     return this;
   }
 
-  public withRouter(router: ILLMRouter): this {
-    this._router = router;
+  public withRouter(router: any): this {
+    // backward compatibility
+    return this;
+  }
+
+  public withAIEngine(aiEngine: IAIEngine): this {
+    this._aiEngine = aiEngine;
     return this;
   }
 
@@ -50,57 +53,51 @@ export class AIEngineBuilder {
     return this;
   }
 
-  public withConversationManager(conversationManager: IConversationManager): this {
-    this._conversationManager = conversationManager;
-    return this;
-  }
-
   public withMetadata(metadata: Record<string, unknown>): this {
     this._metadata = { ...this._metadata, ...metadata };
     return this;
   }
 
-  public build(): IAIEngine {
-    let finalRouter = this._router;
+  public build(): IConversationManager {
+    if (!this._context) {
+      throw new ConversationValidationException(
+        "ConversationContext is required to build ConversationManager."
+      );
+    }
+
+    let finalAIEngine = this._aiEngine;
     let finalSecurity = this._security;
     let finalObservability = this._observability;
     let finalMessageBus = this._messageBus;
     let finalLogger = this._logger;
-    let finalConversationManager = this._conversationManager;
     let env: string | undefined;
     let namespace: string | undefined;
     let contextMetadata = {};
 
     if (this._context) {
-      finalRouter = finalRouter || this._context.router;
+      finalAIEngine = finalAIEngine || this._context.aiEngine;
       finalSecurity = finalSecurity || this._context.security;
       finalObservability = finalObservability || this._context.observability;
       finalMessageBus = finalMessageBus || this._context.messageBus;
       finalLogger = finalLogger || this._context.logger;
-      finalConversationManager = finalConversationManager || this._context.conversationManager;
       env = this._context.env;
       namespace = this._context.namespace;
       contextMetadata = this._context.metadata || {};
     }
 
-    if (!finalRouter) {
-      throw new AIEngineValidationException("Missing provider router: A router must be specified to build AIEngine.");
-    }
-
-    const context: AIEngineContext = {
+    const context: ConversationContext = {
       env,
       namespace,
       logger: finalLogger,
-      router: finalRouter,
+      aiEngine: finalAIEngine,
       security: finalSecurity,
       observability: finalObservability,
       messageBus: finalMessageBus,
-      conversationManager: finalConversationManager,
       metadata: { ...contextMetadata, ...this._metadata },
     };
 
-    AIEngineValidator.validateContext(context);
+    ConversationValidator.validateContext(context);
 
-    return new AIEngine(context, this._metadata);
+    return new ConversationManager(context, this._metadata);
   }
 }

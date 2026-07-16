@@ -136,7 +136,25 @@ export class AIEngine implements IAIEngine {
       if (request.systemPrompt) {
         messages.push({ role: "system", content: request.systemPrompt });
       }
-      if (request.messages) {
+      if (request.conversationId) {
+        if (!this._context.conversationManager) {
+          throw new Error("ConversationManager is not configured on AIEngineContext.");
+        }
+        const hist = this._context.conversationManager.history(request.conversationId);
+        const mapped = hist.messages.map((m) => {
+          let role: "system" | "user" | "assistant" | "tool" = "user";
+          if (m.role === "SYSTEM" || m.role === "DEVELOPER") role = "system";
+          else if (m.role === "USER") role = "user";
+          else if (m.role === "ASSISTANT") role = "assistant";
+          else if (m.role === "TOOL") role = "tool";
+          return {
+            role,
+            content: m.content,
+            name: m.metadata?.name as string | undefined,
+          };
+        });
+        messages.push(...mapped);
+      } else if (request.messages) {
         messages.push(...request.messages);
       } else if (request.conversation?.messages) {
         messages.push(...request.conversation.messages);
@@ -384,7 +402,25 @@ export class AIEngine implements IAIEngine {
       if (request.systemPrompt) {
         messages.push({ role: "system", content: request.systemPrompt });
       }
-      if (request.messages) {
+      if (request.conversationId) {
+        if (!this._context.conversationManager) {
+          throw new Error("ConversationManager is not configured on AIEngineContext.");
+        }
+        const hist = this._context.conversationManager.history(request.conversationId);
+        const mapped = hist.messages.map((m) => {
+          let role: "system" | "user" | "assistant" | "tool" = "user";
+          if (m.role === "SYSTEM" || m.role === "DEVELOPER") role = "system";
+          else if (m.role === "USER") role = "user";
+          else if (m.role === "ASSISTANT") role = "assistant";
+          else if (m.role === "TOOL") role = "tool";
+          return {
+            role,
+            content: m.content,
+            name: m.metadata?.name as string | undefined,
+          };
+        });
+        messages.push(...mapped);
+      } else if (request.messages) {
         messages.push(...request.messages);
       } else if (request.conversation?.messages) {
         messages.push(...request.conversation.messages);

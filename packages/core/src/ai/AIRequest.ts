@@ -8,6 +8,7 @@ export interface AIRequest {
   readonly prompt?: string;
   readonly messages?: readonly AIMessage[];
   readonly conversation?: AIConversation;
+  readonly conversationId?: string;
   readonly modelId?: string;
   readonly providerId?: string;
   readonly systemPrompt?: string;

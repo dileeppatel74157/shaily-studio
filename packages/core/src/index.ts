@@ -128,6 +128,7 @@ export {
   TransportResponse
 } from "./providers/index";
 export * from "./ai/index";
+export * from "./conversation/index";
 
 
 

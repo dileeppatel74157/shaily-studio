@@ -1,18 +1,16 @@
-import { ILLMRouter } from "../router/ILLMRouter";
+import { IAIEngine } from "../ai/IAIEngine";
 import { ISecurity } from "../security/ISecurity";
 import { IObservability } from "../observability/IObservability";
 import { IMessageBus } from "../messagebus/IMessageBus";
 import { ILogger } from "../logger/ILogger";
-import { IConversationManager } from "../conversation/IConversationManager";
 
-export interface AIEngineContext {
+export interface ConversationContext {
   readonly env?: string;
   readonly namespace?: string;
   readonly logger?: ILogger;
-  readonly router: ILLMRouter;
+  readonly aiEngine?: IAIEngine;
   readonly security?: ISecurity;
   readonly observability?: IObservability;
   readonly messageBus?: IMessageBus;
-  readonly conversationManager?: IConversationManager;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }

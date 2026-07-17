@@ -247,6 +247,15 @@ export class Agent implements IAgent {
         "id" in input
       ) {
         result = await this.context.channelEngine.generate((input as any).id, (input as any).niche, (input as any).options);
+      } else if (
+        this.capabilities.includes("script" as any) &&
+        this.context.scriptEngine &&
+        input &&
+        typeof input === "object" &&
+        "topic" in input &&
+        "type" in input
+      ) {
+        result = await this.context.scriptEngine.generate(input as any);
       } else {
         result = await this._lifecycle.execute(this.context, input);
       }

@@ -198,6 +198,29 @@ export class PlanningEngine implements IPlanningEngine {
         }
       }
 
+      const isScript = request.goal.description.toLowerCase().includes("script") || request.goal.description.toLowerCase().includes("dialogue") || request.goal.description.toLowerCase().includes("story");
+      if (isScript && this.context.scriptEngine && !isCircular && tasks.length === 0) {
+        try {
+          const res = await this.context.scriptEngine.generate({
+            id: "scr-plan-" + request.id + "-" + Date.now(),
+            type: "TUTORIAL" as any,
+            topic: "Advanced Type Safety",
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+          tasks = res.scenes.map((scene: any, idx: number) => ({
+            id: `task-script-${idx}`,
+            name: `Shoot Scene: ${scene.id}`,
+            description: `Record video for scene objective: ${scene.objective} (Type: ${scene.type}, duration: ${scene.durationSeconds}s)`,
+            priority: "NORMAL" as any,
+            dependencies: scene.dependencies.map((d: string) => `task-script-${d}`),
+            status: "pending"
+          }));
+        } catch (e) {
+          // Fallback
+        }
+      }
+
       if (tasks.length === 0) {
         if (isCircular) {
         // Intentionally generate circular dependencies for validator checks

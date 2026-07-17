@@ -283,6 +283,22 @@ export class ChannelEngine implements IChannelEngine {
         });
       }
 
+      // Link brand guide & blueprints to script generation automatically if scriptEngine is available
+      if (this.context.scriptEngine && options?.generateScriptFromBlueprint) {
+        try {
+          await this.context.scriptEngine.generate({
+            id: "scr-chan-linked-" + id,
+            type: "TUTORIAL" as any,
+            topic: niche,
+            blueprintId: kb.blueprints[0]?.id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ChannelState.RUNNING; // restore state
       return kb;
     } catch (error: any) {

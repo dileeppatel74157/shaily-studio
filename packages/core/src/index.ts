@@ -56,6 +56,7 @@ export * from "./decision/index";
 export * from "./research/index";
 export * from "./strategy/index";
 export * from "./channel/index";
+export * from "./script/index";
 export * from "./supervisor/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";

@@ -16,6 +16,7 @@ import { IStorage } from "../storage/IStorage";
 import { IResearchEngine } from "../research/interfaces";
 import { IStrategyEngine } from "../strategy/interfaces";
 import { IChannelEngine } from "../channel/interfaces";
+import { IScriptEngine } from "../script/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -37,4 +38,5 @@ export interface AgentContext {
   readonly researchEngine?: IResearchEngine;
   readonly strategyEngine?: IStrategyEngine;
   readonly channelEngine?: IChannelEngine;
+  readonly scriptEngine?: IScriptEngine;
 }

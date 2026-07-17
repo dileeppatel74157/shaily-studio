@@ -164,6 +164,27 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Script Engine integration: boost options matching active script scenes or timing bounds
+        if (decision.context.scriptEngine) {
+          try {
+            const history = decision.context.scriptEngine.getHistory();
+            if (history.length > 0) {
+              const script = history[history.length - 1];
+              const matchingScene = script.scenes.find(
+                (scene: any) =>
+                  scene.id.toLowerCase() === opt.id.toLowerCase() ||
+                  scene.objective.toLowerCase().includes(opt.name.toLowerCase())
+              );
+              if (matchingScene) {
+                const boost = Math.min(0.2, matchingScene.durationSeconds * 0.005);
+                alignment = Math.min(1.0, alignment + boost);
+              }
+            }
+          } catch (e) {
+            // Ignore if scriptEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

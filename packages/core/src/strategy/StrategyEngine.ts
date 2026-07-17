@@ -341,6 +341,24 @@ export class StrategyEngine implements IStrategyEngine {
         });
       }
 
+      // Link generated calendar entries to script blueprints automatically if scriptEngine is available
+      if (this.context.scriptEngine && request.options?.generateScriptsForCalendar) {
+        try {
+          for (const entry of calendar.entries) {
+            await this.context.scriptEngine.generate({
+              id: "scr-strat-linked-" + entry.id,
+              type: "TUTORIAL" as any,
+              topic: entry.topic,
+              blueprintId: entry.id,
+              state: "CREATED" as any,
+              timestamp: new Date()
+            });
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = StrategyState.RUNNING; // restore to RUNNING state when done
       return response;
     } catch (error: any) {

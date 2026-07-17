@@ -1,0 +1,6 @@
+export enum StoryStructure {
+  THREE_ACT = "THREE_ACT",
+  HERO_JOURNEY = "HERO_JOURNEY",
+  PROBLEM_SOLUTION = "PROBLEM_SOLUTION",
+  HOOK_FLOW = "HOOK_FLOW",
+}

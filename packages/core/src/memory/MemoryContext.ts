@@ -10,6 +10,7 @@ import { IAgentRegistry } from "../agents/IAgentRegistry";
 import { IResearchEngine } from "../research/interfaces";
 import { IStrategyEngine } from "../strategy/interfaces";
 import { IChannelEngine } from "../channel/interfaces";
+import { IScriptEngine } from "../script/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -25,4 +26,5 @@ export interface MemoryContext {
   readonly researchEngine?: IResearchEngine;
   readonly strategyEngine?: IStrategyEngine;
   readonly channelEngine?: IChannelEngine;
+  readonly scriptEngine?: IScriptEngine;
 }

@@ -424,6 +424,21 @@ export class ResearchEngine implements IResearchEngine {
         }
       }
 
+      // Link research response to script generation if scriptEngine is available
+      if (this.context.scriptEngine && request.options?.generateScript) {
+        try {
+          await this.context.scriptEngine.generate({
+            id: "scr-linked-" + request.id,
+            type: "TUTORIAL" as any,
+            topic: response.topics[0]?.topic || "TypeScript Development",
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ResearchState.RUNNING; // return to running state when done
       return response;
     } catch (error: any) {

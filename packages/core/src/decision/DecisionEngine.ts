@@ -99,6 +99,27 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Research Engine feedback loop
+        if (decision.context.researchEngine) {
+          try {
+            const history = decision.context.researchEngine.getHistory();
+            for (const resp of history) {
+              const matchingTopic = resp.topics.find(
+                (t: any) =>
+                  t.topic.toLowerCase() === opt.id.toLowerCase() ||
+                  t.topic.toLowerCase() === opt.name.toLowerCase()
+              );
+              if (matchingTopic) {
+                // Boost alignment based on monetization and trend scores
+                const boost = (matchingTopic.monetizationScore + matchingTopic.trendScore) * 0.1;
+                alignment = Math.min(1.0, alignment + boost);
+              }
+            }
+          } catch (e) {
+            // Ignore if researchEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

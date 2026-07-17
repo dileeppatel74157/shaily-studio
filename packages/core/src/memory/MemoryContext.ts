@@ -7,6 +7,7 @@ import { IPlanningEngine } from "../planning/IPlanningEngine";
 import { IConversationManager } from "../conversation/IConversationManager";
 import { IWorkflowEngine } from "../workflow/IWorkflowEngine";
 import { IAgentRegistry } from "../agents/IAgentRegistry";
+import { IResearchEngine } from "../research/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -19,4 +20,5 @@ export interface MemoryContext {
   readonly conversationManager?: IConversationManager;
   readonly workflowEngine?: IWorkflowEngine;
   readonly agentRegistry?: IAgentRegistry;
+  readonly researchEngine?: IResearchEngine;
 }

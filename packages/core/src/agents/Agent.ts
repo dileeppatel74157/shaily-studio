@@ -218,9 +218,20 @@ export class Agent implements IAgent {
         metadata: {},
       });
     }
-
     try {
-      const result = await this._lifecycle.execute(this.context, input);
+      let result;
+      if (
+        this.capabilities.includes("research" as any) &&
+        this.context.researchEngine &&
+        input &&
+        typeof input === "object" &&
+        "channelProfile" in input &&
+        "type" in input
+      ) {
+        result = await this.context.researchEngine.execute(input as any);
+      } else {
+        result = await this._lifecycle.execute(this.context, input);
+      }
       
       try {
         AgentValidator.validateLifecycleTransition(this._state, AgentState.COMPLETED);

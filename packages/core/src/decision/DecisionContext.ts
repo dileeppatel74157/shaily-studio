@@ -3,6 +3,7 @@ import { IConfig } from "../config/IConfig";
 import { IServiceRegistry } from "../registry/IServiceRegistry";
 import { IEventBus } from "../events/IEventBus";
 import { IMemoryStore } from "../memory/IMemoryStore";
+import { IResearchEngine } from "../research/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
@@ -12,4 +13,5 @@ export interface DecisionContext {
   readonly memoryStore?: IMemoryStore;
   readonly goalId?: string;
   readonly agentId?: string;
+  readonly researchEngine?: IResearchEngine;
 }

@@ -1,0 +1,6 @@
+export enum TrendType {
+  TRENDING = "TRENDING",
+  RISING = "RISING",
+  EVERGREEN = "EVERGREEN",
+  SEASONAL = "SEASONAL",
+}

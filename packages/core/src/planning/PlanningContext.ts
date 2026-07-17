@@ -10,6 +10,7 @@ import { IAgentRegistry } from "../agents/IAgentRegistry";
 import { IScheduler } from "../scheduler/IScheduler";
 import { IStorage } from "../storage/IStorage";
 import { IObservability } from "../observability/IObservability";
+import { IResearchEngine } from "../research/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -25,4 +26,5 @@ export interface PlanningContext {
   readonly scheduler?: IScheduler;
   readonly storage?: IStorage;
   readonly observability?: IObservability;
+  readonly researchEngine?: IResearchEngine;
 }

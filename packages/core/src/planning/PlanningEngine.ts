@@ -109,8 +109,32 @@ export class PlanningEngine implements IPlanningEngine {
       let tasks: PlanTask[] = [];
       let dependencies: PlanDependency[] = [];
 
+      const isResearch = request.goal.description.toLowerCase().includes("research") || request.goal.description.toLowerCase().includes("discover");
       const isCircular = request.goal.description.includes("circular");
-      if (isCircular) {
+      if (isResearch && this.context.researchEngine && !isCircular) {
+        try {
+          const res = await this.context.researchEngine.execute({
+            id: "req-plan-" + request.id + "-" + Date.now(),
+            type: "FULL" as any,
+            channelProfile: { query: "TypeScript Planning Query" },
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+          tasks = res.topics.slice(0, 3).map((t: any, idx: number) => ({
+            id: `task-research-${idx}`,
+            name: `Research Opportunity: ${t.topic}`,
+            description: `Investigate opportunities for ${t.topic} with final score ${t.finalScore}`,
+            priority: "NORMAL" as any,
+            dependencies: [],
+            status: "pending"
+          }));
+        } catch (e) {
+          // Fallback if execution fails/duplicates
+        }
+      }
+
+      if (tasks.length === 0) {
+        if (isCircular) {
         // Intentionally generate circular dependencies for validator checks
         tasks = [
           { id: "task-1", name: "Task 1", description: "First task", priority: "NORMAL" as any, dependencies: ["task-2"], status: "pending" },
@@ -142,6 +166,7 @@ export class PlanningEngine implements IPlanningEngine {
           { id: "task-1", name: "Task 1", description: "Decomposed task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
         ];
       }
+    }
 
       // Run validator rules
       PlanningValidator.validateTasks(tasks);

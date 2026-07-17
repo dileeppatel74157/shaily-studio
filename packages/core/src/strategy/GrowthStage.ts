@@ -1,0 +1,6 @@
+export enum GrowthStage {
+  LAUNCH = "LAUNCH",
+  ACCELERATION = "ACCELERATION",
+  SCALING = "SCALING",
+  DOMINANCE = "DOMINANCE",
+}

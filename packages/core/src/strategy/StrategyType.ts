@@ -1,0 +1,7 @@
+export enum StrategyType {
+  GROWTH = "GROWTH",
+  SEASONAL = "SEASONAL",
+  EVERGREEN = "EVERGREEN",
+  COMPETITIVE = "COMPETITIVE",
+  FULL = "FULL",
+}

@@ -229,6 +229,15 @@ export class Agent implements IAgent {
         "type" in input
       ) {
         result = await this.context.researchEngine.execute(input as any);
+      } else if (
+        this.capabilities.includes("strategy" as any) &&
+        this.context.strategyEngine &&
+        input &&
+        typeof input === "object" &&
+        "researchResponse" in input &&
+        "type" in input
+      ) {
+        result = await this.context.strategyEngine.generate(input as any);
       } else {
         result = await this._lifecycle.execute(this.context, input);
       }

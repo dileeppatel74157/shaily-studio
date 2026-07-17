@@ -396,6 +396,21 @@ export class ResearchEngine implements IResearchEngine {
         });
       }
 
+      // Link research response to strategy engine creation request if strategyEngine is available
+      if (this.context.strategyEngine && request.options?.generateStrategy) {
+        try {
+          await this.context.strategyEngine.generate({
+            id: "req-str-linked-" + request.id,
+            type: "FULL" as any,
+            researchResponse: response,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ResearchState.RUNNING; // return to running state when done
       return response;
     } catch (error: any) {

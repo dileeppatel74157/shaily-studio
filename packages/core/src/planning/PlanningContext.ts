@@ -11,6 +11,7 @@ import { IScheduler } from "../scheduler/IScheduler";
 import { IStorage } from "../storage/IStorage";
 import { IObservability } from "../observability/IObservability";
 import { IResearchEngine } from "../research/interfaces";
+import { IStrategyEngine } from "../strategy/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -27,4 +28,5 @@ export interface PlanningContext {
   readonly storage?: IStorage;
   readonly observability?: IObservability;
   readonly researchEngine?: IResearchEngine;
+  readonly strategyEngine?: IStrategyEngine;
 }

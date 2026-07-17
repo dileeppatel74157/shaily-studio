@@ -120,6 +120,32 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Strategy Engine feedback loop
+        if (decision.context.strategyEngine) {
+          try {
+            const history = decision.context.strategyEngine.getHistory();
+            for (const resp of history) {
+              const matchingEntry = resp.calendar.entries.find(
+                (entry: any) =>
+                  entry.topic.toLowerCase() === opt.id.toLowerCase() ||
+                  entry.topic.toLowerCase() === opt.name.toLowerCase()
+              );
+              if (matchingEntry) {
+                // Boost alignment based on content priority
+                let boost = 0.1;
+                if (matchingEntry.priority === "CRITICAL") {
+                  boost = 0.2;
+                } else if (matchingEntry.priority === "LOW") {
+                  boost = 0.05;
+                }
+                alignment = Math.min(1.0, alignment + boost);
+              }
+            }
+          } catch (e) {
+            // Ignore if strategyEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

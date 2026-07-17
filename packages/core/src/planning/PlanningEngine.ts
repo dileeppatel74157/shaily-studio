@@ -243,6 +243,28 @@ export class PlanningEngine implements IPlanningEngine {
         }
       }
 
+      const isProduction = request.goal.description.toLowerCase().includes("production") || request.goal.description.toLowerCase().includes("queue");
+      if (isProduction && this.context.productionEngine && !isCircular && tasks.length === 0) {
+        try {
+          const res = await this.context.productionEngine.generate({
+            id: "prod-plan-" + request.id + "-" + Date.now(),
+            scriptId: "scr-plan-placeholder",
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+          tasks = res.plan.assets.map((asset: any, idx: number) => ({
+            id: `task-prod-${idx}`,
+            name: `Queue Sequence Item: ${asset.id}`,
+            description: `Execute render/generation step for type: ${asset.type} (Priority: ${asset.priority})`,
+            priority: asset.priority,
+            dependencies: asset.dependencies.map((d: any) => `task-prod-${d.assetId}`),
+            status: "pending"
+          }));
+        } catch (e) {
+          // Fallback
+        }
+      }
+
       if (tasks.length === 0) {
         if (isCircular) {
         // Intentionally generate circular dependencies for validator checks

@@ -453,6 +453,20 @@ export class ResearchEngine implements IResearchEngine {
         }
       }
 
+      // Link research response to production planning if productionEngine is available
+      if (this.context.productionEngine && request.options?.generateProductionPlan) {
+        try {
+          await this.context.productionEngine.generate({
+            id: "prod-linked-" + request.id,
+            scriptId: "scr-linked-" + request.id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ResearchState.RUNNING; // return to running state when done
       return response;
     } catch (error: any) {

@@ -313,6 +313,20 @@ export class ChannelEngine implements IChannelEngine {
         }
       }
 
+      // Link brand guide & blueprints to production planning automatically if productionEngine is available
+      if (this.context.productionEngine && options?.generateProductionPlanFromBlueprint) {
+        try {
+          await this.context.productionEngine.generate({
+            id: "prod-chan-linked-" + id,
+            scriptId: "scr-chan-linked-" + id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ChannelState.RUNNING; // restore state
       return kb;
     } catch (error: any) {

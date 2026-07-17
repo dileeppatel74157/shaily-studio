@@ -375,6 +375,22 @@ export class StrategyEngine implements IStrategyEngine {
         }
       }
 
+      // Link generated calendar entries to production plans automatically if productionEngine is available
+      if (this.context.productionEngine && request.options?.generateProductionPlansForCalendar) {
+        try {
+          for (const entry of calendar.entries) {
+            await this.context.productionEngine.generate({
+              id: "prod-strat-linked-" + entry.id,
+              scriptId: "scr-strat-linked-" + entry.id,
+              state: "CREATED" as any,
+              timestamp: new Date()
+            });
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = StrategyState.RUNNING; // restore to RUNNING state when done
       return response;
     } catch (error: any) {

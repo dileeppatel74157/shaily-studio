@@ -1,0 +1,7 @@
+export enum AssetStatus {
+  PENDING = "PENDING",
+  PLANNED = "PLANNED",
+  GENERATING = "GENERATING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+}

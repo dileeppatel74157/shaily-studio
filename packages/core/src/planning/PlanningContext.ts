@@ -15,6 +15,7 @@ import { IStrategyEngine } from "../strategy/interfaces";
 import { IChannelEngine } from "../channel/interfaces";
 import { IScriptEngine } from "../script/interfaces";
 import { IAssetEngine } from "../assets/interfaces";
+import { IProductionEngine } from "../production/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -35,4 +36,5 @@ export interface PlanningContext {
   readonly channelEngine?: IChannelEngine;
   readonly scriptEngine?: IScriptEngine;
   readonly assetEngine?: IAssetEngine;
+  readonly productionEngine?: IProductionEngine;
 }

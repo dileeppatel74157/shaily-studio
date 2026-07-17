@@ -18,6 +18,7 @@ import { IStrategyEngine } from "../strategy/interfaces";
 import { IChannelEngine } from "../channel/interfaces";
 import { IScriptEngine } from "../script/interfaces";
 import { IAssetEngine } from "../assets/interfaces";
+import { IProductionEngine } from "../production/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -41,4 +42,5 @@ export interface AgentContext {
   readonly channelEngine?: IChannelEngine;
   readonly scriptEngine?: IScriptEngine;
   readonly assetEngine?: IAssetEngine;
+  readonly productionEngine?: IProductionEngine;
 }

@@ -201,6 +201,23 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Production Engine integration: adjust feasibility based on estimated costs and GPU render time
+        if (decision.context.productionEngine) {
+          try {
+            const history = decision.context.productionEngine.getHistory();
+            if (history.length > 0) {
+              const resp = history[history.length - 1];
+              const totalCost = resp.reports.reduce((acc, r) => acc + r.estimatedCost, 0);
+              const renderTime = resp.reports.reduce((acc, r) => acc + r.estimatedRuntimeSeconds, 0);
+              if (totalCost > 1.0 || renderTime > 120) {
+                feasibility = Math.max(0.0, feasibility - 0.15);
+              }
+            }
+          } catch (e) {
+            // Ignore if productionEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

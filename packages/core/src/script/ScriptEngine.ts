@@ -320,6 +320,20 @@ export class ScriptEngine implements IScriptEngine {
         }
       }
 
+      // Link completed scripts to production engine automatically if productionEngine is available
+      if (this.context.productionEngine && request.options?.generateProductionPlan) {
+        try {
+          await this.context.productionEngine.generate({
+            id: "prod-script-linked-" + request.id,
+            scriptId: request.id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ScriptState.RUNNING; // restore state
       return response;
     } catch (error: any) {

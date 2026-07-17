@@ -9,6 +9,56 @@ export class WorkflowExecutor {
       `Starting execution of workflow: ${workflow.name} (${workflow.id})`
     );
 
+    let supervisor: any = null;
+    let sessionId = "session-wf-" + workflow.id + "-" + Date.now();
+    if (workflow.context.registry) {
+      try {
+        const token = { name: "IExecutionSupervisor" } as any;
+        if (workflow.context.registry.has(token)) {
+          supervisor = workflow.context.registry.resolve(token);
+        }
+      } catch (e) {}
+    }
+
+    if (supervisor) {
+      try {
+        const policy = {
+          id: "pol-wf-" + workflow.id,
+          name: "Workflow Default Policy",
+          limits: {
+            maxTokens: 10000,
+            maxCost: 20,
+            maxExecutionTimeMs: 120000,
+            maxWorkflowDepth: 10,
+            maxRecursion: 10,
+            maxParallelJobs: 10,
+            maxRetries: 5,
+            maxAiCalls: 20,
+            maxToolCalls: 20,
+          },
+          budget: {
+            tokens: 10000,
+            cost: 20,
+            executionTimeMs: 120000,
+            apiCalls: 20,
+            providerUsage: {},
+          },
+          allowedRecoveries: ["retry", "rollback"],
+        };
+
+        const session = new (require("../supervisor/ExecutionBuilder").ExecutionBuilder)()
+          .withId(sessionId)
+          .withType("workflow")
+          .withPolicy(policy as any)
+          .withContext(workflow.context as any)
+          .build();
+
+        await supervisor.registerSession(session);
+        await supervisor.updateSessionState(sessionId, "RUNNING" as any);
+        await supervisor.consumeBudget(sessionId, 100, 0.2);
+      } catch (e) {}
+    }
+
     let currentStepId: string | undefined;
     try {
       for (const step of workflow.steps) {
@@ -18,6 +68,12 @@ export class WorkflowExecutor {
 
         currentStepId = step.id;
         workflow.updateStepStatus(step.id, WorkflowStepStatus.RUNNING);
+
+        if (supervisor) {
+          try {
+            await supervisor.createCheckpoint(sessionId, { currentStepId }, 50);
+          } catch (e) {}
+        }
 
         // Select step executor via Decision Engine if registered
         let decisionEngine: any = null;
@@ -140,7 +196,19 @@ export class WorkflowExecutor {
       workflow.context.logger.info(
         `Workflow completed successfully: ${workflow.name} (${workflow.id})`
       );
+
+      if (supervisor) {
+        try {
+          await supervisor.updateSessionState(sessionId, "COMPLETED" as any);
+        } catch (e) {}
+      }
     } catch (err: any) {
+      if (supervisor) {
+        try {
+          await supervisor.recordFailure(sessionId, err);
+          await supervisor.executeRecovery(sessionId);
+        } catch (e) {}
+      }
       if (signal?.aborted || err.message?.includes("cancelled")) {
         workflow.cancel();
         workflow.context.logger.warn(`Workflow cancelled: ${workflow.name} (${workflow.id})`);

@@ -130,6 +130,56 @@ export class Agent implements IAgent {
     }
 
     this._state = AgentState.RUNNING;
+
+    let supervisor: any = null;
+    let sessionId = "session-" + this.id + "-" + Date.now();
+    if (this.context.registry) {
+      try {
+        const token = { name: "IExecutionSupervisor" } as any;
+        if (this.context.registry.has(token)) {
+          supervisor = this.context.registry.resolve(token);
+        }
+      } catch (e) {}
+    }
+
+    if (supervisor) {
+      try {
+        const policy = {
+          id: "pol-agent-" + this.id,
+          name: "Agent Default Policy",
+          limits: {
+            maxTokens: 5000,
+            maxCost: 10,
+            maxExecutionTimeMs: 60000,
+            maxWorkflowDepth: 5,
+            maxRecursion: 5,
+            maxParallelJobs: 5,
+            maxRetries: 3,
+            maxAiCalls: 10,
+            maxToolCalls: 10,
+          },
+          budget: {
+            tokens: 5000,
+            cost: 10,
+            executionTimeMs: 60000,
+            apiCalls: 10,
+            providerUsage: {},
+          },
+          allowedRecoveries: ["retry", "rollback"],
+        };
+
+        const session = new (require("../supervisor/ExecutionBuilder").ExecutionBuilder)()
+          .withId(sessionId)
+          .withType("agent")
+          .withPolicy(policy as any)
+          .withContext(this.context as any)
+          .build();
+
+        await supervisor.registerSession(session);
+        await supervisor.updateSessionState(sessionId, "RUNNING" as any);
+        await supervisor.consumeBudget(sessionId, 10, 0.05);
+      } catch (e) {}
+    }
     
     // Agents request plans before execution
     if (this.context.registry) {
@@ -203,11 +253,23 @@ export class Agent implements IAgent {
         endTime: new Date(),
       });
 
+      if (supervisor) {
+        try {
+          await supervisor.updateSessionState(sessionId, "COMPLETED" as any);
+        } catch (e) {}
+      }
+
       if (isTask) {
         return execution;
       }
       return result;
     } catch (err: any) {
+      if (supervisor) {
+        try {
+          await supervisor.recordFailure(sessionId, err);
+          await supervisor.executeRecovery(sessionId);
+        } catch (e) {}
+      }
       try {
         AgentValidator.validateLifecycleTransition(this._state, AgentState.FAILED);
       } catch (e: any) {

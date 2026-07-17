@@ -54,138 +54,204 @@ export class PlanningEngine implements IPlanningEngine {
     const strategy = request.strategy || PlanningStrategy.SEQUENTIAL;
     PlanningValidator.validateStrategy(strategy);
 
-    // Goal & Task Decomposition Logic
-    let tasks: PlanTask[] = [];
-    let dependencies: PlanDependency[] = [];
-
-    const isCircular = request.goal.description.includes("circular");
-    if (isCircular) {
-      // Intentionally generate circular dependencies for validator checks
-      tasks = [
-        { id: "task-1", name: "Task 1", description: "First task", priority: "NORMAL" as any, dependencies: ["task-2"], status: "pending" },
-        { id: "task-2", name: "Task 2", description: "Second task", priority: "NORMAL" as any, dependencies: ["task-1"], status: "pending" },
-      ];
-      dependencies = [
-        { taskId: "task-1", dependsOnTaskId: "task-2" },
-        { taskId: "task-2", dependsOnTaskId: "task-1" },
-      ];
-    } else if (strategy === PlanningStrategy.SEQUENTIAL) {
-      const isFailTask = request.goal.description.includes("fail-task");
-      tasks = [
-        { id: "task-1", name: "Task 1", description: isFailTask ? "Decomposed fail-task 1" : "Decomposed task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
-        { id: "task-2", name: "Task 2", description: "Decomposed task 2", priority: "NORMAL" as any, dependencies: ["task-1"], status: "pending" },
-        { id: "task-3", name: "Task 3", description: "Decomposed task 3", priority: "NORMAL" as any, dependencies: ["task-2"], status: "pending" },
-      ];
-      dependencies = [
-        { taskId: "task-2", dependsOnTaskId: "task-1" },
-        { taskId: "task-3", dependsOnTaskId: "task-2" },
-      ];
-    } else if (strategy === PlanningStrategy.PARALLEL) {
-      tasks = [
-        { id: "task-1", name: "Task 1", description: "Parallel task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
-        { id: "task-2", name: "Task 2", description: "Parallel task 2", priority: "NORMAL" as any, dependencies: [], status: "pending" },
-      ];
-    } else {
-      // Default fallback
-      tasks = [
-        { id: "task-1", name: "Task 1", description: "Decomposed task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
-      ];
+    let supervisor: any = null;
+    let sessionId = "session-plan-" + request.id + "-" + Date.now();
+    if (this.context.registry) {
+      try {
+        const token = { name: "IExecutionSupervisor" } as any;
+        if (this.context.registry.has(token)) {
+          supervisor = this.context.registry.resolve(token);
+        }
+      } catch (e) {}
     }
 
-    // Run validator rules
-    PlanningValidator.validateTasks(tasks);
-    PlanningValidator.validateCircularDependencies(tasks);
+    if (supervisor) {
+      try {
+        const policy = {
+          id: "pol-plan-" + request.id,
+          name: "Plan Default Policy",
+          limits: {
+            maxTokens: 1000,
+            maxCost: 2,
+            maxExecutionTimeMs: 10000,
+            maxWorkflowDepth: 2,
+            maxRecursion: 2,
+            maxParallelJobs: 2,
+            maxRetries: 2,
+            maxAiCalls: 5,
+            maxToolCalls: 5,
+          },
+          budget: {
+            tokens: 1000,
+            cost: 2,
+            executionTimeMs: 10000,
+            apiCalls: 5,
+            providerUsage: {},
+          },
+          allowedRecoveries: ["retry"],
+        };
 
-    const processedTasks = await Promise.all(tasks.map(async task => {
-      let choice: { type: "tool" | "workflow" | "skill"; targetId: string } | undefined;
-      const desc = (task.description + " " + request.goal.description).toLowerCase();
+        const session = new (require("../supervisor/ExecutionBuilder").ExecutionBuilder)()
+          .withId(sessionId)
+          .withType("planning")
+          .withPolicy(policy as any)
+          .withContext(this.context as any)
+          .build();
 
-      // Check if Decision Engine is registered
-      let decisionEngine: any = null;
-      if (this.context.registry) {
-        const token = { name: "IDecisionEngine" } as any;
-        if (this.context.registry.has(token)) {
-          decisionEngine = this.context.registry.resolve(token);
-        }
+        await supervisor.registerSession(session);
+        await supervisor.updateSessionState(sessionId, "RUNNING" as any);
+        await supervisor.consumeBudget(sessionId, 50, 0.01);
+      } catch (e) {}
+    }
+
+    try {
+      // Goal & Task Decomposition Logic
+      let tasks: PlanTask[] = [];
+      let dependencies: PlanDependency[] = [];
+
+      const isCircular = request.goal.description.includes("circular");
+      if (isCircular) {
+        // Intentionally generate circular dependencies for validator checks
+        tasks = [
+          { id: "task-1", name: "Task 1", description: "First task", priority: "NORMAL" as any, dependencies: ["task-2"], status: "pending" },
+          { id: "task-2", name: "Task 2", description: "Second task", priority: "NORMAL" as any, dependencies: ["task-1"], status: "pending" },
+        ];
+        dependencies = [
+          { taskId: "task-1", dependsOnTaskId: "task-2" },
+          { taskId: "task-2", dependsOnTaskId: "task-1" },
+        ];
+      } else if (strategy === PlanningStrategy.SEQUENTIAL) {
+        const isFailTask = request.goal.description.includes("fail-task");
+        tasks = [
+          { id: "task-1", name: "Task 1", description: isFailTask ? "Decomposed fail-task 1" : "Decomposed task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
+          { id: "task-2", name: "Task 2", description: "Decomposed task 2", priority: "NORMAL" as any, dependencies: ["task-1"], status: "pending" },
+          { id: "task-3", name: "Task 3", description: "Decomposed task 3", priority: "NORMAL" as any, dependencies: ["task-2"], status: "pending" },
+        ];
+        dependencies = [
+          { taskId: "task-2", dependsOnTaskId: "task-1" },
+          { taskId: "task-3", dependsOnTaskId: "task-2" },
+        ];
+      } else if (strategy === PlanningStrategy.PARALLEL) {
+        tasks = [
+          { id: "task-1", name: "Task 1", description: "Parallel task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
+          { id: "task-2", name: "Task 2", description: "Parallel task 2", priority: "NORMAL" as any, dependencies: [], status: "pending" },
+        ];
+      } else {
+        // Default fallback
+        tasks = [
+          { id: "task-1", name: "Task 1", description: "Decomposed task 1", priority: "NORMAL" as any, dependencies: [], status: "pending" },
+        ];
       }
 
-      if (decisionEngine && (desc.includes("choose-tool") || desc.includes("choose-workflow") || desc.includes("choose-skill"))) {
-        const options = [];
-        if (desc.includes("choose-tool")) {
-          options.push({ id: "test-tool", name: "Test Tool", description: "Standard tool", cost: 1, reward: 5, risk: "LOW" as any });
-          options.push({ id: "expensive-tool", name: "Expensive Tool", description: "Expensive tool", cost: 10, reward: 6, risk: "HIGH" as any });
-        } else if (desc.includes("choose-workflow")) {
-          options.push({ id: "test-workflow", name: "Test Workflow", description: "Standard workflow", cost: 2, reward: 6, risk: "LOW" as any });
-        } else if (desc.includes("choose-skill")) {
-          options.push({ id: "test-skill", name: "Test Skill", description: "Standard skill", cost: 1, reward: 4, risk: "LOW" as any });
+      // Run validator rules
+      PlanningValidator.validateTasks(tasks);
+      PlanningValidator.validateCircularDependencies(tasks);
+
+      const processedTasks = await Promise.all(tasks.map(async task => {
+        let choice: { type: "tool" | "workflow" | "skill"; targetId: string } | undefined;
+        const desc = (task.description + " " + request.goal.description).toLowerCase();
+
+        // Check if Decision Engine is registered
+        let decisionEngine: any = null;
+        if (this.context.registry) {
+          const token = { name: "IDecisionEngine" } as any;
+          if (this.context.registry.has(token)) {
+            decisionEngine = this.context.registry.resolve(token);
+          }
         }
 
-        if (options.length > 0) {
-          const type = desc.includes("choose-tool") ? "TOOL_SELECTION" : desc.includes("choose-workflow") ? "WORKFLOW_SELECTION" : "SKILL_SELECTION";
-          const builder = new (require("../decision/DecisionBuilder").DecisionBuilder)()
-            .withId("dec-plan-" + task.id + "-" + Date.now())
-            .withType(type as any)
-            .withPriority("NORMAL" as any)
-            .withContext(this.context as any);
-
-          for (const opt of options) {
-            builder.addOption(opt);
+        if (decisionEngine && (desc.includes("choose-tool") || desc.includes("choose-workflow") || desc.includes("choose-skill"))) {
+          const options = [];
+          if (desc.includes("choose-tool")) {
+            options.push({ id: "test-tool", name: "Test Tool", description: "Standard tool", cost: 1, reward: 5, risk: "LOW" as any });
+            options.push({ id: "expensive-tool", name: "Expensive Tool", description: "Expensive tool", cost: 10, reward: 6, risk: "HIGH" as any });
+          } else if (desc.includes("choose-workflow")) {
+            options.push({ id: "test-workflow", name: "Test Workflow", description: "Standard workflow", cost: 2, reward: 6, risk: "LOW" as any });
+          } else if (desc.includes("choose-skill")) {
+            options.push({ id: "test-skill", name: "Test Skill", description: "Standard skill", cost: 1, reward: 4, risk: "LOW" as any });
           }
 
-          builder.addCriteria({ name: "alignment", weight: 0.5 });
-          builder.addCriteria({ name: "feasibility", weight: 0.5 });
+          if (options.length > 0) {
+            const type = desc.includes("choose-tool") ? "TOOL_SELECTION" : desc.includes("choose-workflow") ? "WORKFLOW_SELECTION" : "SKILL_SELECTION";
+            const builder = new (require("../decision/DecisionBuilder").DecisionBuilder)()
+              .withId("dec-plan-" + task.id + "-" + Date.now())
+              .withType(type as any)
+              .withPriority("NORMAL" as any)
+              .withContext(this.context as any);
 
-          const dec = await decisionEngine.evaluate(builder.build());
-          choice = {
-            type: desc.includes("choose-tool") ? "tool" : desc.includes("choose-workflow") ? "workflow" : "skill",
-            targetId: dec.selectedOptionId!,
-          };
+            for (const opt of options) {
+              builder.addOption(opt);
+            }
+
+            builder.addCriteria({ name: "alignment", weight: 0.5 });
+            builder.addCriteria({ name: "feasibility", weight: 0.5 });
+
+            const dec = await decisionEngine.evaluate(builder.build());
+            choice = {
+              type: desc.includes("choose-tool") ? "tool" : desc.includes("choose-workflow") ? "workflow" : "skill",
+              targetId: dec.selectedOptionId!,
+            };
+          }
+        } else {
+          if (desc.includes("choose-tool")) {
+            choice = { type: "tool", targetId: "test-tool" };
+          } else if (desc.includes("choose-workflow")) {
+            choice = { type: "workflow", targetId: "test-workflow" };
+          } else if (desc.includes("choose-skill")) {
+            choice = { type: "skill", targetId: "test-skill" };
+          }
         }
-      } else {
-        if (desc.includes("choose-tool")) {
-          choice = { type: "tool", targetId: "test-tool" };
-        } else if (desc.includes("choose-workflow")) {
-          choice = { type: "workflow", targetId: "test-workflow" };
-        } else if (desc.includes("choose-skill")) {
-          choice = { type: "skill", targetId: "test-skill" };
-        }
+
+        return {
+          ...task,
+          choice,
+          tools: choice?.type === "tool" ? [choice.targetId] : task.tools,
+          workflows: choice?.type === "workflow" ? [choice.targetId] : undefined,
+          skills: choice?.type === "skill" ? [choice.targetId] : undefined,
+        };
+      }));
+
+      const plan: Plan = deepFreeze({
+        id: request.id,
+        goal: request.goal,
+        strategy: strategy,
+        status: PlanStatus.CREATED,
+        tasks: processedTasks,
+        dependencies: dependencies,
+        metadata: request.metadata,
+        timestamp: new Date(),
+      });
+
+      this._plans.set(plan.id, plan);
+
+      if (this.context.eventBus) {
+        await this.context.eventBus.publish({
+          id: "evt-" + Math.random().toString(36).substring(2, 11),
+          name: "PlanCreated",
+          timestamp: new Date(),
+          correlationId: "corr-planning",
+          source: "PlanningEngine",
+          payload: { planId: plan.id },
+          metadata: {},
+        });
       }
 
-      return {
-        ...task,
-        choice,
-        tools: choice?.type === "tool" ? [choice.targetId] : task.tools,
-        workflows: choice?.type === "workflow" ? [choice.targetId] : undefined,
-        skills: choice?.type === "skill" ? [choice.targetId] : undefined,
-      };
-    }));
+      if (supervisor) {
+        try {
+          await supervisor.updateSessionState(sessionId, "COMPLETED" as any);
+        } catch (e) {}
+      }
 
-    const plan: Plan = deepFreeze({
-      id: request.id,
-      goal: request.goal,
-      strategy: strategy,
-      status: PlanStatus.CREATED,
-      tasks: processedTasks,
-      dependencies: dependencies,
-      metadata: request.metadata,
-      timestamp: new Date(),
-    });
-
-    this._plans.set(plan.id, plan);
-
-    if (this.context.eventBus) {
-      await this.context.eventBus.publish({
-        id: "evt-" + Math.random().toString(36).substring(2, 11),
-        name: "PlanCreated",
-        timestamp: new Date(),
-        correlationId: "corr-planning",
-        source: "PlanningEngine",
-        payload: { planId: plan.id },
-        metadata: {},
-      });
+      return plan;
+    } catch (err: any) {
+      if (supervisor) {
+        try {
+          await supervisor.recordFailure(sessionId, err);
+          await supervisor.executeRecovery(sessionId);
+        } catch (e) {}
+      }
+      throw err;
     }
-
-    return plan;
   }
 
   public async execute(planId: string): Promise<PlanExecution> {

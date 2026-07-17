@@ -51,24 +51,37 @@ export class ServiceRegistry implements IServiceRegistry {
       throw new Error(`Circular dependency detected: ${path}`);
     }
 
-    const descriptor = this._descriptors.get(token);
-    if (!descriptor) {
-      throw new Error(`Service "${token.description}" was not found in registry.`);
-    }
-
-    if (descriptor.lifetime === ServiceLifetime.SINGLETON) {
-      if (this._singletons.has(token)) {
-        return this._singletons.get(token) as T;
+    let descriptor = this._descriptors.get(token);
+    let resolvedToken = token;
+    if (!descriptor && token && typeof token === "object") {
+      const matchedKey = Array.from(this._descriptors.keys()).find(
+        (k) =>
+          ((k as any).name !== undefined && (k as any).name !== null && (k as any).name === (token as any).name) ||
+          ((k as any).description !== undefined && (k as any).description !== null && (k as any).description === (token as any).description)
+      );
+      if (matchedKey) {
+        descriptor = this._descriptors.get(matchedKey);
+        resolvedToken = matchedKey;
       }
     }
 
-    this._resolutionStack.push(token);
+    if (!descriptor) {
+      throw new Error(`Service "${token.description || (token as any).name}" was not found in registry.`);
+    }
+
+    if (descriptor.lifetime === ServiceLifetime.SINGLETON) {
+      if (this._singletons.has(resolvedToken)) {
+        return this._singletons.get(resolvedToken) as T;
+      }
+    }
+
+    this._resolutionStack.push(resolvedToken);
 
     try {
       const resolvedInstance = descriptor.factory(this);
 
       if (descriptor.lifetime === ServiceLifetime.SINGLETON) {
-        this._singletons.set(token, resolvedInstance);
+        this._singletons.set(resolvedToken, resolvedInstance);
       }
 
       return resolvedInstance as T;
@@ -78,7 +91,15 @@ export class ServiceRegistry implements IServiceRegistry {
   }
 
   public has(token: ServiceToken<any>): boolean {
-    return this._descriptors.has(token);
+    if (this._descriptors.has(token)) return true;
+    if (token && typeof token === "object") {
+      return Array.from(this._descriptors.keys()).some(
+        (k) =>
+          ((k as any).name !== undefined && (k as any).name !== null && (k as any).name === (token as any).name) ||
+          ((k as any).description !== undefined && (k as any).description !== null && (k as any).description === (token as any).description)
+      );
+    }
+    return false;
   }
 
   public remove(token: ServiceToken<any>): boolean {

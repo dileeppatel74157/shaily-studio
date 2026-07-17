@@ -9,6 +9,12 @@ export interface PlanTask {
   readonly status: "pending" | "running" | "completed" | "failed" | "cancelled";
   readonly estimatedDurationMs?: number;
   readonly tools?: ReadonlyArray<string>;
+  readonly workflows?: ReadonlyArray<string>;
+  readonly skills?: ReadonlyArray<string>;
+  readonly choice?: {
+    readonly type: "tool" | "workflow" | "skill";
+    readonly targetId: string;
+  };
   readonly output?: unknown;
   readonly error?: string;
 }

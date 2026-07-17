@@ -24,8 +24,8 @@ export class WorkflowValidator {
       if (!step.name || step.name.trim() === "") {
         throw new InvalidWorkflowException("Step name cannot be empty.");
       }
-      if (!step.agentId || step.agentId.trim() === "") {
-        throw new InvalidWorkflowException(`Step ${step.id} has no Agent ID.`);
+      if ((!step.agentId || step.agentId.trim() === "") && (!step.skillId || step.skillId.trim() === "")) {
+        throw new InvalidWorkflowException(`Step ${step.id} has neither Agent ID nor Skill ID.`);
       }
       if (step.priority === undefined || step.priority < 0) {
         throw new InvalidWorkflowException(`Step ${step.id} has invalid priority.`);

@@ -1,0 +1,8 @@
+export enum SkillState {
+  CREATED = "CREATED",
+  INITIALIZED = "INITIALIZED",
+  READY = "READY",
+  RUNNING = "RUNNING",
+  STOPPED = "STOPPED",
+  FAILED = "FAILED",
+}

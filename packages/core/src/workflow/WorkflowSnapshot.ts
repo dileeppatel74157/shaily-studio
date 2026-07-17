@@ -4,7 +4,8 @@ import { WorkflowStepStatus } from "./WorkflowStep";
 export interface WorkflowStepSnapshot {
   readonly id: string;
   readonly name: string;
-  readonly agentId: string;
+  readonly agentId?: string;
+  readonly skillId?: string;
   readonly priority: number;
   readonly input: unknown;
   readonly output?: unknown;

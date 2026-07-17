@@ -12,9 +12,12 @@ import { AgentConfiguration } from "./AgentConfiguration";
 import { AgentExecution } from "./AgentExecution";
 import { AgentValidator } from "./AgentValidator";
 import { InvalidAgentStateException, deepFreeze } from "./types";
+import { ISkill } from "../skills/ISkill";
 
 export class Agent implements IAgent {
   private _state: AgentState = AgentState.CREATED;
+  private readonly _skills = new Map<string, ISkill>();
+  private readonly _disabledSkills = new Set<string>();
 
   constructor(
     private readonly _metadata: AgentMetadata,
@@ -333,6 +336,55 @@ export class Agent implements IAgent {
   public async conversationHistory(conversationId: string): Promise<any> {
     const engine = this.getCollaborationEngine();
     return engine.conversationHistory(conversationId);
+  }
+
+  public async installSkill(skill: ISkill): Promise<void> {
+    this._skills.set(skill.id, skill);
+    if (skill.state === "CREATED") {
+      await skill.initialize();
+    }
+  }
+
+  public async removeSkill(skillId: string): Promise<void> {
+    const skill = this._skills.get(skillId);
+    if (skill) {
+      await skill.stop();
+      this._skills.delete(skillId);
+      this._disabledSkills.delete(skillId);
+    }
+  }
+
+  public async enableSkill(skillId: string): Promise<void> {
+    if (!this._skills.has(skillId)) {
+      throw new Error(`Skill ${skillId} is not installed on agent ${this.id}`);
+    }
+    this._disabledSkills.delete(skillId);
+  }
+
+  public async disableSkill(skillId: string): Promise<void> {
+    if (!this._skills.has(skillId)) {
+      throw new Error(`Skill ${skillId} is not installed on agent ${this.id}`);
+    }
+    this._disabledSkills.add(skillId);
+  }
+
+  public async executeSkill(skillId: string, input?: unknown): Promise<unknown> {
+    const skill = this._skills.get(skillId);
+    if (!skill) {
+      throw new Error(`Skill ${skillId} is not installed on agent ${this.id}`);
+    }
+    if (this._disabledSkills.has(skillId)) {
+      throw new Error(`Skill ${skillId} is disabled on agent ${this.id}`);
+    }
+    const result = await skill.execute(input);
+    if (!result.success) {
+      throw new Error(result.error || `Failed to execute skill ${skillId}`);
+    }
+    return result.output;
+  }
+
+  public listSkills(): ReadonlyArray<ISkill> {
+    return Array.from(this._skills.values());
   }
 
   public snapshot(): AgentSnapshot {

@@ -118,6 +118,12 @@ async function runTests() {
     stop: async () => {},
     execute: async (input) => ({ out: "Agent execution successful", input }),
     shutdown: async () => {},
+    installSkill: async () => {},
+    removeSkill: async () => {},
+    enableSkill: async () => {},
+    disableSkill: async () => {},
+    executeSkill: async () => ({}),
+    listSkills: () => [],
     snapshot: () => ({} as any),
   };
 

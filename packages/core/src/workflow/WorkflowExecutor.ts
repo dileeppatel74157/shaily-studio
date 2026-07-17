@@ -18,37 +18,83 @@ export class WorkflowExecutor {
 
         currentStepId = step.id;
         workflow.updateStepStatus(step.id, WorkflowStepStatus.RUNNING);
-        workflow.context.logger.info(
-          `Executing step: ${step.name} (${step.id}) using agent: ${step.agentId}`
-        );
 
-        // Lookup agent
-        const agent = workflow.context.agentRegistry.get(step.agentId);
-        if (!agent) {
-          throw new Error(`Agent with ID ${step.agentId} not found in registry.`);
-        }
+        let output: unknown;
 
-        // Initialize agent if not READY
-        if (agent.state === "CREATED") {
-          await agent.initialize();
-        }
+        if (step.skillId) {
+          workflow.context.logger.info(
+            `Executing step: ${step.name} (${step.id}) using skill: ${step.skillId}`
+          );
 
-        // Execute agent with cancellation race
-        let abortHandler: () => void = () => {};
-        const abortPromise = new Promise<never>((_, reject) => {
-          if (signal?.aborted) {
-            reject(new Error("cancelled"));
-            return;
+          const skillRegistry =
+            workflow.context.skillRegistry ||
+            (workflow.context.registry.has({ name: "ISkillRegistry" } as any)
+              ? (workflow.context.registry.resolve({ name: "ISkillRegistry" } as any) as any)
+              : undefined);
+
+          if (!skillRegistry) {
+            throw new Error(`SkillRegistry not found in workflow context.`);
           }
-          abortHandler = () => reject(new Error("cancelled"));
-          signal?.addEventListener("abort", abortHandler);
-        });
 
-        const output = await Promise.race([agent.execute(step.input), abortPromise]).finally(() => {
-          if (signal && abortHandler) {
-            signal.removeEventListener("abort", abortHandler);
+          let abortHandler: () => void = () => {};
+          const abortPromise = new Promise<never>((_, reject) => {
+            if (signal?.aborted) {
+              reject(new Error("cancelled"));
+              return;
+            }
+            abortHandler = () => reject(new Error("cancelled"));
+            signal?.addEventListener("abort", abortHandler);
+          });
+
+          const skillResult = await Promise.race([
+            skillRegistry.execute(step.skillId, step.input),
+            abortPromise,
+          ]).finally(() => {
+            if (signal && abortHandler) {
+              signal.removeEventListener("abort", abortHandler);
+            }
+          });
+
+          if (!skillResult.success) {
+            throw new Error(skillResult.error || `Skill ${step.skillId} execution failed`);
           }
-        });
+          output = skillResult.output;
+        } else {
+          if (!step.agentId) {
+            throw new Error(`WorkflowStep ${step.id} has neither agentId nor skillId`);
+          }
+          workflow.context.logger.info(
+            `Executing step: ${step.name} (${step.id}) using agent: ${step.agentId}`
+          );
+
+          // Lookup agent
+          const agent = workflow.context.agentRegistry.get(step.agentId);
+          if (!agent) {
+            throw new Error(`Agent with ID ${step.agentId} not found in registry.`);
+          }
+
+          // Initialize agent if not READY
+          if (agent.state === "CREATED") {
+            await agent.initialize();
+          }
+
+          // Execute agent with cancellation race
+          let abortHandler: () => void = () => {};
+          const abortPromise = new Promise<never>((_, reject) => {
+            if (signal?.aborted) {
+              reject(new Error("cancelled"));
+              return;
+            }
+            abortHandler = () => reject(new Error("cancelled"));
+            signal?.addEventListener("abort", abortHandler);
+          });
+
+          output = await Promise.race([agent.execute(step.input), abortPromise]).finally(() => {
+            if (signal && abortHandler) {
+              signal.removeEventListener("abort", abortHandler);
+            }
+          });
+        }
 
         workflow.updateStepStatus(step.id, WorkflowStepStatus.COMPLETED, output);
         workflow.context.logger.info(`Step completed: ${step.name} (${step.id})`);

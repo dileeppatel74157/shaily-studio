@@ -11,7 +11,8 @@ export enum WorkflowStepStatus {
 export interface WorkflowStep {
   readonly id: string;
   readonly name: string;
-  readonly agentId: string;
+  readonly agentId?: string;
+  readonly skillId?: string;
   readonly priority: JobPriority;
   readonly input: unknown;
   output?: unknown;

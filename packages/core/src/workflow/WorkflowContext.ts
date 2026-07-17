@@ -5,6 +5,7 @@ import { IEventBus } from "../events/IEventBus";
 import { IJobEngine } from "../jobs/IJobEngine";
 import { IMemoryStore } from "../memory/IMemoryStore";
 import { AgentRegistry } from "../agents/AgentRegistry";
+import { ISkillRegistry } from "../skills/ISkillRegistry";
 
 export interface WorkflowContext {
   readonly logger: ILogger;
@@ -14,4 +15,5 @@ export interface WorkflowContext {
   readonly jobEngine: IJobEngine;
   readonly memoryStore: IMemoryStore;
   readonly agentRegistry: AgentRegistry;
+  readonly skillRegistry?: ISkillRegistry;
 }

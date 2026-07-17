@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "id": "dynamic-test-skill",
+    "name": "Dynamic Test Skill",
+    "description": "Dynamically loaded skill",
+    "version": "1.0.0",
+    "author": { "name": "Test Author" },
+    "type": "CUSTOM",
+    "scope": "PRIVATE",
+    "visibility": "PRIVATE",
+    "tags": ["test"]
+  },
+  "capabilities": [],
+  "dependencies": [],
+  "requirements": [],
+  "permissions": []
+}

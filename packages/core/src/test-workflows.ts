@@ -138,6 +138,13 @@ class MockAgent implements IAgent {
     this.state = AgentState.STOPPED;
   }
 
+  public async installSkill(skill: any): Promise<void> {}
+  public async removeSkill(skillId: string): Promise<void> {}
+  public async enableSkill(skillId: string): Promise<void> {}
+  public async disableSkill(skillId: string): Promise<void> {}
+  public async executeSkill(skillId: string, input?: unknown): Promise<unknown> { return {}; }
+  public listSkills(): ReadonlyArray<any> { return []; }
+
   public snapshot(): AgentSnapshot {
     return {
       id: this.id,

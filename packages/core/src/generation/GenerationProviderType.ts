@@ -1,0 +1,11 @@
+export enum GenerationProviderType {
+  OPENAI = "OPENAI",
+  GOOGLE = "GOOGLE",
+  ANTHROPIC = "ANTHROPIC",
+  RUNWAY = "RUNWAY",
+  KLING = "KLING",
+  PIKA = "PIKA",
+  ELEVENLABS = "ELEVENLABS",
+  STABILITY = "STABILITY",
+  CUSTOM = "CUSTOM",
+}

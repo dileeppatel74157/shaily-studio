@@ -327,6 +327,44 @@ export class ChannelEngine implements IChannelEngine {
         }
       }
 
+      // Link brand colors, logo rules to GenerationEngine for THUMBNAIL/IMAGE tasks if enabled
+      if (this.context.generationEngine && options?.generateBrandedAssets) {
+        try {
+          const brandTasks = [
+            {
+              id: `brand-thumbnail-${id}`,
+              type: "THUMBNAIL" as any,
+              provider: "STABILITY" as any,
+              prompt: `Channel thumbnail with palette: ${kb.visuals.colorPalette.join(", ")}. Style: ${kb.visuals.thumbnailStyle}`,
+              parameters: {
+                colorPalette: kb.visuals.colorPalette,
+                typography: kb.visuals.typography,
+                aspectRatio: kb.visuals.aspectRatio,
+              },
+              state: "CREATED" as any,
+              priority: "HIGH" as any,
+              dependsOn: [],
+              retries: 0,
+              maxRetries: 2,
+            },
+          ];
+          await this.context.generationEngine.generate({
+            id: `gen-channel-brand-${id}`,
+            tasks: brandTasks,
+            state: "CREATED" as any,
+            timestamp: new Date(),
+            options: {
+              brandContext: {
+                colorPalette: kb.visuals.colorPalette,
+                typography: kb.visuals.typography,
+              },
+            },
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ChannelState.RUNNING; // restore state
       return kb;
     } catch (error: any) {

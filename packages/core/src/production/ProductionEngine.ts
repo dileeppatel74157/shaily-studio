@@ -343,6 +343,33 @@ export class ProductionEngine implements IProductionEngine {
         });
       }
 
+      // Auto-execute generation if generationEngine is available and requested
+      if (this.context.generationEngine && request.options?.autoGenerate) {
+        try {
+          const genTasks = assets.map((a) => ({
+            id: `gen-task-${a.id}`,
+            type: a.type as any,
+            provider: "STABILITY" as any,
+            prompt: a.prompt || `Generate ${a.type} asset`,
+            parameters: {},
+            state: "CREATED" as any,
+            priority: a.priority as any,
+            dependsOn: a.dependencies.map((d: any) => `gen-task-${d.assetId}`),
+            retries: 0,
+            maxRetries: 2,
+          }));
+          await this.context.generationEngine.generate({
+            id: `gen-${request.id}`,
+            productionPlanId: request.id,
+            tasks: genTasks,
+            state: "CREATED" as any,
+            timestamp: new Date(),
+          });
+        } catch (e) {
+          // Ignore — generation failure does not cancel production
+        }
+      }
+
       this._state = ProductionState.RUNNING; // restore state
       return response;
     } catch (error: any) {

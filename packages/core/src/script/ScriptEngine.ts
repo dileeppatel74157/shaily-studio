@@ -334,6 +334,37 @@ export class ScriptEngine implements IScriptEngine {
         }
       }
 
+      // Link script narration blocks to GenerationEngine as VOICE tasks if enabled
+      if (this.context.generationEngine && request.options?.generateAssets) {
+        try {
+          const narrationSections = response.sections.filter((s: any) =>
+            s.type === "narration" || s.type === "dialogue"
+          );
+          if (narrationSections.length > 0) {
+            const voiceTasks = narrationSections.map((s: any, idx: number) => ({
+              id: `voice-task-${request.id}-${idx}`,
+              type: "VOICE" as any,
+              provider: "ELEVENLABS" as any,
+              prompt: s.content || s.text || "Narrate this section.",
+              parameters: { speed: 1.0, tone: "professional" },
+              state: "CREATED" as any,
+              priority: "HIGH" as any,
+              dependsOn: [],
+              retries: 0,
+              maxRetries: 2,
+            }));
+            await this.context.generationEngine.generate({
+              id: `gen-script-${request.id}`,
+              tasks: voiceTasks,
+              state: "CREATED" as any,
+              timestamp: new Date(),
+            });
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ScriptState.RUNNING; // restore state
       return response;
     } catch (error: any) {

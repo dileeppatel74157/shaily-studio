@@ -218,6 +218,28 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Generation Engine integration: boost/penalize based on provider success rates
+        if (decision.context.generationEngine) {
+          try {
+            const history = decision.context.generationEngine.getHistory();
+            if (history.length > 0) {
+              const last = history[history.length - 1];
+              const successRate = last.report.succeeded / Math.max(last.report.totalAssets, 1);
+              const apiCost = last.cost.apiCost;
+              if (successRate >= 0.95) {
+                alignment = Math.min(1.0, alignment + 0.1); // boost high-success providers
+              } else if (successRate < 0.7) {
+                feasibility = Math.max(0.0, feasibility - 0.1); // penalize unreliable providers
+              }
+              if (apiCost > 2.0) {
+                feasibility = Math.max(0.0, feasibility - 0.1); // penalize expensive generations
+              }
+            }
+          } catch (e) {
+            // Ignore if generationEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

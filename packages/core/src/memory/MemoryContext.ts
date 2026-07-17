@@ -13,6 +13,7 @@ import { IChannelEngine } from "../channel/interfaces";
 import { IScriptEngine } from "../script/interfaces";
 import { IAssetEngine } from "../assets/interfaces";
 import { IProductionEngine } from "../production/interfaces";
+import { IGenerationEngine } from "../generation/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -31,4 +32,5 @@ export interface MemoryContext {
   readonly scriptEngine?: IScriptEngine;
   readonly assetEngine?: IAssetEngine;
   readonly productionEngine?: IProductionEngine;
+  readonly generationEngine?: IGenerationEngine;
 }

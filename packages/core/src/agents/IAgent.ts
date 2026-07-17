@@ -24,6 +24,11 @@ export interface IAgent extends IBaseAgent {
   disableSkill(skillId: string): Promise<void>;
   executeSkill(skillId: string, input?: unknown): Promise<unknown>;
   listSkills(): ReadonlyArray<ISkill>;
+  selectExecutionOption<T extends { id: string; name: string }>(
+    type: any,
+    options: T[],
+    criteria?: any[]
+  ): Promise<T>;
 
   shutdown(): Promise<void>;
 }

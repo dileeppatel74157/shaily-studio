@@ -1,0 +1,7 @@
+export enum DecisionState {
+  CREATED = "CREATED",
+  EVALUATING = "EVALUATING",
+  COMMITTED = "COMMITTED",
+  REJECTED = "REJECTED",
+  EXPIRED = "EXPIRED",
+}

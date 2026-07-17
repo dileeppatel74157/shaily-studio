@@ -124,6 +124,7 @@ async function runTests() {
     disableSkill: async () => {},
     executeSkill: async () => ({}),
     listSkills: () => [],
+    selectExecutionOption: async (type, options) => options[0],
     snapshot: () => ({} as any),
   };
 

@@ -19,6 +19,42 @@ export class WorkflowExecutor {
         currentStepId = step.id;
         workflow.updateStepStatus(step.id, WorkflowStepStatus.RUNNING);
 
+        // Select step executor via Decision Engine if registered
+        let decisionEngine: any = null;
+        if (workflow.context.registry) {
+          const token = { name: "IDecisionEngine" } as any;
+          if (workflow.context.registry.has(token)) {
+            decisionEngine = workflow.context.registry.resolve(token);
+          }
+        }
+
+        if (decisionEngine) {
+          const options = [];
+          if (step.skillId) {
+            options.push({ id: step.skillId, name: `Skill: ${step.skillId}`, cost: 1.0, reward: 5.0, risk: "LOW" as any });
+          }
+          if (step.agentId) {
+            options.push({ id: step.agentId, name: `Agent: ${step.agentId}`, cost: 2.0, reward: 6.0, risk: "LOW" as any });
+          }
+
+          if (options.length > 0) {
+            const builder = new (require("../decision/DecisionBuilder").DecisionBuilder)()
+              .withId("dec-wf-step-" + step.id + "-" + Date.now())
+              .withType(step.skillId ? "SKILL_SELECTION" : "PROVIDER_SELECTION" as any)
+              .withPriority("NORMAL" as any)
+              .withContext(workflow.context as any);
+
+            for (const opt of options) {
+              builder.addOption(opt);
+            }
+
+            builder.addCriteria({ name: "alignment", weight: 0.5 });
+            builder.addCriteria({ name: "feasibility", weight: 0.5 });
+
+            await decisionEngine.evaluate(builder.build());
+          }
+        }
+
         let output: unknown;
 
         if (step.skillId) {

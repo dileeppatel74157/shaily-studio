@@ -96,16 +96,61 @@ export class PlanningEngine implements IPlanningEngine {
     PlanningValidator.validateTasks(tasks);
     PlanningValidator.validateCircularDependencies(tasks);
 
-    const processedTasks = tasks.map(task => {
+    const processedTasks = await Promise.all(tasks.map(async task => {
       let choice: { type: "tool" | "workflow" | "skill"; targetId: string } | undefined;
       const desc = (task.description + " " + request.goal.description).toLowerCase();
-      if (desc.includes("choose-tool")) {
-        choice = { type: "tool", targetId: "test-tool" };
-      } else if (desc.includes("choose-workflow")) {
-        choice = { type: "workflow", targetId: "test-workflow" };
-      } else if (desc.includes("choose-skill")) {
-        choice = { type: "skill", targetId: "test-skill" };
+
+      // Check if Decision Engine is registered
+      let decisionEngine: any = null;
+      if (this.context.registry) {
+        const token = { name: "IDecisionEngine" } as any;
+        if (this.context.registry.has(token)) {
+          decisionEngine = this.context.registry.resolve(token);
+        }
       }
+
+      if (decisionEngine && (desc.includes("choose-tool") || desc.includes("choose-workflow") || desc.includes("choose-skill"))) {
+        const options = [];
+        if (desc.includes("choose-tool")) {
+          options.push({ id: "test-tool", name: "Test Tool", description: "Standard tool", cost: 1, reward: 5, risk: "LOW" as any });
+          options.push({ id: "expensive-tool", name: "Expensive Tool", description: "Expensive tool", cost: 10, reward: 6, risk: "HIGH" as any });
+        } else if (desc.includes("choose-workflow")) {
+          options.push({ id: "test-workflow", name: "Test Workflow", description: "Standard workflow", cost: 2, reward: 6, risk: "LOW" as any });
+        } else if (desc.includes("choose-skill")) {
+          options.push({ id: "test-skill", name: "Test Skill", description: "Standard skill", cost: 1, reward: 4, risk: "LOW" as any });
+        }
+
+        if (options.length > 0) {
+          const type = desc.includes("choose-tool") ? "TOOL_SELECTION" : desc.includes("choose-workflow") ? "WORKFLOW_SELECTION" : "SKILL_SELECTION";
+          const builder = new (require("../decision/DecisionBuilder").DecisionBuilder)()
+            .withId("dec-plan-" + task.id + "-" + Date.now())
+            .withType(type as any)
+            .withPriority("NORMAL" as any)
+            .withContext(this.context as any);
+
+          for (const opt of options) {
+            builder.addOption(opt);
+          }
+
+          builder.addCriteria({ name: "alignment", weight: 0.5 });
+          builder.addCriteria({ name: "feasibility", weight: 0.5 });
+
+          const dec = await decisionEngine.evaluate(builder.build());
+          choice = {
+            type: desc.includes("choose-tool") ? "tool" : desc.includes("choose-workflow") ? "workflow" : "skill",
+            targetId: dec.selectedOptionId!,
+          };
+        }
+      } else {
+        if (desc.includes("choose-tool")) {
+          choice = { type: "tool", targetId: "test-tool" };
+        } else if (desc.includes("choose-workflow")) {
+          choice = { type: "workflow", targetId: "test-workflow" };
+        } else if (desc.includes("choose-skill")) {
+          choice = { type: "skill", targetId: "test-skill" };
+        }
+      }
+
       return {
         ...task,
         choice,
@@ -113,7 +158,7 @@ export class PlanningEngine implements IPlanningEngine {
         workflows: choice?.type === "workflow" ? [choice.targetId] : undefined,
         skills: choice?.type === "skill" ? [choice.targetId] : undefined,
       };
-    });
+    }));
 
     const plan: Plan = deepFreeze({
       id: request.id,

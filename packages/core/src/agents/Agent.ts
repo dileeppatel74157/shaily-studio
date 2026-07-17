@@ -247,6 +247,56 @@ export class Agent implements IAgent {
     }
   }
 
+  public async selectExecutionOption<T extends { id: string; name: string }>(
+    type: any,
+    options: T[],
+    criteria?: any[]
+  ): Promise<T> {
+    if (options.length === 0) {
+      throw new Error("No options provided to selectExecutionOption");
+    }
+    if (this.context.registry) {
+      const token = { name: "IDecisionEngine" } as any;
+      if (this.context.registry.has(token)) {
+        const decisionEngine = this.context.registry.resolve(token) as any;
+        if (decisionEngine) {
+          const builder = new (require("../decision/DecisionBuilder").DecisionBuilder)()
+            .withId("dec-agent-" + this.id + "-" + Date.now())
+            .withType(type)
+            .withPriority("NORMAL" as any)
+            .withContext(this.context as any);
+
+          for (const opt of options) {
+            builder.addOption({
+              id: opt.id,
+              name: opt.name,
+              description: (opt as any).description || opt.name,
+              cost: (opt as any).cost || 1.0,
+              reward: (opt as any).reward || 2.0,
+              risk: (opt as any).risk || "LOW",
+              metadata: (opt as any).metadata || {},
+            });
+          }
+
+          if (criteria && criteria.length > 0) {
+            for (const c of criteria) {
+              builder.addCriteria(c);
+            }
+          } else {
+            builder.addCriteria({ name: "alignment", weight: 0.5 });
+            builder.addCriteria({ name: "feasibility", weight: 0.5 });
+          }
+
+          const dec = builder.build();
+          const evaluated = await decisionEngine.evaluate(dec);
+          const chosen = options.find((o) => o.id === evaluated.selectedOptionId);
+          if (chosen) return chosen;
+        }
+      }
+    }
+    return options[0];
+  }
+
   public async shutdown(): Promise<void> {
     this.context.logger.info(`Shutting down agent: ${this.name} (${this.id})`);
     try {

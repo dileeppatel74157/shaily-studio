@@ -144,6 +144,13 @@ class MockAgent implements IAgent {
   public async disableSkill(skillId: string): Promise<void> {}
   public async executeSkill(skillId: string, input?: unknown): Promise<unknown> { return {}; }
   public listSkills(): ReadonlyArray<any> { return []; }
+  public async selectExecutionOption<T extends { id: string; name: string }>(
+    type: any,
+    options: T[],
+    criteria?: any[]
+  ): Promise<T> {
+    return options[0];
+  }
 
   public snapshot(): AgentSnapshot {
     return {

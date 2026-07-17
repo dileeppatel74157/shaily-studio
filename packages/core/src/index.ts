@@ -52,6 +52,7 @@ export * from "./orchestrator/index";
 export * from "./plugins/index";
 export * from "./tools/index";
 export * from "./skills/index";
+export * from "./decision/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";
 export * from "./rag/index";

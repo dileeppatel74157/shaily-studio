@@ -256,6 +256,14 @@ export class Agent implements IAgent {
         "type" in input
       ) {
         result = await this.context.scriptEngine.generate(input as any);
+      } else if (
+        this.capabilities.includes("assets" as any) &&
+        this.context.assetEngine &&
+        input &&
+        typeof input === "object" &&
+        "scriptId" in input
+      ) {
+        result = await this.context.assetEngine.generate(input as any);
       } else {
         result = await this._lifecycle.execute(this.context, input);
       }

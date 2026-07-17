@@ -185,6 +185,22 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Asset Engine integration: adjust cost and feasibility based on asset count and render time estimations
+        if (decision.context.assetEngine) {
+          try {
+            const history = decision.context.assetEngine.getHistory();
+            if (history.length > 0) {
+              const prod = history[history.length - 1];
+              const totalCostEst = prod.reports.reduce((acc, r) => acc + r.totalCostEstimate, 0);
+              if (totalCostEst > 1.0) {
+                feasibility = Math.max(0.0, feasibility - 0.1);
+              }
+            }
+          } catch (e) {
+            // Ignore if assetEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

@@ -221,6 +221,28 @@ export class PlanningEngine implements IPlanningEngine {
         }
       }
 
+      const isAsset = request.goal.description.toLowerCase().includes("asset") || request.goal.description.toLowerCase().includes("prompt") || request.goal.description.toLowerCase().includes("media");
+      if (isAsset && this.context.assetEngine && !isCircular && tasks.length === 0) {
+        try {
+          const res = await this.context.assetEngine.generate({
+            id: "ass-plan-" + request.id + "-" + Date.now(),
+            scriptId: "scr-plan-placeholder",
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+          tasks = res.assets.map((asset: any, idx: number) => ({
+            id: `task-asset-${idx}`,
+            name: `Generate Asset: ${asset.name}`,
+            description: `Generate visual/audio media file with priority: ${asset.priority} (Version: ${asset.version})`,
+            priority: asset.priority,
+            dependencies: asset.dependencies.map((d: string) => `task-asset-${d}`),
+            status: "pending"
+          }));
+        } catch (e) {
+          // Fallback
+        }
+      }
+
       if (tasks.length === 0) {
         if (isCircular) {
         // Intentionally generate circular dependencies for validator checks

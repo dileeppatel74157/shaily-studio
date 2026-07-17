@@ -359,6 +359,22 @@ export class StrategyEngine implements IStrategyEngine {
         }
       }
 
+      // Link generated calendar entries to asset plans automatically if assetEngine is available
+      if (this.context.assetEngine && request.options?.generateAssetPlansForCalendar) {
+        try {
+          for (const entry of calendar.entries) {
+            await this.context.assetEngine.generate({
+              id: "ass-strat-linked-" + entry.id,
+              scriptId: "scr-strat-linked-" + entry.id,
+              state: "CREATED" as any,
+              timestamp: new Date()
+            });
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = StrategyState.RUNNING; // restore to RUNNING state when done
       return response;
     } catch (error: any) {

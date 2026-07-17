@@ -299,6 +299,20 @@ export class ChannelEngine implements IChannelEngine {
         }
       }
 
+      // Link brand guide & blueprints to asset planning automatically if assetEngine is available
+      if (this.context.assetEngine && options?.generateAssetPlanFromBlueprint) {
+        try {
+          await this.context.assetEngine.generate({
+            id: "ass-chan-linked-" + id,
+            scriptId: "scr-chan-linked-" + id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ChannelState.RUNNING; // restore state
       return kb;
     } catch (error: any) {

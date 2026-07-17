@@ -306,6 +306,20 @@ export class ScriptEngine implements IScriptEngine {
         });
       }
 
+      // Link completed scripts to asset planning engine automatically if assetEngine is available
+      if (this.context.assetEngine && request.options?.generateAssetPlan) {
+        try {
+          await this.context.assetEngine.generate({
+            id: "ass-script-linked-" + request.id,
+            scriptId: request.id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ScriptState.RUNNING; // restore state
       return response;
     } catch (error: any) {

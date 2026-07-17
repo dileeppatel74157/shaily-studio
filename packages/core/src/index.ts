@@ -37,6 +37,7 @@ export function logSystemEvent(event: string, details: Record<string, unknown>) 
 }
 
 export * from "./kernel/index";
+export { DependencyGraph } from "./kernel/index";
 export * from "./logger/index";
 export * from "./config/index";
 export * from "./registry/index";
@@ -57,6 +58,7 @@ export * from "./research/index";
 export * from "./strategy/index";
 export * from "./channel/index";
 export * from "./script/index";
+export * from "./assets/index";
 export * from "./supervisor/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";

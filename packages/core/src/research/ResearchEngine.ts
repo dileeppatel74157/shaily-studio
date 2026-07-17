@@ -439,6 +439,20 @@ export class ResearchEngine implements IResearchEngine {
         }
       }
 
+      // Link research response to asset planning if assetEngine is available
+      if (this.context.assetEngine && request.options?.generateAssetPlan) {
+        try {
+          await this.context.assetEngine.generate({
+            id: "ass-linked-" + request.id,
+            scriptId: "scr-linked-" + request.id,
+            state: "CREATED" as any,
+            timestamp: new Date()
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ResearchState.RUNNING; // return to running state when done
       return response;
     } catch (error: any) {

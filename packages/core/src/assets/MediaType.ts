@@ -1,0 +1,6 @@
+export enum MediaType {
+  VISUAL = "VISUAL",
+  VOICEOVER = "VOICEOVER",
+  MUSIC = "MUSIC",
+  SOUND_EFFECT = "SOUND_EFFECT",
+}

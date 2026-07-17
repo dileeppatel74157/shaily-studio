@@ -238,6 +238,15 @@ export class Agent implements IAgent {
         "type" in input
       ) {
         result = await this.context.strategyEngine.generate(input as any);
+      } else if (
+        this.capabilities.includes("channel" as any) &&
+        this.context.channelEngine &&
+        input &&
+        typeof input === "object" &&
+        "niche" in input &&
+        "id" in input
+      ) {
+        result = await this.context.channelEngine.generate((input as any).id, (input as any).niche, (input as any).options);
       } else {
         result = await this._lifecycle.execute(this.context, input);
       }

@@ -411,6 +411,19 @@ export class ResearchEngine implements IResearchEngine {
         }
       }
 
+      // Link research response to channel profile seeding if channelEngine is available
+      if (this.context.channelEngine && request.options?.generateChannelProfile) {
+        try {
+          await this.context.channelEngine.generate(
+            "chan-linked-" + request.id,
+            response.topics[0]?.topic || "TypeScript Development",
+            { correlationId: request.correlationId }
+          );
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       this._state = ResearchState.RUNNING; // return to running state when done
       return response;
     } catch (error: any) {

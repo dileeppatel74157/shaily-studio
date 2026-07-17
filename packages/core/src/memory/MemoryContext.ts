@@ -9,6 +9,7 @@ import { IWorkflowEngine } from "../workflow/IWorkflowEngine";
 import { IAgentRegistry } from "../agents/IAgentRegistry";
 import { IResearchEngine } from "../research/interfaces";
 import { IStrategyEngine } from "../strategy/interfaces";
+import { IChannelEngine } from "../channel/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -23,4 +24,5 @@ export interface MemoryContext {
   readonly agentRegistry?: IAgentRegistry;
   readonly researchEngine?: IResearchEngine;
   readonly strategyEngine?: IStrategyEngine;
+  readonly channelEngine?: IChannelEngine;
 }

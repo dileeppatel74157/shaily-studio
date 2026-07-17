@@ -229,6 +229,21 @@ export class StrategyEngine implements IStrategyEngine {
       this._state = StrategyState.CALENDAR_GENERATION;
       const calendar = await this._calendarGenerator.generateCalendar(pillars, series, schedule);
 
+      // Channel Engine integration: customize series name using brand guide
+      if (this.context.channelEngine) {
+        try {
+          const history = this.context.channelEngine.getHistory();
+          if (history.length > 0) {
+            const kb = history[history.length - 1];
+            series.forEach(s => {
+              s.name = `${s.name} (${kb.brandGuide.tone} Edition)`;
+            });
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       // Content Prioritization
       this._state = StrategyState.PRIORITIZATION;
       const priorities: StrategyPriority[] = request.researchResponse.topics.map((t, idx) => {

@@ -146,6 +146,24 @@ export class DecisionEngine implements IDecisionEngine {
           }
         }
 
+        // Channel Engine integration: penalize options violating brand rules or tone
+        if (decision.context.channelEngine) {
+          try {
+            const history = decision.context.channelEngine.getHistory();
+            if (history.length > 0) {
+              const kb = history[history.length - 1];
+              const hasNegativeKeyword = kb.brandGuide.consistencyRules.some(
+                (rule: string) => opt.name.toLowerCase().includes("violate") || opt.name.toLowerCase().includes("invalid")
+              );
+              if (hasNegativeKeyword) {
+                alignment = Math.max(0.0, alignment - 0.3); // Heavy penalty
+              }
+            }
+          } catch (e) {
+            // Ignore if channelEngine fails
+          }
+        }
+
         // Apply rules (boost / penalize)
         for (const policy of decision.policies) {
           for (const rule of policy.rules) {

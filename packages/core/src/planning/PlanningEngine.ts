@@ -177,6 +177,27 @@ export class PlanningEngine implements IPlanningEngine {
         }
       }
 
+      const isChannel = request.goal.description.toLowerCase().includes("brand") || request.goal.description.toLowerCase().includes("identity") || request.goal.description.toLowerCase().includes("blueprint");
+      if (isChannel && this.context.channelEngine && !isCircular && tasks.length === 0) {
+        try {
+          const res = await this.context.channelEngine.generate(
+            "chan-plan-" + request.id + "-" + Date.now(),
+            "TypeScript Production Tutorials",
+            { allowCached: true }
+          );
+          tasks = res.blueprints.map((bp: any, idx: number) => ({
+            id: `task-channel-${idx}`,
+            name: `Implement Content Blueprint: ${bp.id}`,
+            description: `Verify structure hook: ${bp.hookStructure} and flow: ${bp.informationFlow}`,
+            priority: "HIGH" as any,
+            dependencies: [],
+            status: "pending"
+          }));
+        } catch (e) {
+          // Fallback
+        }
+      }
+
       if (tasks.length === 0) {
         if (isCircular) {
         // Intentionally generate circular dependencies for validator checks

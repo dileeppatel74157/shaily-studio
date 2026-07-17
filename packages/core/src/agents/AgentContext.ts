@@ -15,6 +15,7 @@ import { IScheduler } from "../scheduler/IScheduler";
 import { IStorage } from "../storage/IStorage";
 import { IResearchEngine } from "../research/interfaces";
 import { IStrategyEngine } from "../strategy/interfaces";
+import { IChannelEngine } from "../channel/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -35,4 +36,5 @@ export interface AgentContext {
   readonly storage?: IStorage;
   readonly researchEngine?: IResearchEngine;
   readonly strategyEngine?: IStrategyEngine;
+  readonly channelEngine?: IChannelEngine;
 }

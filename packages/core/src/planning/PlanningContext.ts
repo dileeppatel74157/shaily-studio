@@ -12,6 +12,7 @@ import { IStorage } from "../storage/IStorage";
 import { IObservability } from "../observability/IObservability";
 import { IResearchEngine } from "../research/interfaces";
 import { IStrategyEngine } from "../strategy/interfaces";
+import { IChannelEngine } from "../channel/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -29,4 +30,5 @@ export interface PlanningContext {
   readonly observability?: IObservability;
   readonly researchEngine?: IResearchEngine;
   readonly strategyEngine?: IStrategyEngine;
+  readonly channelEngine?: IChannelEngine;
 }

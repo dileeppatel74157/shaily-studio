@@ -64,6 +64,7 @@ export * from "./generation/index";
 export * from "./video-composition/index";
 export * from "./rendering/index";
 export * from "./quality/index";
+export * from "./publishing/index";
 export * from "./supervisor/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";

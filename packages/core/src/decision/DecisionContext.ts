@@ -12,6 +12,7 @@ import { IProductionEngine } from "../production/interfaces";
 import { IGenerationEngine } from "../generation/interfaces";
 import { ICompositionEngine } from "../video-composition/interfaces";
 import { IRenderEngine } from "../rendering/interfaces";
+import { IQualityEngine } from "../quality/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
@@ -30,4 +31,5 @@ export interface DecisionContext {
   readonly generationEngine?: IGenerationEngine;
   readonly compositionEngine?: ICompositionEngine;
   readonly renderEngine?: IRenderEngine;
+  readonly qualityEngine?: IQualityEngine;
 }

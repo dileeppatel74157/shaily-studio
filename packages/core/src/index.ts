@@ -72,6 +72,7 @@ export * from "./control-center/index";
 export * from "./learning/index";
 export * from "./optimization/index";
 export * from "./pipeline/index";
+export * from "./production-ready/index";
 
 export * from "./supervisor/index";
 export * from "./prompts/index";

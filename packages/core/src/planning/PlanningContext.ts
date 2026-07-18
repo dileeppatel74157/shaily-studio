@@ -17,6 +17,7 @@ import { IScriptEngine } from "../script/interfaces";
 import { IAssetEngine } from "../assets/interfaces";
 import { IProductionEngine } from "../production/interfaces";
 import { IGenerationEngine } from "../generation/interfaces";
+import { ICompositionEngine } from "../video-composition/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -39,4 +40,5 @@ export interface PlanningContext {
   readonly assetEngine?: IAssetEngine;
   readonly productionEngine?: IProductionEngine;
   readonly generationEngine?: IGenerationEngine;
+  readonly compositionEngine?: ICompositionEngine;
 }

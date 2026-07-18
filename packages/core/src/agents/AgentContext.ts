@@ -21,6 +21,7 @@ import { IAssetEngine } from "../assets/interfaces";
 import { IProductionEngine } from "../production/interfaces";
 import { IGenerationEngine } from "../generation/interfaces";
 import { ICompositionEngine } from "../video-composition/interfaces";
+import { IRenderEngine } from "../rendering/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -47,4 +48,5 @@ export interface AgentContext {
   readonly productionEngine?: IProductionEngine;
   readonly generationEngine?: IGenerationEngine;
   readonly compositionEngine?: ICompositionEngine;
+  readonly renderEngine?: IRenderEngine;
 }

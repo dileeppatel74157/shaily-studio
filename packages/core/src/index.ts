@@ -66,6 +66,7 @@ export * from "./rendering/index";
 export * from "./quality/index";
 export * from "./publishing/index";
 export * from "./analytics/index";
+export * from "./channel-manager/index";
 export * from "./supervisor/index";
 export * from "./prompts/index";
 export * from "./knowledge/index";

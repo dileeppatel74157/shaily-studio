@@ -70,6 +70,7 @@ export * from "./channel-manager/index";
 export * from "./founder/index";
 export * from "./control-center/index";
 export * from "./learning/index";
+export * from "./optimization/index";
 
 export * from "./supervisor/index";
 export * from "./prompts/index";

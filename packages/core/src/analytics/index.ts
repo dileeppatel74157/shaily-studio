@@ -51,3 +51,47 @@ export {
   AnalyticsPlatformException,
   AnalyticsProviderNotFoundException,
 } from "./types";
+
+// ─── Sprint 14.2: Optimization Enums ─────────────────────────────────────────
+export { SnapshotInterval }  from "./SnapshotInterval";
+export { ABTestStatus }      from "./ABTestStatus";
+export { RankingType }       from "./RankingType";
+export { PredictionType }    from "./PredictionType";
+export { TrendDirection }    from "./TrendDirection";
+
+// ─── Sprint 14.2: Optimization Models ────────────────────────────────────────
+export type {
+  ABTest,
+  ABTestVariant,
+  ABTestResult,
+  RankingEntry,
+  AnalyticsRanking,
+  TrendPrediction,
+  SnapshotSchedule,
+  AnalyticsSnapshotEntry,
+  ComparativeAnalysis,
+  OptimizationRecommendation,
+  OptimizationRequest,
+  OptimizationResponse,
+} from "./optimization-models";
+
+// ─── Sprint 14.2: Optimization Interfaces ────────────────────────────────────
+export type {
+  IRankingEngine,
+  IABTestEngine,
+  ITrendPredictor,
+  ISnapshotScheduler,
+  IComparativeAnalyzer,
+  IOptimizationEngine,
+} from "./optimization-interfaces";
+
+// ─── Sprint 14.2: Optimization Engines ───────────────────────────────────────
+export { AnalyticsOptimizationEngine }   from "./AnalyticsOptimizationEngine";
+export { AnalyticsOptimizationBuilder }  from "./AnalyticsOptimizationBuilder";
+export { AnalyticsOptimizationValidator, OptimizationValidationException } from "./AnalyticsOptimizationValidator";
+export { DefaultRankingEngine }          from "./RankingEngine";
+export { DefaultABTestEngine }           from "./ABTestEngine";
+export { DefaultTrendPredictor }         from "./TrendPredictionEngine";
+export { DefaultSnapshotScheduler }      from "./SnapshotScheduler";
+export { DefaultComparativeAnalyzer }    from "./ComparativeAnalyzer";
+

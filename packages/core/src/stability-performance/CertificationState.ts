@@ -1,0 +1,6 @@
+export enum CertificationState {
+  NOT_CERTIFIED = "NOT_CERTIFIED",
+  TESTING = "TESTING",
+  CERTIFIED = "CERTIFIED",
+  REQUIRES_FIXES = "REQUIRES_FIXES"
+}

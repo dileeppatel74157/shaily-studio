@@ -8,6 +8,7 @@ import { AssistantBuilder } from "../assistant/AssistantBuilder";
 import { TaskSchedulerBuilder } from "../task-scheduler/TaskSchedulerBuilder";
 import { SettingsBuilder } from "../settings/SettingsBuilder";
 import { SystemIntegrationBuilder } from "../system-integration/SystemIntegrationBuilder";
+import { StabilityPerformanceBuilder } from "../stability-performance/StabilityPerformanceBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -115,6 +116,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       engine: settingsEngine,
       dependencies: [],
       priority: StartupPriority.CRITICAL
+    });
+
+    const stabilityPerformanceEngine = new StabilityPerformanceBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "StabilityPerformanceEngine",
+      engine: stabilityPerformanceEngine,
+      dependencies: ["SystemIntegrationEngine"],
+      priority: StartupPriority.LOW
     });
 
     const workspaceEngine = new WorkspaceBuilder()

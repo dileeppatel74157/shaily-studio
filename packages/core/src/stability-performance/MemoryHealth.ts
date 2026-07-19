@@ -1,0 +1,7 @@
+export enum MemoryHealth {
+  HEALTHY = "HEALTHY",
+  NORMAL = "NORMAL",
+  HIGH = "HIGH",
+  CRITICAL = "CRITICAL",
+  LEAK_DETECTED = "LEAK_DETECTED"
+}

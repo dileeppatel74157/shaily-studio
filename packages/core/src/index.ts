@@ -491,14 +491,7 @@ export {
   MemoryOptimizationBuilder,
 } from "./memory-optimization/index";
 
-
-
-
-
-
-
-
-
+export * from "./settings/index";
 
 
 

@@ -27,6 +27,7 @@ import { IRuntimeEngine } from "../runtime/interfaces";
 import { IWorkspaceEngine } from "../workspace/interfaces";
 import { IAssistantEngine } from "../assistant/interfaces";
 import { ITaskSchedulerEngine } from "../task-scheduler/interfaces";
+import { ISettingsEngine } from "../settings/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -34,6 +35,7 @@ export interface AgentContext {
   readonly workspaceEngine?: IWorkspaceEngine;
   readonly assistantEngine?: IAssistantEngine;
   readonly schedulerEngine?: ITaskSchedulerEngine;
+  readonly settingsEngine?: ISettingsEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

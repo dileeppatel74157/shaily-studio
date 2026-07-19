@@ -495,3 +495,5 @@ export * from "./settings/index";
 export * from "./system-integration/index";
 export * from "./stability-performance/index";
 export * from "./configuration/index";
+export * from "./observability/index";
+

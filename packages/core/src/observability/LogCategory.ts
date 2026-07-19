@@ -1,0 +1,8 @@
+export enum LogCategory {
+  ENGINE = "ENGINE",
+  PIPELINE = "PIPELINE",
+  PROVIDER = "PROVIDER",
+  EXECUTION = "EXECUTION",
+  AUDIT = "AUDIT",
+  SYSTEM = "SYSTEM"
+}

@@ -1,48 +1,27 @@
-import { IObservability } from "./IObservability";
-import { Observability } from "./Observability";
-import { ObservabilityContext } from "./ObservabilityContext";
-import { HealthMonitor } from "./HealthMonitor";
-import { ObservabilityValidator } from "./ObservabilityValidator";
+import { IObservabilityEngine } from "./interfaces";
+import { ObservabilityEngine } from "./ObservabilityEngine";
 import { ObservabilityValidationException } from "./types";
+import { ObservabilityConfiguration } from "./models";
 
 export class ObservabilityBuilder {
-  private _context?: ObservabilityContext;
-  private _healthMonitor?: HealthMonitor;
-  private _metadata: Record<string, unknown> = {};
+  private _context?: any;
+  private _config?: Partial<ObservabilityConfiguration>;
 
-  public withContext(context: ObservabilityContext): this {
+  public withContext(context: any): this {
     this._context = context;
     return this;
   }
 
-  public withHealthMonitor(monitor: HealthMonitor): this {
-    this._healthMonitor = monitor;
+  public withConfig(config: Partial<ObservabilityConfiguration>): this {
+    this._config = config;
     return this;
   }
 
-  public withMetadata(metadata: Record<string, unknown>): this {
-    this._metadata = { ...this._metadata, ...metadata };
-    return this;
-  }
-
-  public build(): IObservability {
+  public build(): IObservabilityEngine {
     if (!this._context) {
-      throw new ObservabilityValidationException(
-        "ObservabilityContext is required to build Observability."
-      );
+      throw new ObservabilityValidationException("Context is required to build ObservabilityEngine.");
     }
 
-    // Deep merge context metadata and builder metadata
-    const finalContext: ObservabilityContext = {
-      env: this._context.env,
-      namespace: this._context.namespace,
-      metadata: { ...this._context.metadata, ...this._metadata },
-    };
-
-    ObservabilityValidator.validateContext(finalContext);
-
-    const finalHealthMonitor = this._healthMonitor || new HealthMonitor();
-
-    return new Observability(finalContext, finalHealthMonitor);
+    return new ObservabilityEngine(this._context, this._config);
   }
 }

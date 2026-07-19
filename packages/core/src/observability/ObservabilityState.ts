@@ -1,0 +1,8 @@
+export enum ObservabilityState {
+  CREATED = "CREATED",
+  INITIALIZING = "INITIALIZING",
+  RUNNING = "RUNNING",
+  STOPPING = "STOPPING",
+  STOPPED = "STOPPED",
+  FAILED = "FAILED"
+}

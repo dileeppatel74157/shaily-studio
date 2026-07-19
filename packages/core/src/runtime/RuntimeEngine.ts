@@ -10,6 +10,7 @@ import { SettingsBuilder } from "../settings/SettingsBuilder";
 import { SystemIntegrationBuilder } from "../system-integration/SystemIntegrationBuilder";
 import { StabilityPerformanceBuilder } from "../stability-performance/StabilityPerformanceBuilder";
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
+import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -106,6 +107,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "ConfigurationEngine",
       engine: configurationEngine,
       dependencies: [],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const observabilityEngine = new ObservabilityBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "ObservabilityEngine",
+      engine: observabilityEngine,
+      dependencies: ["ConfigurationEngine"],
       priority: StartupPriority.CRITICAL
     });
 

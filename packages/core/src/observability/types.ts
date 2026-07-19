@@ -1,15 +1,9 @@
-export enum ObservabilityState {
-  CREATED = "CREATED",
-  READY = "READY",
-  RUNNING = "RUNNING",
-  STOPPED = "STOPPED",
-  FAILED = "FAILED",
-}
+import { ObservabilityState } from "./ObservabilityState";
 
 export class ObservabilityException extends Error {
-  constructor(message: string) {
+  constructor(message: string, public readonly originalError?: Error) {
     super(message);
-    this.name = this.constructor.name;
+    this.name = "ObservabilityException";
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
@@ -17,41 +11,32 @@ export class ObservabilityException extends Error {
 export class ObservabilityValidationException extends ObservabilityException {
   constructor(message: string) {
     super(message);
+    this.name = "ObservabilityValidationException";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
-export class InvalidLifecycleTransitionException extends ObservabilityException {
+export class InvalidObservabilityStateException extends ObservabilityException {
   constructor(action: string, currentState: ObservabilityState) {
-    super(`Cannot perform "${action}" while Observability is in "${currentState}" state.`);
+    super(`Cannot perform action "${action}" when ObservabilityEngine is in state "${currentState}".`);
+    this.name = "InvalidObservabilityStateException";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
-export class InvalidSpanHierarchyException extends ObservabilityException {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-/**
- * Recursively deep-freezes a given object, enforcing immutability.
- * Uses type constraints and avoids 'any' to conform to strict TypeScript.
- */
 export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
+  
   Object.freeze(obj);
   
-  const typedObj = obj as unknown as Record<string, unknown>;
-  Object.getOwnPropertyNames(typedObj).forEach((prop) => {
-    if (
-      Object.prototype.hasOwnProperty.call(typedObj, prop) &&
-      typedObj[prop] !== null &&
-      (typeof typedObj[prop] === "object" || typeof typedObj[prop] === "function") &&
-      !Object.isFrozen(typedObj[prop])
-    ) {
-      deepFreeze(typedObj[prop]);
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (value !== null && (typeof value === "object" || typeof value === "function") && !Object.isFrozen(value)) {
+      deepFreeze(value);
     }
   });
+  
   return obj;
 }

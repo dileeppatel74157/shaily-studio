@@ -25,6 +25,7 @@ import { ISettingsEngine } from "../settings/interfaces";
 import { ISystemIntegrationEngine } from "../system-integration/interfaces";
 import { IStabilityPerformanceEngine } from "../stability-performance/interfaces";
 import { IConfigurationEngine } from "../configuration/interfaces";
+import { IObservabilityEngine } from "../observability/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -36,6 +37,7 @@ export interface MemoryContext {
   readonly systemIntegrationEngine?: ISystemIntegrationEngine;
   readonly stabilityPerformanceEngine?: IStabilityPerformanceEngine;
   readonly configurationEngine?: IConfigurationEngine;
+  readonly observabilityEngine?: IObservabilityEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

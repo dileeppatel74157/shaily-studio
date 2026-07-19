@@ -1,0 +1,7 @@
+export enum QualityMetric {
+  RELEVANCE    = "RELEVANCE",
+  COHERENCE    = "COHERENCE",
+  ACCURACY     = "ACCURACY",
+  COMPLETENESS = "COMPLETENESS",
+  FLUENCY      = "FLUENCY"
+}

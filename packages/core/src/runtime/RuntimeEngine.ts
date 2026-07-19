@@ -12,6 +12,7 @@ import { StabilityPerformanceBuilder } from "../stability-performance/StabilityP
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
+import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -128,6 +129,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "GatewayEngine",
       engine: gatewayEngine,
       dependencies: ["ConfigurationEngine", "ObservabilityEngine"],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const providerExecutionEngine = new ProviderExecutionBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "ProviderExecutionEngine",
+      engine: providerExecutionEngine,
+      dependencies: ["ConfigurationEngine", "ObservabilityEngine", "GatewayEngine"],
       priority: StartupPriority.CRITICAL
     });
 

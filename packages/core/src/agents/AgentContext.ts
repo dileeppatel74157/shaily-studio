@@ -33,6 +33,7 @@ import { IStabilityPerformanceEngine } from "../stability-performance/interfaces
 import { IConfigurationEngine } from "../configuration/interfaces";
 import { IObservabilityEngine } from "../observability/interfaces";
 import { IGatewayEngine } from "../ai-gateway/interfaces";
+import { IProviderExecutionEngine } from "../provider-execution/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -46,6 +47,7 @@ export interface AgentContext {
   readonly configurationEngine?: IConfigurationEngine;
   readonly observabilityEngine?: IObservabilityEngine;
   readonly gatewayEngine?: IGatewayEngine;
+  readonly providerExecutionEngine?: IProviderExecutionEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

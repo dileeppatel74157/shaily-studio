@@ -1,0 +1,7 @@
+export enum AssetStatus {
+  CREATED = "CREATED",
+  PROCESSING = "PROCESSING",
+  READY = "READY",
+  FAILED = "FAILED",
+  ARCHIVED = "ARCHIVED",
+}

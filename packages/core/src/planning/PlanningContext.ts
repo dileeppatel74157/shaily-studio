@@ -21,10 +21,12 @@ import { ICompositionEngine } from "../video-composition/interfaces";
 import { IRenderEngine } from "../rendering/interfaces";
 import { IQualityEngine } from "../quality/interfaces";
 import { IRuntimeEngine } from "../runtime/interfaces";
+import { IWorkspaceEngine } from "../workspace/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
   readonly runtimeEngine?: IRuntimeEngine;
+  readonly workspaceEngine?: IWorkspaceEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

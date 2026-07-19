@@ -3,6 +3,7 @@ import { RuntimeState } from "./RuntimeState";
 import { EngineState } from "./EngineState";
 import { ServiceType } from "./ServiceType";
 import { RuntimeValidator } from "./RuntimeValidator";
+import { WorkspaceBuilder } from "../workspace/WorkspaceBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -91,6 +92,16 @@ export class RuntimeEngine implements IRuntimeEngine {
     this._shutdownManager = new ShutdownManagerImpl(this);
     this._scheduler = new SchedulerImpl(this);
     this._reporter = new RuntimeReporterImpl(this);
+
+    const workspaceEngine = new WorkspaceBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "WorkspaceEngine",
+      engine: workspaceEngine,
+      dependencies: [],
+      priority: StartupPriority.CRITICAL
+    });
   }
 
   // --- IRuntimeEngine Implementation ---

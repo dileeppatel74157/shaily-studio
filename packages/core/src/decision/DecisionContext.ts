@@ -16,12 +16,14 @@ import { IQualityEngine } from "../quality/interfaces";
 import { IRuntimeEngine } from "../runtime/interfaces";
 import { IWorkspaceEngine } from "../workspace/interfaces";
 import { IAssistantEngine } from "../assistant/interfaces";
+import { ISchedulerEngine } from "../scheduler/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
   readonly runtimeEngine?: IRuntimeEngine;
   readonly workspaceEngine?: IWorkspaceEngine;
   readonly assistantEngine?: IAssistantEngine;
+  readonly schedulerEngine?: ISchedulerEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus?: IEventBus;

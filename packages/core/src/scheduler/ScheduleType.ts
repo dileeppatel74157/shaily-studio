@@ -1,4 +1,10 @@
 export enum ScheduleType {
-  ONE_TIME = "ONE_TIME",
-  RECURRING = "RECURRING",
+  ONCE = "ONCE",
+  DAILY = "DAILY",
+  WEEKLY = "WEEKLY",
+  MONTHLY = "MONTHLY",
+  YEARLY = "YEARLY",
+  INTERVAL = "INTERVAL",
+  CRON = "CRON",
+  EVENT = "EVENT",
 }

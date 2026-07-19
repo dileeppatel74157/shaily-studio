@@ -1,0 +1,9 @@
+export enum TriggerType {
+  TIME = "TIME",
+  MANUAL = "MANUAL",
+  PIPELINE = "PIPELINE",
+  EVENT = "EVENT",
+  DEPENDENCY = "DEPENDENCY",
+  STARTUP = "STARTUP",
+  SHUTDOWN = "SHUTDOWN",
+}

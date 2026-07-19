@@ -1,17 +1,22 @@
 import { SchedulerBuilder } from "./scheduler/SchedulerBuilder";
-import { SchedulerContext } from "./scheduler/SchedulerContext";
-import { ScheduleBuilder } from "./scheduler/ScheduleBuilder";
-import { ScheduledJob } from "./scheduler/ScheduledJob";
-import { SchedulerQueue } from "./scheduler/SchedulerQueue";
+import { SchedulerEngine } from "./scheduler/SchedulerEngine";
 import { SchedulerState } from "./scheduler/SchedulerState";
-import { SchedulerValidator } from "./scheduler/SchedulerValidator";
+import { TaskState } from "./scheduler/TaskState";
 import { ScheduleType } from "./scheduler/ScheduleType";
-import { Schedule } from "./scheduler/Schedule";
+import { TriggerType } from "./scheduler/TriggerType";
+import { RetryStrategy } from "./scheduler/RetryStrategy";
+import { QueuePriority } from "./scheduler/QueuePriority";
+import { DependencyState } from "./scheduler/DependencyState";
+import { SchedulerEventType } from "./scheduler/SchedulerEventType";
+import { SchedulerValidator } from "./scheduler/SchedulerValidator";
 import {
-  SchedulerException,
   SchedulerValidationException,
   InvalidSchedulerStateException,
+  CronParseException
 } from "./scheduler/types";
+import { RuntimeBuilder } from "./runtime/RuntimeBuilder";
+import { StartupPriority } from "./runtime/StartupPriority";
+import { RuntimeState } from "./runtime/RuntimeState";
 
 function assert(condition: boolean, message: string) {
   if (!condition) {
@@ -21,361 +26,472 @@ function assert(condition: boolean, message: string) {
   }
 }
 
+// Mock Memory Store implementation
+class MockMemoryStore {
+  public store = new Map<string, Map<string, any>>();
+
+  public async set(namespace: string, key: string, value: any): Promise<any> {
+    if (!this.store.has(namespace)) {
+      this.store.set(namespace, new Map());
+    }
+    this.store.get(namespace)!.set(key, value);
+    return { namespace, key, value, timestamp: new Date() };
+  }
+
+  public async get(namespace: string, key: string): Promise<any> {
+    return this.store.get(namespace)?.get(key);
+  }
+
+  public async has(namespace: string, key: string): Promise<boolean> {
+    return this.store.get(namespace)?.has(key) ?? false;
+  }
+}
+
 async function runTests() {
   // eslint-disable-next-line no-console
-  console.log("=== START SCHEDULER FRAMEWORK VERIFICATION TESTS ===");
+  console.log("=== START SPRINT 19.2 SCHEDULER ENGINE TESTS ===\n");
 
-  const context: SchedulerContext = {
-    env: "production",
-    namespace: "studio-jobs",
-    metadata: { version: "1.0.0" },
+  const memoryStore = new MockMemoryStore();
+  const context = {
+    env: "test",
+    namespace: "scheduler-test-namespace",
+    memoryStore,
+    startTime: Date.now()
+  };
+
+  const config = {
+    concurrentLimit: 2,
+    checkIntervalMs: 200,
+    persistenceEnabled: true
   };
 
   // ==========================================
-  // 1. Builder Validation
+  // 1. Builder Validation...
   // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("1. Running Builder Validation...");
-
-  // Valid construction
-  const scheduler = new SchedulerBuilder()
-    .withContext(context)
-    .withMetadata({ module: "video-renderer" })
-    .build();
-
-  assert(scheduler !== null, "Scheduler instance must be successfully constructed");
-
-  // Invalid construction (missing context)
   try {
     new SchedulerBuilder().build();
-    throw new Error("Should have rejected build with missing context");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for missing context"
-    );
+    assert(false, "Should fail without context");
+  } catch (err) {
+    assert(err instanceof SchedulerValidationException, "Expected SchedulerValidationException");
   }
+
+  const scheduler = new SchedulerBuilder()
+    .withContext(context)
+    .withConfig(config)
+    .build() as SchedulerEngine;
+
+  assert(scheduler !== null, "Scheduler builder should return an instance");
+  assert(scheduler.getState() === SchedulerState.CREATED, "Initial state must be CREATED");
   // eslint-disable-next-line no-console
-  console.log("   ✓ Verified Builder Validation.");
+  console.log("1. Builder Validation... ✓");
 
   // ==========================================
-  // 2. Lifecycle State Transitions
+  // 2. Lifecycle Transitions...
   // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("2. Running Lifecycle Transition Validation...");
-
-  const testSched = new SchedulerBuilder().withContext(context).build();
-
-  // Try calling runtime operation in CREATED state
   try {
-    await testSched.trigger("job-1");
-    throw new Error("Should have prevented trigger in CREATED state");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidSchedulerStateException,
-      "Expected InvalidSchedulerStateException for CREATED state"
-    );
+    await scheduler.start();
+    assert(false, "Should fail starting before initializing");
+  } catch (err) {
+    assert(err instanceof InvalidSchedulerStateException, "Expected InvalidSchedulerStateException");
   }
 
-  // CREATED -> READY
-  await testSched.initialize();
+  await scheduler.initialize();
+  assert(scheduler.getState() === SchedulerState.STOPPED, "Should transition to STOPPED");
 
-  // Try illegal transition READY -> STOPPED
-  try {
-    await testSched.stop();
-    throw new Error("Should have prevented READY -> STOPPED");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidSchedulerStateException,
-      "Expected InvalidSchedulerStateException for READY -> STOPPED"
-    );
-  }
+  await scheduler.start();
+  assert(scheduler.getState() === SchedulerState.RUNNING, "Should transition to RUNNING");
 
-  // READY -> RUNNING
-  await testSched.start();
-
-  // Try illegal transition RUNNING -> READY
-  try {
-    await testSched.initialize();
-    throw new Error("Should have prevented RUNNING -> READY");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidSchedulerStateException,
-      "Expected InvalidSchedulerStateException for RUNNING -> READY"
-    );
-  }
-
-  // RUNNING -> STOPPED
-  await testSched.stop();
-
-  // Once stopped, operations must fail
-  try {
-    await testSched.trigger("job-1");
-    throw new Error("Should have prevented trigger in STOPPED state");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidSchedulerStateException,
-      "Expected InvalidSchedulerStateException for STOPPED state"
-    );
-  }
+  await scheduler.stop();
+  assert(scheduler.getState() === SchedulerState.STOPPED, "Should transition to STOPPED on stop");
   // eslint-disable-next-line no-console
-  console.log("   ✓ Verified Lifecycle State Transition and exception rules.");
+  console.log("2. Lifecycle Transitions... ✓");
 
   // ==========================================
-  // 3. Schedule Registration & Duplicates
+  // 3. Task Creation...
   // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("3. Running Schedule Registration & Duplicates checks...");
-
-  const activeSched = new SchedulerBuilder().withContext(context).build();
-  await activeSched.initialize();
-  await activeSched.start();
-
-  const schedule1 = new ScheduleBuilder()
-    .withId("video.render")
-    .withName("Render Video Job")
-    .withType(ScheduleType.ONE_TIME)
-    .withHandlerName("renderer")
-    .withPriority(10)
-    .build();
-
-  await activeSched.schedule(schedule1, async () => {});
-
-  assert(activeSched.has("video.render"), "Should have registered schedule");
-  assert(activeSched.get("video.render")?.name === "Render Video Job", "Query details match");
-
-  // Duplicate registration check
-  try {
-    await activeSched.schedule(schedule1, async () => {});
-    throw new Error("Should have rejected duplicate schedule registration");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for duplicate ID"
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified schedule registration constraints.");
-
-  // ==========================================
-  // 4. Execution Delegation & Manual Trigger
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("4. Running Manual Trigger & Execution Delegation...");
-
-  const executionRecord = { handlerExecuted: false };
-  let executedJob: ScheduledJob | null = null;
-
-  const schedule2 = new ScheduleBuilder()
-    .withId("video.compress")
-    .withName("Compress Video Job")
-    .withType(ScheduleType.ONE_TIME)
-    .withHandlerName("compressor")
-    .withPriority(5)
-    .build();
-
-  await activeSched.schedule(schedule2, async (job) => {
-    executionRecord.handlerExecuted = true;
-    executedJob = job;
+  const tm = scheduler.getTaskManager();
+  const task = await tm.createTask({
+    id: "task-1",
+    name: "Research AI News",
+    priority: QueuePriority.HIGH,
+    schedule: {
+      type: ScheduleType.ONCE,
+      triggerType: TriggerType.MANUAL
+    },
+    retryPolicy: {
+      strategy: RetryStrategy.FIXED_DELAY,
+      maxRetries: 3,
+      initialDelayMs: 10
+    },
+    parameters: { topic: "AI" }
   });
 
-  await activeSched.trigger("video.compress");
+  assert(task.id === "task-1", "Task created with correct ID");
+  assert(task.state === TaskState.PENDING, "State should be PENDING");
+  // eslint-disable-next-line no-console
+  console.log("3. Task Creation... ✓");
 
-  assert(executionRecord.handlerExecuted === true, "Handler should have been executed");
-  assert(executedJob !== null, "Job reference should be captured");
-  assert(executedJob!.scheduleId === "video.compress", "Triggered correct schedule ID");
-
-  const snap = activeSched.snapshot();
-  const history = snap.history;
-  assert(history.length > 0, "Execution history recorded");
+  // ==========================================
+  // 4. Queue Management...
+  // ==========================================
+  const qm = scheduler.getQueueManager();
+  await qm.enqueue(task);
   
-  const compJob = history.find((h) => h.scheduleId === "video.compress");
-  assert(compJob !== undefined, "Completed job entry exists in history");
-  assert(compJob!.status === "COMPLETED", "Job finished successfully");
-  assert(compJob!.duration !== undefined && compJob!.duration >= 0, "Duration calculated");
-
+  const qItems = qm.getQueueItems();
+  assert(qItems.length === 1, "Queue should contain 1 item");
+  assert(qItems[0].taskId === "task-1", "Correct task enqueued");
+  
+  const dequeued = await qm.dequeue();
+  assert(dequeued?.taskId === "task-1", "Dequeued matching task");
   // eslint-disable-next-line no-console
-  console.log("   ✓ Verified successful manual triggers and handler delegation.");
+  console.log("4. Queue Management... ✓");
 
   // ==========================================
-  // 5. Queue Priority Ordering
+  // 5. Priority Scheduling...
   // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("5. Running Queue Priority Ordering Validation...");
-
-  const queue = new SchedulerQueue();
-  queue.push({ id: "j1", scheduleId: "s1", status: "PENDING", attempt: 1 }, 10);
-  queue.push({ id: "j2", scheduleId: "s2", status: "PENDING", attempt: 1 }, 100);
-  queue.push({ id: "j3", scheduleId: "s3", status: "PENDING", attempt: 1 }, 50);
-
-  const pop1 = queue.pop();
-  assert(pop1 !== undefined && pop1.id === "j2", "Highest priority job popped first (priority 100)");
-
-  const pop2 = queue.pop();
-  assert(pop2 !== undefined && pop2.id === "j3", "Second priority job popped next (priority 50)");
-
-  const pop3 = queue.pop();
-  assert(pop3 !== undefined && pop3.id === "j1", "Lowest priority job popped last (priority 10)");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified queue priority sort order.");
-
-  // ==========================================
-  // 6. Pause / Resume
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("6. Running Pause & Resume Validation...");
-
-  await activeSched.pause("video.render");
-
-  try {
-    await activeSched.trigger("video.render");
-    throw new Error("Should have prevented triggering paused schedule");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for triggering paused schedule"
-    );
-  }
-
-  // Resume
-  await activeSched.resume("video.render");
-  await activeSched.trigger("video.render"); // Should pass now
-
-  const renderHistory = activeSched.snapshot().history.filter((h) => h.scheduleId === "video.render");
-  assert(renderHistory.length === 1, "Schedule executed successfully after resume");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified schedule pauses and resumes.");
-
-  // ==========================================
-  // 7. Failure Handling & Retries
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("7. Running Failure Handling & Retry Validation...");
-
-  let attempts = 0;
-  const failingSchedule = new ScheduleBuilder()
-    .withId("video.fail")
-    .withName("Failing Job")
-    .withType(ScheduleType.ONE_TIME)
-    .withHandlerName("failer")
-    .withPolicy({ maxRetries: 2, backoffMs: 0, concurrencyLimit: 1 })
-    .build();
-
-  await activeSched.schedule(failingSchedule, async () => {
-    attempts++;
-    throw new Error("Connection failed");
+  const taskLow = await tm.createTask({
+    id: "task-low",
+    priority: QueuePriority.LOW,
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL },
+    parameters: {}
   });
 
-  await activeSched.trigger("video.fail");
+  const taskCritical = await tm.createTask({
+    id: "task-critical",
+    priority: QueuePriority.CRITICAL,
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL },
+    parameters: {}
+  });
 
-  const failHistory = activeSched.snapshot().history.find((h) => h.scheduleId === "video.fail");
-  assert(failHistory !== undefined, "Failing job recorded in history");
-  assert(failHistory!.status === "FAILED", "Job finished in FAILED state");
-  assert(attempts === 3, "Executed exactly 3 times (1 initial + 2 retries)");
-  assert(failHistory!.attempt === 3, "Attempt count matches 3");
-  assert(failHistory!.error === "Connection failed", "Error message recorded correctly");
+  await qm.enqueue(taskLow);
+  await qm.enqueue(taskCritical);
 
+  const firstOut = await qm.dequeue();
+  assert(firstOut?.taskId === "task-critical", "Critical task dequeued first");
+  
+  const secondOut = await qm.dequeue();
+  assert(secondOut?.taskId === "task-low", "Low task dequeued second");
   // eslint-disable-next-line no-console
-  console.log("   ✓ Verified retry limits and error logs.");
+  console.log("5. Priority Scheduling... ✓");
 
   // ==========================================
-  // 8. Snapshot Immutability
+  // 6. Daily Schedule...
   // ==========================================
+  const dailyTask = await tm.createTask({
+    id: "task-daily",
+    schedule: {
+      type: ScheduleType.DAILY,
+      triggerType: TriggerType.TIME
+    },
+    parameters: {}
+  });
+  dailyTask.lastRunAt = new Date(Date.now() - 25 * 60 * 60 * 1000); // 25h ago
+  await tm.updateTask(dailyTask);
+
+  const trm = scheduler.getTriggerManager();
+  await trm.evaluateTriggers(new Date());
+  assert(dailyTask.state === TaskState.QUEUED, "Daily task triggered and enqueued");
+  await qm.dequeue(); // clean
   // eslint-disable-next-line no-console
-  console.log("8. Running Snapshot Immutability Validation...");
+  console.log("6. Daily Schedule... ✓");
 
-  const snapshot = activeSched.snapshot();
+  // ==========================================
+  // 7. Weekly Schedule...
+  // ==========================================
+  const weeklyTask = await tm.createTask({
+    id: "task-weekly",
+    schedule: {
+      type: ScheduleType.WEEKLY,
+      triggerType: TriggerType.TIME
+    },
+    parameters: {}
+  });
+  weeklyTask.lastRunAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000); // 8d ago
+  await tm.updateTask(weeklyTask);
 
-  // Root snapshot
+  await trm.evaluateTriggers(new Date());
+  assert(weeklyTask.state === TaskState.QUEUED, "Weekly task triggered and enqueued");
+  await qm.dequeue();
+  // eslint-disable-next-line no-console
+  console.log("7. Weekly Schedule... ✓");
+
+  // ==========================================
+  // 8. Interval Schedule...
+  // ==========================================
+  const intervalTask = await tm.createTask({
+    id: "task-interval",
+    schedule: {
+      type: ScheduleType.INTERVAL,
+      intervalMs: 100,
+      triggerType: TriggerType.TIME
+    },
+    parameters: {}
+  });
+  
+  await new Promise(resolve => setTimeout(resolve, 150));
+  await trm.evaluateTriggers(new Date());
+  assert(intervalTask.state === TaskState.QUEUED, "Interval task triggered");
+  await qm.dequeue();
+  // eslint-disable-next-line no-console
+  console.log("8. Interval Schedule... ✓");
+
+  // ==========================================
+  // 9. Cron Schedule...
+  // ==========================================
+  const cronManager = scheduler.getCronManager();
+  const cron = cronManager.parseCron("*/5 * * * *");
+  
+  assert(cron.minutes.includes(5) && cron.minutes.includes(10), "Parsed step minutes");
+  assert(cron.hours.length === 24, "Asterisk hours mapped to all hours");
+
+  const matchTime = new Date();
+  matchTime.setMinutes(15);
+  assert(cronManager.isCronDue(cron, matchTime), "Cron evaluates due on match minute");
+  // eslint-disable-next-line no-console
+  console.log("9. Cron Schedule... ✓");
+
+  // ==========================================
+  // 10. Dependency Resolution...
+  // ==========================================
+  const parent = await tm.createTask({
+    id: "task-parent",
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL },
+    parameters: {}
+  });
+
+  const child = await tm.createTask({
+    id: "task-child",
+    dependencies: ["task-parent"],
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL },
+    parameters: {}
+  });
+
+  const depManager = scheduler.getDependencyManager();
+  assert(depManager.evaluateDependencies(child.id) === DependencyState.WAITING, "Child is WAITING");
+  
+  parent.state = TaskState.COMPLETED;
+  await tm.updateTask(parent);
+
+  assert(depManager.evaluateDependencies(child.id) === DependencyState.READY, "Child is READY");
+  // eslint-disable-next-line no-console
+  console.log("10. Dependency Resolution... ✓");
+
+  // ==========================================
+  // 11. Retry Logic...
+  // ==========================================
+  const failTask = await tm.createTask({
+    id: "task-fail",
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL },
+    retryPolicy: {
+      strategy: RetryStrategy.FIXED_DELAY,
+      maxRetries: 2,
+      initialDelayMs: 20
+    },
+    parameters: {}
+  });
+
+  const retryManager = scheduler.getRetryManager();
+  assert(retryManager.shouldRetry(failTask, new Error("err")), "Should retry on first attempt");
+  
+  retryManager.recordRetry(failTask.id, new Error("err"));
+  assert(retryManager.shouldRetry(failTask, new Error("err")), "Should retry on second attempt");
+  
+  retryManager.recordRetry(failTask.id, new Error("err"));
+  assert(!retryManager.shouldRetry(failTask, new Error("err")), "Should NOT retry after limit");
+  // eslint-disable-next-line no-console
+  console.log("11. Retry Logic... ✓");
+
+  // ==========================================
+  // 12. Auto Resume...
+  // ==========================================
+  const pendingTask = await tm.createTask({
+    id: "task-pending-persistence",
+    parameters: {}
+  });
+  pendingTask.state = TaskState.QUEUED;
+  await tm.updateTask(pendingTask);
+
+  // Persist queue in memory
+  const runningTasks = tm.listTasks().filter(t => t.state === TaskState.QUEUED);
+  await scheduler.logToMemory("scheduler", "unfinished_tasks", runningTasks);
+
+  // Reinitialize scheduler to test auto resume
+  const secondaryScheduler = new SchedulerBuilder()
+    .withContext(context)
+    .withConfig(config)
+    .build();
+  await secondaryScheduler.initialize();
+
+  const restoredTask = await secondaryScheduler.getTaskManager().getTask("task-pending-persistence");
+  assert(restoredTask.state === TaskState.QUEUED, "State restored successfully");
+  // eslint-disable-next-line no-console
+  console.log("12. Auto Resume... ✓");
+
+  // ==========================================
+  // 13. Runtime Integration...
+  // ==========================================
+  const runtime = new RuntimeBuilder()
+    .withContext(context)
+    .withConfig({
+      env: "test",
+      heartbeatIntervalMs: 500,
+      healthCheckIntervalMs: 1000,
+      startupTimeoutMs: 500,
+      shutdownTimeoutMs: 500
+    })
+    .withHost({ id: "host-1" })
+    .build();
+
+  await runtime.initialize();
+  await runtime.start();
+
+  const loadedScheduler = (runtime as any).getEngine("SchedulerEngine");
+  assert(loadedScheduler !== undefined, "Scheduler is registered inside Runtime");
+  await runtime.stop();
+  // eslint-disable-next-line no-console
+  console.log("13. Runtime Integration... ✓");
+
+  // ==========================================
+  // 14. Pipeline Integration...
+  // ==========================================
+  const pipeTask = await tm.createTask({
+    id: "task-pipeline",
+    targetPipelineId: "pipe-123",
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.PIPELINE },
+    parameters: {}
+  });
+
+  const execManager = scheduler.getExecutionManager();
+  await execManager.executeTask(pipeTask);
+  assert(await memoryStore.has("pipeline-runs", "pipeline-pipe-123"), "Pipeline execute triggered memory record");
+  // eslint-disable-next-line no-console
+  console.log("14. Pipeline Integration... ✓");
+
+  // ==========================================
+  // 15. Assistant Integration...
+  // ==========================================
+  const assistTask = await tm.createTask({
+    id: "task-assist",
+    schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL },
+    parameters: {}
+  });
+
+  await tm.pauseTask(assistTask.id);
+  assert(assistTask.state === TaskState.WAITING, "Task state set to WAITING on pause");
+  
+  await tm.resumeTask(assistTask.id);
+  assert(assistTask.state === TaskState.PENDING, "Task state returned to PENDING on resume");
+  
+  await tm.cancelTask(assistTask.id);
+  assert(assistTask.state === TaskState.CANCELLED, "Task state set to CANCELLED on cancel");
+  // eslint-disable-next-line no-console
+  console.log("15. Assistant Integration... ✓");
+
+  // ==========================================
+  // 16. Memory Integration...
+  // ==========================================
+  await scheduler.logToMemory("executions", "exec-test-1", { status: "running" });
+  assert(await memoryStore.has("executions", "exec-test-1"), "Executions namespace integration works");
+  // eslint-disable-next-line no-console
+  console.log("16. Memory Integration... ✓");
+
+  // ==========================================
+  // 17. Event Publishing...
+  // ==========================================
+  let eventFired = false;
+  scheduler.on("TaskScheduled", () => { eventFired = true; });
+  await tm.createTask({ id: "task-event-check", parameters: {} });
+  assert(eventFired, "TaskScheduled event published successfully");
+  // eslint-disable-next-line no-console
+  console.log("17. Event Publishing... ✓");
+
+  // ==========================================
+  // 18. Snapshot Immutability...
+  // ==========================================
+  const snap = scheduler.getReporter().getSchedulerSnapshot();
   try {
-    (snapshot as any).timestamp = new Date(0);
-    throw new Error("Should have thrown error on modifying snapshot root");
-  } catch (err: unknown) {
+    (snap as any).state = SchedulerState.FAILED;
+    assert(false, "Should fail modifying frozen snapshot");
+  } catch (err) {
     assert(err instanceof TypeError, "Expected TypeError on modifying frozen snapshot");
   }
-
-  // History array
-  try {
-    (snapshot.history as any)[0] = null;
-    throw new Error("Should have thrown error on modifying history array");
-  } catch (err: unknown) {
-    assert(err instanceof TypeError, "Expected TypeError on modifying frozen history");
-  }
-
-  // Schedule objects
-  try {
-    (snapshot.schedules[0] as any).name = "hacked";
-    throw new Error("Should have thrown error on modifying schedule");
-  } catch (err: unknown) {
-    assert(err instanceof TypeError, "Expected TypeError on modifying frozen schedule");
-  }
   // eslint-disable-next-line no-console
-  console.log("   ✓ Verified deep freeze immutability on snapshots and schedules.");
+  console.log("18. Snapshot Immutability... ✓");
 
   // ==========================================
-  // 9. Validator Rules
+  // 19. Validator Rules...
   // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("9. Running Validator Rule Checks...");
-
-  // Invalid key identifiers
   try {
-    SchedulerValidator.validateIdentifier("invalid id space", "Test ID");
-    throw new Error("Should have rejected space in ID");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for space in ID"
-    );
+    SchedulerValidator.validateTaskId("invalid taskId space");
+    assert(false, "Should fail on spaces");
+  } catch (err) {
+    assert(err instanceof SchedulerValidationException, "Expected SchedulerValidationException");
   }
 
   try {
-    SchedulerValidator.validateIdentifier("invalid_@_char", "Test ID");
-    throw new Error("Should have rejected special symbol in ID");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for special symbol in ID"
-    );
-  }
-
-  // Invalid trigger (negative interval)
-  try {
-    SchedulerValidator.validateTrigger({ intervalMs: -100 });
-    throw new Error("Should have rejected negative intervalMs");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for negative intervalMs"
-    );
-  }
-
-  // Invalid policy (negative retries)
-  try {
-    SchedulerValidator.validatePolicy({ maxRetries: -1, backoffMs: 10, concurrencyLimit: 1 });
-    throw new Error("Should have rejected negative maxRetries");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for negative maxRetries"
-    );
-  }
-
-  // Invalid policy (concurrencyLimit <= 0)
-  try {
-    SchedulerValidator.validatePolicy({ maxRetries: 3, backoffMs: 10, concurrencyLimit: 0 });
-    throw new Error("Should have rejected zero concurrencyLimit");
-  } catch (err: unknown) {
-    assert(
-      err instanceof SchedulerValidationException,
-      "Expected SchedulerValidationException for zero concurrencyLimit"
-    );
+    SchedulerValidator.validateCircularDependencies([
+      { id: "A", name: "A", state: TaskState.PENDING, priority: QueuePriority.NORMAL, schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL }, retryPolicy: { strategy: RetryStrategy.NONE, maxRetries: 0, initialDelayMs: 0 }, dependencies: ["B"], parameters: {}, createdAt: new Date(), updatedAt: new Date() },
+      { id: "B", name: "B", state: TaskState.PENDING, priority: QueuePriority.NORMAL, schedule: { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL }, retryPolicy: { strategy: RetryStrategy.NONE, maxRetries: 0, initialDelayMs: 0 }, dependencies: ["A"], parameters: {}, createdAt: new Date(), updatedAt: new Date() }
+    ]);
+    assert(false, "Should fail on circular dependencies");
+  } catch (err) {
+    assert(err instanceof SchedulerValidationException, "Expected SchedulerValidationException");
   }
   // eslint-disable-next-line no-console
-  console.log("   ✓ Verified validator rule constraints.");
+  console.log("19. Validator Rules... ✓");
+
+  // ==========================================
+  // 20. Full End-to-End Autonomous Scheduling...
+  // ==========================================
+  const runtimeE2E = new RuntimeBuilder()
+    .withContext(context)
+    .withConfig({
+      env: "test",
+      heartbeatIntervalMs: 100,
+      healthCheckIntervalMs: 200,
+      startupTimeoutMs: 500,
+      shutdownTimeoutMs: 500
+    })
+    .withHost({ id: "host-1" })
+    .build();
+
+  await runtimeE2E.initialize();
+  await runtimeE2E.start();
+
+  const activeScheduler = (runtimeE2E as any).getEngine("SchedulerEngine") as SchedulerEngine;
+  const tmE2E = activeScheduler.getTaskManager();
+  const qmE2E = activeScheduler.getQueueManager();
+
+  const runTask = await tmE2E.createTask({
+    id: "task-e2e-run",
+    priority: QueuePriority.CRITICAL,
+    schedule: {
+      type: ScheduleType.INTERVAL,
+      intervalMs: 10,
+      triggerType: TriggerType.TIME
+    },
+    parameters: {}
+  });
+
+  // Wait for interval to elapse
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  // Evaluate and trigger execution
+  await activeScheduler.getTriggerManager().evaluateTriggers(new Date());
+  await (activeScheduler as any).processQueue();
+  
+  // Wait a short delay to allow background queue execution to proceed
+  await new Promise(resolve => setTimeout(resolve, 50));
+
+  const finalState = await tmE2E.getTask("task-e2e-run");
+  assert(finalState.state === TaskState.COMPLETED, "E2E Task ran and completed autonomously");
+
+  await runtimeE2E.stop();
+  // eslint-disable-next-line no-console
+  console.log("20. Full End-to-End Autonomous Scheduling... ✓");
 
   // eslint-disable-next-line no-console
-  console.log("=== ALL SCHEDULER FRAMEWORK VERIFICATION TESTS PASSED SUCCESSFULLY ===");
+  console.log("\n=== ALL 20/20 SCHEDULER ENGINE TESTS PASSED SUCCESSFULLY ===");
 }
 
 runTests().catch((err) => {

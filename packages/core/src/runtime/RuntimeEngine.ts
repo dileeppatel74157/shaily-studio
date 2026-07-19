@@ -5,6 +5,7 @@ import { ServiceType } from "./ServiceType";
 import { RuntimeValidator } from "./RuntimeValidator";
 import { WorkspaceBuilder } from "../workspace/WorkspaceBuilder";
 import { AssistantBuilder } from "../assistant/AssistantBuilder";
+import { SchedulerBuilder } from "../scheduler/SchedulerBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -110,6 +111,16 @@ export class RuntimeEngine implements IRuntimeEngine {
     this.registerEngine({
       id: "AssistantEngine",
       engine: assistantEngine,
+      dependencies: [],
+      priority: StartupPriority.HIGH
+    });
+
+    const schedulerEngine = new SchedulerBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "SchedulerEngine",
+      engine: schedulerEngine,
       dependencies: [],
       priority: StartupPriority.HIGH
     });

@@ -1,7 +1,9 @@
 export enum SchedulerState {
   CREATED = "CREATED",
-  READY = "READY",
+  INITIALIZING = "INITIALIZING",
   RUNNING = "RUNNING",
+  PAUSED = "PAUSED",
+  STOPPING = "STOPPING",
   STOPPED = "STOPPED",
   FAILED = "FAILED",
 }

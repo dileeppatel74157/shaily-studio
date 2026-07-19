@@ -1,44 +1,33 @@
-import { IScheduler } from "./IScheduler";
-import { Scheduler } from "./Scheduler";
-import { SchedulerContext } from "./SchedulerContext";
-import { SchedulePolicy } from "./SchedulePolicy";
-import { SchedulerQueue } from "./SchedulerQueue";
+import { ISchedulerEngine } from "./interfaces";
+import { SchedulerEngine } from "./SchedulerEngine";
+import { SchedulerConfiguration } from "./models";
 import { SchedulerValidationException } from "./types";
 
 export class SchedulerBuilder {
-  private _context?: SchedulerContext;
-  private _defaultPolicy?: SchedulePolicy;
-  private _queue?: SchedulerQueue;
-  private _metadata: Record<string, unknown> = {};
+  private _context?: any;
+  private _config?: SchedulerConfiguration;
 
-  public withContext(context: SchedulerContext): this {
+  public withContext(context: any): this {
     this._context = context;
     return this;
   }
 
-  public withPolicy(policy: SchedulePolicy): this {
-    this._defaultPolicy = policy;
+  public withConfig(config: SchedulerConfiguration): this {
+    this._config = config;
     return this;
   }
 
-  public withQueue(queue: SchedulerQueue): this {
-    this._queue = queue;
-    return this;
-  }
-
-  public withMetadata(metadata: Record<string, unknown>): this {
-    this._metadata = { ...this._metadata, ...metadata };
-    return this;
-  }
-
-  public build(): IScheduler {
+  public build(): ISchedulerEngine {
     if (!this._context) {
-      throw new SchedulerValidationException("SchedulerContext is required to build Scheduler.");
+      throw new SchedulerValidationException("SchedulerContext is required to build SchedulerEngine.");
     }
 
-    return new Scheduler(
-      this._context,
-      this._metadata
-    );
+    const config: SchedulerConfiguration = this._config || {
+      concurrentLimit: 2,
+      checkIntervalMs: 1000,
+      persistenceEnabled: false
+    };
+
+    return new SchedulerEngine(this._context, config);
   }
 }

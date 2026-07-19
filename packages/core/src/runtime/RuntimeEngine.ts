@@ -11,6 +11,7 @@ import { SystemIntegrationBuilder } from "../system-integration/SystemIntegratio
 import { StabilityPerformanceBuilder } from "../stability-performance/StabilityPerformanceBuilder";
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
+import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -117,6 +118,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "ObservabilityEngine",
       engine: observabilityEngine,
       dependencies: ["ConfigurationEngine"],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const gatewayEngine = new GatewayBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "GatewayEngine",
+      engine: gatewayEngine,
+      dependencies: ["ConfigurationEngine", "ObservabilityEngine"],
       priority: StartupPriority.CRITICAL
     });
 

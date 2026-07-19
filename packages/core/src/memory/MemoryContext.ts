@@ -26,6 +26,7 @@ import { ISystemIntegrationEngine } from "../system-integration/interfaces";
 import { IStabilityPerformanceEngine } from "../stability-performance/interfaces";
 import { IConfigurationEngine } from "../configuration/interfaces";
 import { IObservabilityEngine } from "../observability/interfaces";
+import { IGatewayEngine } from "../ai-gateway/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -38,6 +39,7 @@ export interface MemoryContext {
   readonly stabilityPerformanceEngine?: IStabilityPerformanceEngine;
   readonly configurationEngine?: IConfigurationEngine;
   readonly observabilityEngine?: IObservabilityEngine;
+  readonly gatewayEngine?: IGatewayEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

@@ -1,0 +1,7 @@
+export enum DependencyStatus {
+  UNKNOWN = "UNKNOWN",
+  SATISFIED = "SATISFIED",
+  MISSING = "MISSING",
+  CIRCULAR = "CIRCULAR",
+  OPTIONAL = "OPTIONAL"
+}

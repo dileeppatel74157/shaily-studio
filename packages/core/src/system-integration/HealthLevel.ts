@@ -1,0 +1,7 @@
+export enum HealthLevel {
+  EXCELLENT = "EXCELLENT",
+  GOOD = "GOOD",
+  WARNING = "WARNING",
+  CRITICAL = "CRITICAL",
+  OFFLINE = "OFFLINE"
+}

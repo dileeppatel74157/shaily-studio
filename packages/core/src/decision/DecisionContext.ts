@@ -18,6 +18,7 @@ import { IWorkspaceEngine } from "../workspace/interfaces";
 import { IAssistantEngine } from "../assistant/interfaces";
 import { ITaskSchedulerEngine } from "../task-scheduler/interfaces";
 import { ISettingsEngine } from "../settings/interfaces";
+import { ISystemIntegrationEngine } from "../system-integration/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
@@ -26,6 +27,7 @@ export interface DecisionContext {
   readonly assistantEngine?: IAssistantEngine;
   readonly schedulerEngine?: ITaskSchedulerEngine;
   readonly settingsEngine?: ISettingsEngine;
+  readonly systemIntegrationEngine?: ISystemIntegrationEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus?: IEventBus;

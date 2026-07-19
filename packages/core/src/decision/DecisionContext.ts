@@ -13,9 +13,11 @@ import { IGenerationEngine } from "../generation/interfaces";
 import { ICompositionEngine } from "../video-composition/interfaces";
 import { IRenderEngine } from "../rendering/interfaces";
 import { IQualityEngine } from "../quality/interfaces";
+import { IRuntimeEngine } from "../runtime/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
+  readonly runtimeEngine?: IRuntimeEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus?: IEventBus;

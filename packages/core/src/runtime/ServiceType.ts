@@ -1,0 +1,10 @@
+export enum ServiceType {
+  ENGINE = "ENGINE",
+  DATABASE = "DATABASE",
+  CACHE = "CACHE",
+  PROVIDER = "PROVIDER",
+  WORKER = "WORKER",
+  SCHEDULER = "SCHEDULER",
+  MONITOR = "MONITOR",
+  CUSTOM = "CUSTOM",
+}

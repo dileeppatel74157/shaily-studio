@@ -1,5 +1,5 @@
 import {
-  ISchedulerEngine,
+  ITaskSchedulerEngine,
   ITaskManager,
   IQueueManager,
   ITriggerManager,
@@ -7,17 +7,19 @@ import {
   IRetryManager,
   ICronManager,
   IExecutionManager,
+  IResumeManager,
+  IMonitoringManager,
   ISchedulerMonitor,
   ISchedulerReporter
 } from "./interfaces";
 import { SchedulerState } from "./SchedulerState";
 import { TaskState } from "./TaskState";
-import { ScheduleType } from "./ScheduleType";
+import { TaskPriority } from "./TaskPriority";
 import { TriggerType } from "./TriggerType";
-import { RetryStrategy } from "./RetryStrategy";
-import { QueuePriority } from "./QueuePriority";
+import { ScheduleType } from "./ScheduleType";
+import { RetryPolicy } from "./RetryPolicy";
 import { DependencyState } from "./DependencyState";
-import { SchedulerEventType } from "./SchedulerEventType";
+import { ExecutionWindow } from "./ExecutionWindow";
 import {
   Scheduler,
   SchedulerRequest,
@@ -37,7 +39,7 @@ import {
   TaskDependency,
   DependencyGraph,
   DependencyResult,
-  RetryPolicy,
+  RetryPolicyConfig,
   RetryHistory,
   SchedulerMetrics,
   SchedulerReport,
@@ -46,17 +48,17 @@ import {
   SchedulerHealth
 } from "./models";
 import {
-  SchedulerException,
+  TaskSchedulerException,
   TaskNotFoundException,
   TriggerException,
   CronParseException,
-  SchedulerValidationException,
-  InvalidSchedulerStateException,
+  TaskSchedulerValidationException,
+  InvalidTaskSchedulerStateException,
   deepFreeze
 } from "./types";
-import { SchedulerValidator } from "./SchedulerValidator";
+import { TaskSchedulerValidator } from "./TaskSchedulerValidator";
 
-export class SchedulerEngine implements ISchedulerEngine {
+export class TaskSchedulerEngine implements ITaskSchedulerEngine {
   private _state = SchedulerState.CREATED;
   private readonly _eventHandlers = new Map<string, Set<(event: any) => void>>();
   private _checkIntervalTimer?: NodeJS.Timeout;
@@ -69,7 +71,8 @@ export class SchedulerEngine implements ISchedulerEngine {
   private readonly _retryManager: RetryManagerImpl;
   private readonly _cronManager: CronManagerImpl;
   private readonly _executionManager: ExecutionManagerImpl;
-  private readonly _monitor: SchedulerMonitorImpl;
+  private readonly _resumeManager: ResumeManagerImpl;
+  private readonly _monitoringManager: MonitoringManagerImpl;
   private readonly _reporter: SchedulerReporterImpl;
 
   private _bootTime = Date.now();
@@ -91,15 +94,16 @@ export class SchedulerEngine implements ISchedulerEngine {
     this._retryManager = new RetryManagerImpl(this);
     this._cronManager = new CronManagerImpl(this);
     this._executionManager = new ExecutionManagerImpl(this);
-    this._monitor = new SchedulerMonitorImpl(this);
+    this._resumeManager = new ResumeManagerImpl(this);
+    this._monitoringManager = new MonitoringManagerImpl(this);
     this._reporter = new SchedulerReporterImpl(this);
   }
 
-  // --- ISchedulerEngine implementation ---
+  // --- ITaskSchedulerEngine implementation ---
 
   public async initialize(): Promise<void> {
     if (this._state !== SchedulerState.CREATED) {
-      throw new InvalidSchedulerStateException("initialize", this._state);
+      throw new InvalidTaskSchedulerStateException("initialize", this._state);
     }
     
     this._state = SchedulerState.INITIALIZING;
@@ -108,13 +112,12 @@ export class SchedulerEngine implements ISchedulerEngine {
     try {
       // Auto Resume: restore unfinished queue from memory store
       if (this._config.persistenceEnabled) {
-        const persistedTasks = await this.getFromMemory<ScheduledTask[]>("scheduler", "unfinished_tasks");
-        if (persistedTasks && Array.isArray(persistedTasks)) {
-          for (const task of persistedTasks) {
-            await this._taskManager.restoreTask(task);
-            if (task.state === TaskState.QUEUED || task.state === TaskState.RUNNING) {
-              await this._queueManager.enqueue(task);
-            }
+        const restored = await this._resumeManager.recoverUnfinishedTasks();
+        for (const task of restored) {
+          await this._taskManager.restoreTask(task);
+          if (task.state === TaskState.QUEUED || task.state === TaskState.RUNNING) {
+            await this._queueManager.enqueue(task);
+            this.emit("TaskResumed", { taskId: task.id });
           }
         }
       }
@@ -124,13 +127,13 @@ export class SchedulerEngine implements ISchedulerEngine {
     } catch (err: any) {
       this._state = SchedulerState.FAILED;
       await this.logToMemory("scheduler", "initialize_failed", { timestamp: new Date(), error: err.message });
-      throw new SchedulerException(`Scheduler initialization failed: ${err.message}`);
+      throw new TaskSchedulerException(`Scheduler initialization failed: ${err.message}`);
     }
   }
 
   public async start(): Promise<void> {
     if (this._state !== SchedulerState.STOPPED) {
-      throw new InvalidSchedulerStateException("start", this._state);
+      throw new InvalidTaskSchedulerStateException("start", this._state);
     }
 
     this._state = SchedulerState.RUNNING;
@@ -146,7 +149,7 @@ export class SchedulerEngine implements ISchedulerEngine {
 
   public async stop(): Promise<void> {
     if (this._state !== SchedulerState.RUNNING && this._state !== SchedulerState.PAUSED) {
-      throw new InvalidSchedulerStateException("stop", this._state);
+      throw new InvalidTaskSchedulerStateException("stop", this._state);
     }
 
     this._state = SchedulerState.STOPPING;
@@ -166,10 +169,7 @@ export class SchedulerEngine implements ISchedulerEngine {
     await this.logToMemory("scheduler", "stop_success", { timestamp: new Date() });
   }
 
-  public getState(): SchedulerState {
-    return this._state;
-  }
-
+  public getState(): SchedulerState { return this._state; }
   public getTaskManager(): ITaskManager { return this._taskManager; }
   public getQueueManager(): IQueueManager { return this._queueManager; }
   public getTriggerManager(): ITriggerManager { return this._triggerManager; }
@@ -177,7 +177,10 @@ export class SchedulerEngine implements ISchedulerEngine {
   public getRetryManager(): IRetryManager { return this._retryManager; }
   public getCronManager(): ICronManager { return this._cronManager; }
   public getExecutionManager(): IExecutionManager { return this._executionManager; }
-  public getMonitor(): ISchedulerMonitor { return this._monitor; }
+  public getResumeManager(): IResumeManager { return this._resumeManager; }
+  public getMonitoringManager(): IMonitoringManager { return this._monitoringManager; }
+  
+  public getMonitor(): ISchedulerMonitor { return this._monitoringManager; }
   public getReporter(): ISchedulerReporter { return this._reporter; }
   public getContext(): any { return this._context; }
   public getConfig(): SchedulerConfiguration { return this._config; }
@@ -210,11 +213,11 @@ export class SchedulerEngine implements ISchedulerEngine {
         try {
           h(payload);
         } catch {
-          // suppress handler errors
+          // suppress
         }
       }
     }
-    this.logToMemory("scheduler-events", `event-${Date.now()}`, { event, payload }).catch(() => {});
+    this.logToMemory("triggers", `event-${Date.now()}`, { event, payload }).catch(() => {});
   }
 
   // --- Helper Methods ---
@@ -240,7 +243,7 @@ export class SchedulerEngine implements ISchedulerEngine {
     return undefined;
   }
 
-  private async processQueue(): Promise<void> {
+  public async processQueue(): Promise<void> {
     if (this._state !== SchedulerState.RUNNING) return;
 
     const activeExecs = this._executionManager.getActiveExecutions().length;
@@ -305,29 +308,29 @@ export class SchedulerEngine implements ISchedulerEngine {
 // ─── Task Manager Implementation ───────────────────────────────────────────────
 
 class TaskManagerImpl implements ITaskManager {
-  private readonly tasks = new Map<string, ScheduledTask>();
+  public readonly tasks = new Map<string, ScheduledTask>();
 
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public async createTask(task: Partial<ScheduledTask>): Promise<ScheduledTask> {
     const id = task.id || `task-${Date.now()}-${Math.floor(Math.random() * 100)}`;
-    SchedulerValidator.validateTaskId(id);
+    TaskSchedulerValidator.validateTaskId(id);
 
     if (this.tasks.has(id)) {
-      throw new SchedulerValidationException(`Task with ID "${id}" already exists.`);
+      throw new TaskSchedulerValidationException(`Task with ID "${id}" already exists.`);
     }
 
     const rule: ScheduleRule = task.schedule || { type: ScheduleType.ONCE, triggerType: TriggerType.MANUAL };
-    SchedulerValidator.validateScheduleRule(rule);
+    TaskSchedulerValidator.validateScheduleRule(rule);
 
-    const policy: RetryPolicy = task.retryPolicy || { strategy: RetryStrategy.NONE, maxRetries: 0, initialDelayMs: 0 };
-    SchedulerValidator.validateRetryPolicy(policy);
+    const policy: RetryPolicyConfig = task.retryPolicy || { strategy: RetryPolicy.NONE, maxRetries: 0, initialDelayMs: 0 };
+    TaskSchedulerValidator.validateRetryPolicy(policy);
 
     const newTask: ScheduledTask = {
       id,
       name: task.name || "Default Scheduled Task",
       state: TaskState.PENDING,
-      priority: task.priority || QueuePriority.NORMAL,
+      priority: task.priority || TaskPriority.NORMAL,
       schedule: rule,
       retryPolicy: policy,
       dependencies: task.dependencies || [],
@@ -338,13 +341,13 @@ class TaskManagerImpl implements ITaskManager {
       updatedAt: new Date()
     };
 
-    SchedulerValidator.validateScheduledTask(newTask);
+    TaskSchedulerValidator.validateScheduledTask(newTask);
 
-    // Dependency loop check
     const tempTasks = [...Array.from(this.tasks.values()), newTask];
-    SchedulerValidator.validateCircularDependencies(tempTasks);
+    TaskSchedulerValidator.validateCircularDependencies(tempTasks);
 
     this.tasks.set(id, newTask);
+    this.engine.emit("TaskCreated", { taskId: id });
     this.engine.emit("TaskScheduled", { taskId: id });
     await this.engine.logToMemory("tasks", `task-${id}`, newTask);
     return newTask;
@@ -355,7 +358,7 @@ class TaskManagerImpl implements ITaskManager {
   }
 
   public async deleteTask(taskId: string): Promise<void> {
-    SchedulerValidator.validateTaskId(taskId);
+    TaskSchedulerValidator.validateTaskId(taskId);
     if (!this.tasks.has(taskId)) {
       throw new TaskNotFoundException(taskId);
     }
@@ -363,7 +366,7 @@ class TaskManagerImpl implements ITaskManager {
   }
 
   public async updateTask(task: ScheduledTask): Promise<void> {
-    SchedulerValidator.validateScheduledTask(task);
+    TaskSchedulerValidator.validateScheduledTask(task);
     if (!this.tasks.has(task.id)) {
       throw new TaskNotFoundException(task.id);
     }
@@ -374,7 +377,7 @@ class TaskManagerImpl implements ITaskManager {
 
   public async pauseTask(taskId: string): Promise<void> {
     const task = await this.getTask(taskId);
-    task.state = TaskState.WAITING; // paused/waiting
+    task.state = TaskState.WAITING;
     await this.updateTask(task);
   }
 
@@ -406,12 +409,12 @@ class TaskManagerImpl implements ITaskManager {
 
   public async archiveTask(taskId: string): Promise<void> {
     const task = await this.getTask(taskId);
-    task.state = TaskState.SKIPPED; // Archived
+    task.state = TaskState.SKIPPED;
     await this.updateTask(task);
   }
 
   public async getTask(taskId: string): Promise<ScheduledTask> {
-    SchedulerValidator.validateTaskId(taskId);
+    TaskSchedulerValidator.validateTaskId(taskId);
     const task = this.tasks.get(taskId);
     if (!task) {
       throw new TaskNotFoundException(taskId);
@@ -429,12 +432,11 @@ class TaskManagerImpl implements ITaskManager {
 class QueueManagerImpl implements IQueueManager {
   private readonly queue: QueueItem[] = [];
 
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public async enqueue(task: ScheduledTask): Promise<void> {
-    SchedulerValidator.validateTaskId(task.id);
+    TaskSchedulerValidator.validateTaskId(task.id);
     
-    // Check duplicate enqueue
     if (this.queue.some(q => q.taskId === task.id)) return;
 
     this.queue.push({
@@ -444,25 +446,27 @@ class QueueManagerImpl implements IQueueManager {
     });
 
     // Sort priority
-    const priorityWeights: Record<QueuePriority, number> = {
-      [QueuePriority.CRITICAL]: 4,
-      [QueuePriority.HIGH]: 3,
-      [QueuePriority.NORMAL]: 2,
-      [QueuePriority.LOW]: 1
+    const priorityWeights: Record<TaskPriority, number> = {
+      [TaskPriority.CRITICAL]: 5,
+      [TaskPriority.HIGH]: 4,
+      [TaskPriority.NORMAL]: 3,
+      [TaskPriority.LOW]: 2,
+      [TaskPriority.BACKGROUND]: 1
     };
 
     this.queue.sort((a, b) => {
       const wa = priorityWeights[a.priority];
       const wb = priorityWeights[b.priority];
-      if (wa !== wb) return wb - wa; // high priority first
-      return a.queuedAt.getTime() - b.queuedAt.getTime(); // FIFO
+      if (wa !== wb) return wb - wa;
+      return a.queuedAt.getTime() - b.queuedAt.getTime();
     });
 
-    SchedulerValidator.validateQueueIntegrity(this.queue, this.engine.getConfig().maxQueueSize);
+    TaskSchedulerValidator.validateQueueIntegrity(this.queue, this.engine.getConfig().maxQueueSize);
     
     task.state = TaskState.QUEUED;
     await this.engine.getTaskManager().updateTask(task);
     
+    this.engine.emit("TaskQueued", { taskId: task.id });
     this.engine.emit("QueueUpdated", { queueSize: this.queue.length });
     await this.engine.logToMemory("queue", "current_queue", this.queue);
   }
@@ -495,11 +499,9 @@ class QueueManagerImpl implements IQueueManager {
 // ─── Trigger Manager Implementation ────────────────────────────────────────────
 
 class TriggerManagerImpl implements ITriggerManager {
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
-  public async registerTrigger(taskId: string, rule: ScheduleRule): Promise<void> {
-    // Implicitly handled through ScheduledTask.schedule
-  }
+  public async registerTrigger(taskId: string, rule: ScheduleRule): Promise<void> {}
 
   public async evaluateTriggers(now: Date): Promise<void> {
     const tasks = this.engine.getTaskManager().listTasks();
@@ -509,8 +511,6 @@ class TriggerManagerImpl implements ITriggerManager {
       if (task.state !== TaskState.PENDING) continue;
 
       let triggerDue = false;
-
-      // Evaluation time rule
       const rule = task.schedule;
       if (rule.type === ScheduleType.INTERVAL && rule.intervalMs) {
         const lastRun = task.lastRunAt ? task.lastRunAt.getTime() : task.createdAt.getTime();
@@ -524,16 +524,14 @@ class TriggerManagerImpl implements ITriggerManager {
             triggerDue = true;
           }
         } catch {
-          // Skip invalid cron triggers
+          // ignore
         }
       } else if (rule.type === ScheduleType.DAILY) {
-        // Daily check (default 9am if trigger time is set or if lastRun > 24h)
         const lastRun = task.lastRunAt ? task.lastRunAt.getTime() : 0;
         if (now.getTime() - lastRun >= 24 * 60 * 60 * 1000) {
           triggerDue = true;
         }
       } else if (rule.type === ScheduleType.WEEKLY) {
-        // Weekly check (Monday or 7 days)
         const lastRun = task.lastRunAt ? task.lastRunAt.getTime() : 0;
         if (now.getTime() - lastRun >= 7 * 24 * 60 * 60 * 1000) {
           triggerDue = true;
@@ -543,6 +541,7 @@ class TriggerManagerImpl implements ITriggerManager {
       }
 
       if (triggerDue) {
+        this.engine.emit("TriggerFired", { taskId: task.id, triggerType: rule.triggerType });
         await this.engine.getQueueManager().enqueue(task);
       }
     }
@@ -552,15 +551,13 @@ class TriggerManagerImpl implements ITriggerManager {
 // ─── Dependency Manager Implementation ──────────────────────────────────────────
 
 class DependencyManagerImpl implements IDependencyManager {
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
-  public addDependency(taskId: string, dependsOnTaskId: string): void {
-    // Handled in creation, validator check circular loops
-  }
+  public addDependency(taskId: string, dependsOnTaskId: string): void {}
 
   public validateGraph(): void {
     const tasks = this.engine.getTaskManager().listTasks();
-    SchedulerValidator.validateCircularDependencies(tasks);
+    TaskSchedulerValidator.validateCircularDependencies(tasks);
   }
 
   public evaluateDependencies(taskId: string): DependencyState {
@@ -593,6 +590,10 @@ class DependencyManagerImpl implements IDependencyManager {
       }
     }
 
+    if (!hasPending) {
+      this.engine.emit("DependencyResolved", { taskId });
+    }
+
     return hasPending ? DependencyState.WAITING : DependencyState.READY;
   }
 
@@ -607,10 +608,10 @@ class DependencyManagerImpl implements IDependencyManager {
 class RetryManagerImpl implements IRetryManager {
   private readonly history = new Map<string, RetryHistory>();
 
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public shouldRetry(task: ScheduledTask, error: Error): boolean {
-    if (task.retryPolicy.strategy === RetryStrategy.NONE) return false;
+    if (task.retryPolicy.strategy === RetryPolicy.NONE) return false;
 
     const hist = this.history.get(task.id);
     const attempt = hist ? hist.retryCount : 0;
@@ -622,10 +623,10 @@ class RetryManagerImpl implements IRetryManager {
     const attempt = hist ? hist.retryCount : 1;
 
     const policy = task.retryPolicy;
-    if (policy.strategy === RetryStrategy.FIXED_DELAY) {
+    if (policy.strategy === RetryPolicy.FIXED_DELAY) {
       return policy.initialDelayMs;
     }
-    if (policy.strategy === RetryStrategy.EXPONENTIAL_BACKOFF) {
+    if (policy.strategy === RetryPolicy.EXPONENTIAL_BACKOFF) {
       const factor = policy.backoffFactor || 2;
       return policy.initialDelayMs * Math.pow(factor, attempt - 1);
     }
@@ -656,10 +657,10 @@ class RetryManagerImpl implements IRetryManager {
 // ─── Cron Manager Implementation ───────────────────────────────────────────────
 
 class CronManagerImpl implements ICronManager {
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public parseCron(cronExpr: string): CronSchedule {
-    SchedulerValidator.validateCronExpression(cronExpr);
+    TaskSchedulerValidator.validateCronExpression(cronExpr);
     const fields = cronExpr.trim().split(/\s+/);
     
     const parseField = (field: string, min: number, max: number): number[] => {
@@ -708,7 +709,7 @@ class CronManagerImpl implements ICronManager {
 class ExecutionManagerImpl implements IExecutionManager {
   private readonly activeExecutions = new Map<string, TaskExecution>();
 
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public async executeTask(task: ScheduledTask): Promise<TaskExecution> {
     task.state = TaskState.RUNNING;
@@ -727,13 +728,14 @@ class ExecutionManagerImpl implements IExecutionManager {
     await this.engine.logToMemory("executions", `exec-${task.id}`, exec);
 
     try {
-      // Simulate Pipeline invoke or generic task run
       if (task.targetPipelineId) {
-        // pipelineEngine.execute() simulated
+        // pipeline run simulation
         await this.engine.logToMemory("pipeline-runs", `pipeline-${task.targetPipelineId}`, { timestamp: new Date() });
       }
 
-      // Simulate step task delay
+      await this.engine.getResumeManager().checkpointTask(task);
+
+      // Simulate execution delay
       await new Promise(resolve => setTimeout(resolve, 5));
 
       task.state = TaskState.COMPLETED;
@@ -756,10 +758,29 @@ class ExecutionManagerImpl implements IExecutionManager {
   }
 }
 
-// ─── Scheduler Monitor Implementation ──────────────────────────────────────────
+// ─── Resume Manager Implementation ─────────────────────────────────────────────
 
-class SchedulerMonitorImpl implements ISchedulerMonitor {
-  constructor(private readonly engine: SchedulerEngine) {}
+class ResumeManagerImpl implements IResumeManager {
+  constructor(private readonly engine: TaskSchedulerEngine) {}
+
+  public async checkpointTask(task: ScheduledTask): Promise<void> {
+    await this.engine.logToMemory("checkpoints", `checkpoint-${task.id}`, {
+      taskId: task.id,
+      state: task.state,
+      timestamp: new Date()
+    });
+  }
+
+  public async recoverUnfinishedTasks(): Promise<ScheduledTask[]> {
+    const unfinished = await this.engine.getFromMemory<ScheduledTask[]>("scheduler", "unfinished_tasks");
+    return unfinished || [];
+  }
+}
+
+// ─── Monitoring Manager Implementation ─────────────────────────────────────────
+
+class MonitoringManagerImpl implements IMonitoringManager, ISchedulerMonitor {
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public getActiveJobs(): TaskExecution[] {
     return this.engine.getExecutionManager().getActiveExecutions();
@@ -770,12 +791,12 @@ class SchedulerMonitorImpl implements ISchedulerMonitor {
   }
 
   public getFailedJobs(): TaskHistory[] {
-    return []; // Simulated history fails
+    return [];
   }
 
   public getMetrics(): SchedulerMetrics {
-    const tasks = this.engine.getTaskManager().listTasks();
     const queue = this.engine.getQueueManager().getQueueItems();
+    const tasks = this.engine.getTaskManager().listTasks();
     
     return {
       activeJobsCount: this.getActiveJobs().length,
@@ -786,15 +807,18 @@ class SchedulerMonitorImpl implements ISchedulerMonitor {
       averageExecutionTimeMs: this.engine.getAverageResponseTimeMs()
     };
   }
+
+  public async getTimeline(taskId: string): Promise<ExecutionTimeline> {
+    return { taskId, history: [] };
+  }
 }
 
 // ─── Scheduler Reporter Implementation ─────────────────────────────────────────
 
 class SchedulerReporterImpl implements ISchedulerReporter {
-  constructor(private readonly engine: SchedulerEngine) {}
+  constructor(private readonly engine: TaskSchedulerEngine) {}
 
   public generateReport(): SchedulerReport {
-    const tasks = this.engine.getTaskManager().listTasks();
     return {
       timestamp: new Date(),
       state: this.engine.getState(),
@@ -841,7 +865,7 @@ class SchedulerReporterImpl implements ISchedulerReporter {
     }
 
     const frozen = deepFreeze(cloned);
-    SchedulerValidator.validateSnapshotImmutability(frozen);
+    TaskSchedulerValidator.validateSnapshotImmutability(frozen);
     return frozen;
   }
 }

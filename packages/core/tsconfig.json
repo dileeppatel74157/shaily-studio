@@ -26,6 +26,6 @@
     "src/test-host.ts",
     "src/test-workspace.ts",
     "src/test-assistant.ts",
-    "src/test-scheduler.ts"
+    "src/test-task-scheduler.ts"
   ]
 }

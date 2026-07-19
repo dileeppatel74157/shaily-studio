@@ -8,24 +8,6 @@ export class SchedulerException extends Error {
   }
 }
 
-export class TaskNotFoundException extends SchedulerException {
-  constructor(taskId: string) {
-    super(`Scheduled task with ID "${taskId}" was not found.`);
-  }
-}
-
-export class TriggerException extends SchedulerException {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-export class CronParseException extends SchedulerException {
-  constructor(expression: string, reason: string) {
-    super(`Failed to parse cron expression "${expression}": ${reason}`);
-  }
-}
-
 export class SchedulerValidationException extends SchedulerException {
   constructor(message: string) {
     super(message);
@@ -34,38 +16,36 @@ export class SchedulerValidationException extends SchedulerException {
 
 export class InvalidSchedulerStateException extends SchedulerException {
   constructor(action: string, currentState: SchedulerState) {
-    super(`Cannot perform action "${action}" when scheduler state is "${currentState}".`);
+    super(`Cannot perform "${action}" while Scheduler is in "${currentState}" state.`);
+  }
+}
+
+export class JobExecutionException extends SchedulerException {
+  constructor(message: string) {
+    super(message);
   }
 }
 
 /**
- * Deep freezes an object recursively to ensure immutability.
+ * Recursively deep-freezes a given object, enforcing immutability.
+ * Uses type constraints and avoids 'any' to conform to strict TypeScript.
  */
 export function deepFreeze<T>(obj: T): T {
-  if (obj === null || obj === undefined) {
+  if (obj === null || typeof obj !== "object") {
     return obj;
   }
-  
-  if (typeof obj !== "object" && typeof obj !== "function") {
-    return obj;
-  }
-
-  // Freeze self
   Object.freeze(obj);
-
-  // Freeze properties
-  const propNames = Object.getOwnPropertyNames(obj);
-  for (const name of propNames) {
-    const value = (obj as any)[name];
+  
+  const typedObj = obj as unknown as Record<string, unknown>;
+  Object.getOwnPropertyNames(typedObj).forEach((prop) => {
     if (
-      value !== null &&
-      value !== undefined &&
-      (typeof value === "object" || typeof value === "function") &&
-      !Object.isFrozen(value)
+      Object.prototype.hasOwnProperty.call(typedObj, prop) &&
+      typedObj[prop] !== null &&
+      (typeof typedObj[prop] === "object" || typeof typedObj[prop] === "function") &&
+      !Object.isFrozen(typedObj[prop])
     ) {
-      deepFreeze(value);
+      deepFreeze(typedObj[prop]);
     }
-  }
-
+  });
   return obj;
 }

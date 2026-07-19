@@ -4,6 +4,7 @@ import { EngineState } from "./EngineState";
 import { ServiceType } from "./ServiceType";
 import { RuntimeValidator } from "./RuntimeValidator";
 import { WorkspaceBuilder } from "../workspace/WorkspaceBuilder";
+import { AssistantBuilder } from "../assistant/AssistantBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -101,6 +102,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       engine: workspaceEngine,
       dependencies: [],
       priority: StartupPriority.CRITICAL
+    });
+
+    const assistantEngine = new AssistantBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "AssistantEngine",
+      engine: assistantEngine,
+      dependencies: [],
+      priority: StartupPriority.HIGH
     });
   }
 

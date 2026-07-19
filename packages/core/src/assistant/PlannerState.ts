@@ -1,0 +1,9 @@
+export enum PlannerState {
+  CREATED = "CREATED",
+  PARSING = "PARSING",
+  PLANNING = "PLANNING",
+  READY = "READY",
+  EXECUTING = "EXECUTING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+}

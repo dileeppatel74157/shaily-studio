@@ -1,0 +1,16 @@
+export enum CommandType {
+  CREATE = "CREATE",
+  UPDATE = "UPDATE",
+  DELETE = "DELETE",
+  SEARCH = "SEARCH",
+  RUN = "RUN",
+  STOP = "STOP",
+  PAUSE = "PAUSE",
+  RESUME = "RESUME",
+  ANALYZE = "ANALYZE",
+  OPTIMIZE = "OPTIMIZE",
+  EXPORT = "EXPORT",
+  IMPORT = "IMPORT",
+  STATUS = "STATUS",
+  HELP = "HELP",
+}

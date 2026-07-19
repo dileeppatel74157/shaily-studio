@@ -25,11 +25,13 @@ import { IRenderEngine } from "../rendering/interfaces";
 import { IQualityEngine } from "../quality/interfaces";
 import { IRuntimeEngine } from "../runtime/interfaces";
 import { IWorkspaceEngine } from "../workspace/interfaces";
+import { IAssistantEngine } from "../assistant/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
   readonly runtimeEngine?: IRuntimeEngine;
   readonly workspaceEngine?: IWorkspaceEngine;
+  readonly assistantEngine?: IAssistantEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

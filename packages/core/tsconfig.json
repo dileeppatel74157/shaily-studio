@@ -27,6 +27,7 @@
     "src/test-workspace.ts",
     "src/test-assistant.ts",
     "src/test-task-scheduler.ts",
-    "src/test-knowledge-base.ts"
+    "src/test-knowledge-base.ts",
+    "src/test-memory-optimization.ts"
   ]
 }

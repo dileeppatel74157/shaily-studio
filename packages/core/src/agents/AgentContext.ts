@@ -30,6 +30,7 @@ import { ITaskSchedulerEngine } from "../task-scheduler/interfaces";
 import { ISettingsEngine } from "../settings/interfaces";
 import { ISystemIntegrationEngine } from "../system-integration/interfaces";
 import { IStabilityPerformanceEngine } from "../stability-performance/interfaces";
+import { IConfigurationEngine } from "../configuration/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -40,6 +41,7 @@ export interface AgentContext {
   readonly settingsEngine?: ISettingsEngine;
   readonly systemIntegrationEngine?: ISystemIntegrationEngine;
   readonly stabilityPerformanceEngine?: IStabilityPerformanceEngine;
+  readonly configurationEngine?: IConfigurationEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

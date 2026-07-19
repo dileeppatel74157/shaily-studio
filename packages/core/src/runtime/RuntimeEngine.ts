@@ -9,6 +9,7 @@ import { TaskSchedulerBuilder } from "../task-scheduler/TaskSchedulerBuilder";
 import { SettingsBuilder } from "../settings/SettingsBuilder";
 import { SystemIntegrationBuilder } from "../system-integration/SystemIntegrationBuilder";
 import { StabilityPerformanceBuilder } from "../stability-performance/StabilityPerformanceBuilder";
+import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { RuntimeSession } from "./RuntimeSession";
 import { RuntimeSessionDescriptor } from "./RuntimeSessionDescriptor";
 import { HealthStatus } from "./HealthStatus";
@@ -97,6 +98,16 @@ export class RuntimeEngine implements IRuntimeEngine {
     this._shutdownManager = new ShutdownManagerImpl(this);
     this._scheduler = new SchedulerImpl(this);
     this._reporter = new RuntimeReporterImpl(this);
+
+    const configurationEngine = new ConfigurationBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "ConfigurationEngine",
+      engine: configurationEngine,
+      dependencies: [],
+      priority: StartupPriority.CRITICAL
+    });
 
     const systemIntegrationEngine = new SystemIntegrationBuilder()
       .withContext(_context)

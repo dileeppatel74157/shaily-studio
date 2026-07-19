@@ -1,121 +1,87 @@
-import { ConfigurationSchema, ConfigurationSchemaItem } from "./ConfigurationSchema";
-import { ConfigurationContext } from "./ConfigurationContext";
-import { ConfigurationProvider } from "./ConfigurationProvider";
+import { ConfigurationSnapshot, ValidationReport, ValidationIssue } from "./models";
+import { ValidationResult } from "./ValidationResult";
+import { ConfigurationState } from "./ConfigurationState";
 import { ConfigurationValidationException } from "./types";
 
 export class ConfigurationValidator {
-  private static readonly KEY_REGEX = /^[a-zA-Z0-9_.-]+$/;
+  public async validate(snapshot: ConfigurationSnapshot): Promise<ValidationReport> {
+    const issues: ValidationIssue[] = [];
 
-  public static validateIdentifier(id: string, name: string): void {
-    if (!id || typeof id !== "string" || id.trim() === "") {
-      throw new ConfigurationValidationException(`${name} identifier must be a non-empty string`);
+    // 1-3. Environment variables checks
+    const variables = snapshot.environment.variables;
+    if (!variables["NODE_ENV"]) {
+      issues.push({ key: "NODE_ENV", message: "NODE_ENV is missing.", severity: "warning" });
     }
-    if (!this.KEY_REGEX.test(id)) {
-      throw new ConfigurationValidationException(
-        `${name} identifier "${id}" contains invalid characters. Only alphanumeric, dots, dashes, and underscores are allowed.`
-      );
+    if (!variables["PORT"]) {
+      issues.push({ key: "PORT", message: "PORT is missing.", severity: "error" });
+    }
+
+    // 4-6. Runtime ports & host check
+    const runtime = snapshot.runtime;
+    if (runtime.port <= 0 || runtime.port > 65535) {
+      issues.push({ key: "runtime.port", message: "Runtime port is invalid (must be between 1 and 65535).", severity: "error" });
+    }
+    if (!runtime.host) {
+      issues.push({ key: "runtime.host", message: "Runtime host is empty.", severity: "error" });
+    }
+
+    // 7-12. Provider configuration validations
+    const seenProviders = new Set<string>();
+    snapshot.providers.forEach((prov, idx) => {
+      if (seenProviders.has(prov.id)) {
+        issues.push({ key: `providers[${idx}].id`, message: `Duplicate provider config for: ${prov.id}`, severity: "error" });
+      }
+      seenProviders.add(prov.id);
+
+      if (prov.timeoutMs < 0) {
+        issues.push({ key: `providers[${idx}].timeoutMs`, message: `Timeout cannot be negative for: ${prov.id}`, severity: "error" });
+      }
+      if (prov.retryLimit < 0 || prov.retryLimit > 20) {
+        issues.push({ key: `providers[${idx}].retryLimit`, message: `Retry limit must be between 0 and 20 for: ${prov.id}`, severity: "error" });
+      }
+      if (prov.rateLimitPerMinute <= 0) {
+        issues.push({ key: `providers[${idx}].rateLimitPerMinute`, message: `Rate limit must be positive for: ${prov.id}`, severity: "warning" });
+      }
+      if (!prov.defaultModel) {
+        issues.push({ key: `providers[${idx}].defaultModel`, message: `Default model is empty for: ${prov.id}`, severity: "warning" });
+      }
+    });
+
+    const hasErrors = issues.some(issue => issue.severity === "error");
+    const result = hasErrors
+      ? ValidationResult.FAILED
+      : issues.length > 0 ? ValidationResult.WARNING : ValidationResult.PASSED;
+
+    return {
+      timestamp: new Date(),
+      result,
+      issues
+    };
+  }
+
+  // 13-17. Credentials & Key format validations
+  public validateApiKeyFormat(providerId: string, value: string): void {
+    if (providerId === "openai" && !value.startsWith("sk-")) {
+      throw new ConfigurationValidationException("OpenAI API key must start with 'sk-'.");
+    }
+    if (providerId === "gemini" && !value.startsWith("AIzaSy")) {
+      throw new ConfigurationValidationException("Gemini API key must start with 'AIzaSy'.");
     }
   }
 
-  public static validateContext(context: ConfigurationContext): void {
-    if (!context) {
-      throw new ConfigurationValidationException("ConfigurationContext cannot be null or undefined");
-    }
-    this.validateIdentifier(context.env, "Context environment (env)");
-    this.validateIdentifier(context.namespace, "Context namespace");
-  }
+  // 18-20. State transition rule checking
+  public validateStateTransition(current: ConfigurationState, next: ConfigurationState): void {
+    const validTransitions: Record<ConfigurationState, ConfigurationState[]> = {
+      [ConfigurationState.CREATED]: [ConfigurationState.LOADING, ConfigurationState.FAILED],
+      [ConfigurationState.LOADING]: [ConfigurationState.VALIDATING, ConfigurationState.FAILED],
+      [ConfigurationState.VALIDATING]: [ConfigurationState.READY, ConfigurationState.FAILED],
+      [ConfigurationState.READY]: [ConfigurationState.UPDATING, ConfigurationState.FAILED],
+      [ConfigurationState.UPDATING]: [ConfigurationState.READY, ConfigurationState.FAILED],
+      [ConfigurationState.FAILED]: [ConfigurationState.LOADING]
+    };
 
-  public static validateSchema(schema: ConfigurationSchema): void {
-    if (!schema) {
-      throw new ConfigurationValidationException("Schema cannot be null or undefined");
-    }
-    const allowedTypes = ["string", "number", "boolean", "enum"];
-    
-    for (const key of Object.keys(schema)) {
-      this.validateIdentifier(key, "Schema key");
-      const item = schema[key];
-      if (!item) {
-        throw new ConfigurationValidationException(`Schema definition for key "${key}" is empty`);
-      }
-      if (!allowedTypes.includes(item.type)) {
-        throw new ConfigurationValidationException(`Invalid schema type "${item.type}" for key "${key}"`);
-      }
-      if (item.type === "enum") {
-        if (!item.enumValues || !Array.isArray(item.enumValues) || item.enumValues.length === 0) {
-          throw new ConfigurationValidationException(`Enum key "${key}" must define non-empty "enumValues" array`);
-        }
-        item.enumValues.forEach((val) => {
-          if (typeof val !== "string" || val.trim() === "") {
-            throw new ConfigurationValidationException(`Enum value in key "${key}" must be a non-empty string`);
-          }
-        });
-      }
-      if (item.default !== undefined) {
-        this.validateValueType(key, item.default, item);
-      }
-    }
-  }
-
-  public static validateValueType(key: string, value: unknown, item: ConfigurationSchemaItem): void {
-    if (value === undefined || value === null) {
-      if (item.required) {
-        throw new ConfigurationValidationException(`Configuration key "${key}" is required but was not provided`);
-      }
-      return;
-    }
-
-    if (item.type === "string") {
-      if (typeof value !== "string") {
-        throw new ConfigurationValidationException(
-          `Configuration key "${key}" must be a string, got type: ${typeof value}`
-        );
-      }
-    } else if (item.type === "number") {
-      if (typeof value !== "number" || isNaN(value)) {
-        throw new ConfigurationValidationException(
-          `Configuration key "${key}" must be a number, got value: ${value}`
-        );
-      }
-    } else if (item.type === "boolean") {
-      if (typeof value !== "boolean") {
-        throw new ConfigurationValidationException(
-          `Configuration key "${key}" must be a boolean, got type: ${typeof value}`
-        );
-      }
-    } else if (item.type === "enum") {
-      if (typeof value !== "string") {
-        throw new ConfigurationValidationException(
-          `Configuration key "${key}" enum value must be a string, got type: ${typeof value}`
-        );
-      }
-      if (!item.enumValues || !item.enumValues.includes(value)) {
-        throw new ConfigurationValidationException(
-          `Configuration key "${key}" enum value must be one of: [${item.enumValues?.join(", ")}], got: "${value}"`
-        );
-      }
-    }
-  }
-
-  public static validateRequiredValues(schema: ConfigurationSchema, values: Record<string, unknown>): void {
-    for (const key of Object.keys(schema)) {
-      const item = schema[key];
-      if (item.required && (values[key] === undefined || values[key] === null)) {
-        throw new ConfigurationValidationException(`Configuration key "${key}" is required but was not provided`);
-      }
-    }
-  }
-
-  public static validateProvider(provider: ConfigurationProvider, existingProviders: ConfigurationProvider[]): void {
-    if (!provider) {
-      throw new ConfigurationValidationException("Provider cannot be null or undefined");
-    }
-    this.validateIdentifier(provider.name, "Provider name");
-    if (typeof provider.priority !== "number" || isNaN(provider.priority)) {
-      throw new ConfigurationValidationException(`Provider "${provider.name}" priority must be a number`);
-    }
-    const duplicate = existingProviders.find((p) => p.name === provider.name);
-    if (duplicate) {
-      throw new ConfigurationValidationException(`Duplicate provider detected with name: "${provider.name}"`);
+    if (!validTransitions[current]?.includes(next)) {
+      throw new ConfigurationValidationException(`Invalid configuration state transition: ${current} -> ${next}`);
     }
   }
 }

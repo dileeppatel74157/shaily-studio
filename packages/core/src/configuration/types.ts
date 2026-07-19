@@ -1,9 +1,9 @@
 import { ConfigurationState } from "./ConfigurationState";
 
 export class ConfigurationException extends Error {
-  constructor(message: string) {
+  constructor(message: string, public readonly originalError?: Error) {
     super(message);
-    this.name = this.constructor.name;
+    this.name = "ConfigurationException";
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
@@ -11,41 +11,32 @@ export class ConfigurationException extends Error {
 export class ConfigurationValidationException extends ConfigurationException {
   constructor(message: string) {
     super(message);
+    this.name = "ConfigurationValidationException";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
 export class InvalidConfigurationStateException extends ConfigurationException {
   constructor(action: string, currentState: ConfigurationState) {
-    super(`Cannot perform "${action}" while Configuration is in "${currentState}" state.`);
+    super(`Cannot perform action "${action}" when ConfigurationEngine is in state "${currentState}".`);
+    this.name = "InvalidConfigurationStateException";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
-export class ConfigurationChangeException extends ConfigurationException {
-  constructor(message: string) {
-    super(message);
-  }
-}
-
-/**
- * Recursively deep-freezes a given object, enforcing immutability.
- * Uses type constraints and avoids 'any' to conform to strict TypeScript.
- */
 export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
+  
   Object.freeze(obj);
   
-  const typedObj = obj as unknown as Record<string, unknown>;
-  Object.getOwnPropertyNames(typedObj).forEach((prop) => {
-    if (
-      Object.prototype.hasOwnProperty.call(typedObj, prop) &&
-      typedObj[prop] !== null &&
-      (typeof typedObj[prop] === "object" || typeof typedObj[prop] === "function") &&
-      !Object.isFrozen(typedObj[prop])
-    ) {
-      deepFreeze(typedObj[prop]);
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (value !== null && (typeof value === "object" || typeof value === "function") && !Object.isFrozen(value)) {
+      deepFreeze(value);
     }
   });
+  
   return obj;
 }

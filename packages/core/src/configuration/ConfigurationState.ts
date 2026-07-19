@@ -1,7 +1,8 @@
 export enum ConfigurationState {
   CREATED = "CREATED",
+  LOADING = "LOADING",
+  VALIDATING = "VALIDATING",
   READY = "READY",
-  RUNNING = "RUNNING",
-  STOPPED = "STOPPED",
-  FAILED = "FAILED",
+  UPDATING = "UPDATING",
+  FAILED = "FAILED"
 }

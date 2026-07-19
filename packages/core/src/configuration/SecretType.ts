@@ -1,0 +1,7 @@
+export enum SecretType {
+  API_KEY = "API_KEY",
+  TOKEN = "TOKEN",
+  PASSWORD = "PASSWORD",
+  CERTIFICATE = "CERTIFICATE",
+  PRIVATE_KEY = "PRIVATE_KEY"
+}

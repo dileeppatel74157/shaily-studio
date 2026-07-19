@@ -1,445 +1,210 @@
 import { ConfigurationBuilder } from "./configuration/ConfigurationBuilder";
-import { ConfigurationContext } from "./configuration/ConfigurationContext";
-import { ConfigurationSchema } from "./configuration/ConfigurationSchema";
-import { MemoryConfigurationProvider } from "./configuration/ConfigurationProvider";
 import { ConfigurationState } from "./configuration/ConfigurationState";
+import { ConfigurationScope } from "./configuration/ConfigurationScope";
+import { SecretType } from "./configuration/SecretType";
+import { ProviderHealth } from "./configuration/ProviderHealth";
+import { ValidationResult } from "./configuration/ValidationResult";
+import { ConfigurationEventType } from "./configuration/ConfigurationEventType";
+import { EnvironmentType } from "./configuration/EnvironmentType";
+import { ConfigurationValidationException } from "./configuration/types";
 import { ConfigurationValidator } from "./configuration/ConfigurationValidator";
-import { ConfigurationChange } from "./configuration/ConfigurationChange";
-import {
-  ConfigurationException,
-  ConfigurationValidationException,
-  InvalidConfigurationStateException,
-} from "./configuration/types";
+import { RuntimeBuilder } from "./runtime/RuntimeBuilder";
+import { SettingsBuilder } from "./settings/SettingsBuilder";
 
-function assert(condition: boolean, message: string) {
+function assert(condition: boolean, message: string): void {
   if (!condition) {
-    // eslint-disable-next-line no-console
-    console.error("Assertion Failed:", message);
+    console.error("❌ Assertion Failed:", message);
     process.exit(1);
   }
 }
 
+// Mock context
+const mockEvents: any[] = [];
+const mockContext = {
+  logger: {
+    info: (msg: string) => {},
+    warn: (msg: string) => {},
+    error: (msg: string) => {}
+  },
+  eventBus: {
+    publish: async (event: any) => {
+      mockEvents.push(event);
+    }
+  }
+};
+
 async function runTests() {
-  // eslint-disable-next-line no-console
-  console.log("=== START CONFIGURATION FRAMEWORK VERIFICATION TESTS ===");
+  console.log("=== START SPRINT 23.1 CONFIGURATION ENGINE TESTS ===\n");
 
-  const context: ConfigurationContext = {
-    env: "development",
-    namespace: "studio",
-    metadata: { version: "1.0.0" },
-  };
-
-  const schema: ConfigurationSchema = {
-    "app.port": { type: "number", required: true, default: 8080 },
-    "app.name": { type: "string", required: true },
-    "app.debug": { type: "boolean", required: false, default: false },
-    "app.env": {
-      type: "enum",
-      required: true,
-      enumValues: ["development", "staging", "production"],
-    },
-  };
-
-  // ==========================================
   // 1. Builder Validation
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("1. Running Builder Validation...");
-
-  // Valid construction
-  const provider1 = new MemoryConfigurationProvider("defaults", 10, {
-    "app.name": "Shaily Studio",
-    "app.env": "development",
-  });
-
-  const config = new ConfigurationBuilder()
-    .withContext(context)
-    .withSchema(schema)
-    .withProvider(provider1)
-    .withMetadata({ build: "dev-45" })
-    .build();
-
-  assert(config !== null, "Configuration must be successfully constructed");
-
-  // Invalid construction (missing context)
   try {
-    new ConfigurationBuilder().withSchema(schema).build();
-    throw new Error("Should have rejected build with missing context");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for missing context"
-    );
+    new ConfigurationBuilder().build();
+    assert(false, "Builder should throw if context is missing.");
+  } catch (err: any) {
+    assert(err instanceof ConfigurationValidationException, "Expected ConfigurationValidationException.");
   }
+  console.log("1. Builder Validation... ✓");
 
-  // Invalid construction (missing schema)
-  try {
-    new ConfigurationBuilder().withContext(context).build();
-    throw new Error("Should have rejected build with missing schema");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for missing schema"
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified Builder Validation.");
-
-  // ==========================================
-  // 2. Lifecycle State Transitions
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("2. Running Lifecycle Transition Validation...");
-
-  const testConfig = new ConfigurationBuilder()
-    .withContext(context)
-    .withSchema(schema)
-    .withProvider(provider1)
-    .build();
-
-  // Try calling runtime operation in CREATED state
-  try {
-    testConfig.get("app.port");
-    throw new Error("Should have prevented get in CREATED state");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidConfigurationStateException,
-      "Expected InvalidConfigurationStateException for CREATED state"
-    );
-  }
-
-  // CREATED -> READY
-  await testConfig.initialize();
-
-  // Try illegal transition READY -> STOPPED
-  try {
-    await testConfig.stop();
-    throw new Error("Should have prevented READY -> STOPPED");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidConfigurationStateException,
-      "Expected InvalidConfigurationStateException for READY -> STOPPED"
-    );
-  }
-
-  // READY -> RUNNING
-  await testConfig.start();
-
-  // Try illegal transition RUNNING -> READY
-  try {
-    await testConfig.initialize();
-    throw new Error("Should have prevented RUNNING -> READY");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidConfigurationStateException,
-      "Expected InvalidConfigurationStateException for RUNNING -> READY"
-    );
-  }
-
-  // RUNNING -> STOPPED
-  await testConfig.stop();
-
-  // Once stopped, operations must fail
-  try {
-    testConfig.get("app.port");
-    throw new Error("Should have prevented get in STOPPED state");
-  } catch (err: unknown) {
-    assert(
-      err instanceof InvalidConfigurationStateException,
-      "Expected InvalidConfigurationStateException for STOPPED state"
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified Lifecycle State Transition and exception rules.");
-
-  // ==========================================
-  // 3. Schema & Required & Defaults Validation
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("3. Running Schema Validation, Defaults, and Required values...");
-
-  const activeConfig = new ConfigurationBuilder()
-    .withContext(context)
-    .withSchema(schema)
-    .withProvider(provider1)
-    .build();
-  await activeConfig.initialize();
-  await activeConfig.start();
-
-  // Check default values
-  assert(activeConfig.get<number>("app.port") === 8080, "Default port fallback matches");
-  assert(activeConfig.get<boolean>("app.debug") === false, "Default debug fallback matches");
-
-  // Check custom loaded value
-  assert(activeConfig.get<string>("app.name") === "Shaily Studio", "Custom loaded name matches");
-
-  // Check missing required value trigger during start
-  const invalidProvider = new MemoryConfigurationProvider("defaults", 10, {
-    "app.env": "development", // app.name is required and missing!
-  });
-  const faultyConfig = new ConfigurationBuilder()
-    .withContext(context)
-    .withSchema(schema)
-    .withProvider(invalidProvider)
-    .build();
-  await faultyConfig.initialize();
-  try {
-    await faultyConfig.start();
-    throw new Error("Should have rejected startup due to missing required key");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for missing required key"
-    );
-  }
-
-  // Check type validation (invalid port type)
-  const invalidTypeProvider = new MemoryConfigurationProvider("defaults", 10, {
-    "app.name": "Shaily Studio",
-    "app.env": "development",
-    "app.port": "not-a-number", // should be number!
-  });
-  const faultyConfig2 = new ConfigurationBuilder()
-    .withContext(context)
-    .withSchema(schema)
-    .withProvider(invalidTypeProvider)
-    .build();
-  await faultyConfig2.initialize();
-  try {
-    await faultyConfig2.start();
-    throw new Error("Should have rejected startup due to invalid type");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for type mismatch"
-    );
-  }
-
-  // Check enum boundary validation
-  const invalidEnumProvider = new MemoryConfigurationProvider("defaults", 10, {
-    "app.name": "Shaily Studio",
-    "app.env": "local", // not in develop/staging/prod enums!
-  });
-  const faultyConfig3 = new ConfigurationBuilder()
-    .withContext(context)
-    .withSchema(schema)
-    .withProvider(invalidEnumProvider)
-    .build();
-  await faultyConfig3.initialize();
-  try {
-    await faultyConfig3.start();
-    throw new Error("Should have rejected startup due to enum value mismatch");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for enum value mismatch"
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified types, defaults, required keys, and enum rules.");
-
-  // ==========================================
-  // 4. Provider Registration & Priorities
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("4. Running Provider Priority & Dynamic Registration...");
-
-  // Register high priority override provider
-  const overrideProvider = new MemoryConfigurationProvider("overrides", 50, {
-    "app.port": 9090, // override default 8080
-    "app.name": "Shaily Override",
-  });
-
-  await activeConfig.registerProvider(overrideProvider);
-
-  // Check override values applied
-  assert(activeConfig.get<number>("app.port") === 9090, "Override port should be 9090");
-  assert(activeConfig.get<string>("app.name") === "Shaily Override", "Override name matches");
-
-  // Check duplicate provider registration block
-  try {
-    await activeConfig.registerProvider(overrideProvider);
-    throw new Error("Should have prevented registering duplicate provider");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for duplicate provider"
-    );
-  }
-
-  // Unregister provider
-  await activeConfig.unregisterProvider("overrides");
-
-  // Check fallback occurred back to defaults
-  assert(activeConfig.get<number>("app.port") === 8080, "Port fell back to default 8080");
-  assert(activeConfig.get<string>("app.name") === "Shaily Studio", "Name fell back to default Shaily Studio");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified provider priorities and dynamic un/registration.");
-
-  // ==========================================
-  // 5. Configuration Get / Set / Has / Remove
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("5. Running Get / Set / Has / Remove operations...");
-
-  assert(activeConfig.has("app.port"), "Should have app.port");
-  assert(!activeConfig.has("database.host"), "Should not have database.host");
-
-  // Set override
-  await activeConfig.set("app.port", 3000);
-  assert(activeConfig.get<number>("app.port") === 3000, "Port set to 3000 dynamically");
-
-  // Remove override
-  await activeConfig.remove("app.port");
-  assert(activeConfig.get<number>("app.port") === 8080, "Port fell back to default 8080 after removal");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified basic key-value operations.");
-
-  // ==========================================
-  // 6. Runtime Reload
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("6. Running Runtime Reload Validation...");
-
-  // Update backend memory values directly
-  provider1.set("app.name", "Shaily Reloaded");
+  // 2. Environment Loading
+  const engine = new ConfigurationBuilder().withContext(mockContext).build();
+  assert(engine.getState() === ConfigurationState.CREATED, "Engine state should be CREATED.");
   
-  // Before reload, cached value is served
-  assert(activeConfig.get<string>("app.name") === "Shaily Studio", "Serving cached value");
+  await engine.initialize();
+  assert(engine.getState() === ConfigurationState.READY, "Engine state should be READY.");
+  
+  const env = engine.getEnvironmentManager().getEnvironment();
+  assert(env.envType === EnvironmentType.PRODUCTION, "Expected PRODUCTION environment type.");
+  assert(env.variables["PORT"] === "8000", "Expected PORT variable to be 8000.");
+  console.log("2. Environment Loading... ✓");
 
-  // Reload
-  await activeConfig.reload();
-  assert(activeConfig.get<string>("app.name") === "Shaily Reloaded", "Reloaded and updated name");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified caching and manual reloads.");
+  // 3. Secret Loading
+  const secrets = engine.getSecretsManager().getSecrets();
+  assert(secrets.length === 2, "Expected 2 loaded secrets.");
+  assert(secrets.some(s => s.key === "OPENAI_API_KEY"), "OpenAI API key missing.");
+  console.log("3. Secret Loading... ✓");
 
-  // ==========================================
-  // 7. Change Watcher Notifications
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("7. Running Change Watcher Notifications...");
+  // 4. Secret Encryption
+  const secretsMgr = engine.getSecretsManager();
+  const encrypted = await secretsMgr.encryptSecret("my-secret-key-value-123");
+  assert(encrypted.startsWith("enc-"), "Encrypted secret should start with enc-.");
+  console.log("4. Secret Encryption... ✓");
 
-  let notifiedChanges: readonly ConfigurationChange[] = [];
-  const watcherId = activeConfig.watch((changes) => {
-    notifiedChanges = changes;
+  // 5. Secret Decryption
+  const decrypted = await secretsMgr.decryptSecret(encrypted);
+  assert(decrypted === "my-secret-key-value-123", "Decrypted secret does not match plain text.");
+  console.log("5. Secret Decryption... ✓");
+
+  // 6. Configuration Validation
+  const report = await engine.getValidator().validate(engine.getSnapshot());
+  assert(report.result === ValidationResult.PASSED, "Validation report should pass.");
+  console.log("6. Configuration Validation... ✓");
+
+  // 7. Provider Configuration
+  const provMgr = engine.getProviderManager();
+  const openaiProv = provMgr.getProviderConfiguration("openai");
+  assert(openaiProv !== undefined, "OpenAI provider config must exist.");
+  assert(openaiProv!.enabled, "OpenAI provider should be enabled by default.");
+  assert(openaiProv!.timeoutMs === 15000, "Expected OpenAI timeout to be 15000.");
+  console.log("7. Provider Configuration... ✓");
+
+  // 8. Health Check
+  const healthReports = await engine.getHealthChecker().checkHealth();
+  assert(healthReports.length === 2, "Expected 2 provider health check reports.");
+  assert(healthReports.some(h => h.providerId === "openai" && h.status === ProviderHealth.ONLINE), "OpenAI should be ONLINE.");
+  console.log("8. Health Check... ✓");
+
+  // 9. Runtime Distribution
+  let distributed = false;
+  engine.getDistributor().registerListener((config) => {
+    distributed = true;
   });
+  await engine.getDistributor().distributeConfiguration();
+  assert(distributed, "Configuration distribution listener not triggered.");
+  console.log("9. Runtime Distribution... ✓");
 
-  await activeConfig.set("app.debug", true);
-  assert(notifiedChanges.length === 1, "Received 1 change notification");
-  assert(notifiedChanges[0].key === "app.debug", "Changed key matches");
-  assert(notifiedChanges[0].oldValue === false, "Old value matches");
-  assert(notifiedChanges[0].newValue === true, "New value matches");
+  // 10. Workspace Distribution
+  const envMgr = engine.getEnvironmentManager();
+  assert(envMgr.resolveVariable("DATABASE_URL") !== undefined, "Workspace database URL missing.");
+  console.log("10. Workspace Distribution... ✓");
 
-  // Unwatch
-  activeConfig.unwatch(watcherId);
-  notifiedChanges = [];
-  await activeConfig.set("app.debug", false);
-  assert(notifiedChanges.length === 0, "No notification received after unwatching");
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified watcher subscription and callback triggers.");
+  // 11. Settings Integration
+  // Setup SettingsEngine and link configurations
+  const settingsEngine = new SettingsBuilder()
+    .withContext(mockContext)
+    .build();
+  await settingsEngine.initialize();
+  assert(settingsEngine.getConfigurationManager().getConfiguration().version === "1.0.0", "Settings version mismatch.");
+  console.log("11. Settings Integration... ✓");
 
-  // ==========================================
-  // 8. Snapshot Immutability
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("8. Running Snapshot Immutability Validation...");
+  // 12. Runtime Integration
+  // Setup runtime builder and check configurationEngine registration
+  const runtimeContext = {
+    env: "test",
+    namespace: "runtime-config-test",
+    startTime: Date.now()
+  };
+  const runtimeConfig = {
+    env: "test",
+    heartbeatIntervalMs: 500,
+    healthCheckIntervalMs: 1000,
+    startupTimeoutMs: 500,
+    shutdownTimeoutMs: 500
+  };
+  const runtime = new RuntimeBuilder()
+    .withContext(runtimeContext)
+    .withConfig(runtimeConfig)
+    .build();
 
-  const snap = activeConfig.snapshot();
+  assert(runtime !== null, "RuntimeEngine builder failed.");
+  const configSvc = runtime.getEngine("ConfigurationEngine");
+  assert(configSvc !== undefined, "ConfigurationEngine must be registered inside RuntimeEngine.");
+  
+  // Initialize runtime to trigger system-integration discovery and registration
+  await runtime.initialize();
+  console.log("12. Runtime Integration... ✓");
 
-  // Root snapshot
+  // 13. Assistant Integration
+  // Check assistant configuration
+  const assistantSvc = runtime.getEngine("AssistantEngine");
+  assert(assistantSvc !== undefined, "AssistantEngine should be registered.");
+  console.log("13. Assistant Integration... ✓");
+
+  // 14. Pipeline Integration
+  // Checks pipeline engine registration
+  const integrationSvc = runtime.getEngine("SystemIntegrationEngine");
+  const pipelineReg = integrationSvc.getRegistry().getRegistrations().find((r: any) => r.id === "PipelineEngine");
+  assert(pipelineReg !== undefined, "PipelineEngine should be registered in SystemIntegrationEngine.");
+  console.log("14. Pipeline Integration... ✓");
+
+  // 15. Snapshot Creation
+  const snapMgr = engine.getSnapshotManager();
+  const snap1 = await snapMgr.createSnapshot();
+  assert(snap1 !== undefined, "Snapshot should be created.");
+  assert(snapMgr.getSnapshotHistory().length === 2, "Expected 2 snapshots in history.");
+  console.log("15. Snapshot Creation... ✓");
+
+  // 16. Configuration Rollback
+  const firstSnap = snapMgr.getSnapshotHistory()[0];
+  await snapMgr.rollbackToSnapshot(firstSnap.id);
+  console.log("16. Configuration Rollback... ✓");
+
+  // 17. Event Publishing
+  const hasConfigLoaded = mockEvents.some(e => e.name === "CONFIG_LOADED");
+  const hasSecretLoaded = mockEvents.some(e => e.name === "SECRET_LOADED");
+  assert(hasConfigLoaded && hasSecretLoaded, "Required events not published.");
+  console.log("17. Event Publishing... ✓");
+
+  // 18. Snapshot Immutability
+  const snap = engine.getSnapshot();
+  assert(Object.isFrozen(snap), "Snapshot should be frozen.");
+  assert(Object.isFrozen(snap.environment), "Snapshot environment should be frozen.");
+  console.log("18. Snapshot Immutability... ✓");
+
+  // 19. Validator Rules
   try {
-    (snap as any).timestamp = new Date(0);
-    throw new Error("Should have thrown error on modifying snapshot root");
-  } catch (err: unknown) {
-    assert(err instanceof TypeError, "Expected TypeError on modifying frozen snapshot");
+    new ConfigurationValidator().validateApiKeyFormat("openai", "bad-key-value");
+    assert(false, "Should have thrown for invalid OpenAI API Key format.");
+  } catch (err: any) {
+    assert(err instanceof ConfigurationValidationException, "Expected ConfigurationValidationException.");
   }
+  console.log("19. Validator Rules... ✓");
 
-  // Snapshot values record
-  try {
-    (snap.values as any)["app.port"] = 1111;
-    throw new Error("Should have thrown error on modifying snapshot values");
-  } catch (err: unknown) {
-    assert(err instanceof TypeError, "Expected TypeError on modifying frozen values");
-  }
+  // 20. Complete End-to-End Configuration Lifecycle
+  const freshEngine = new ConfigurationBuilder().withContext(mockContext).build();
+  await freshEngine.initialize();
+  await freshEngine.start();
+  
+  const originalHistoryLength = freshEngine.getSnapshotManager().getSnapshotHistory().length;
+  await freshEngine.getSnapshotManager().createSnapshot();
+  assert(freshEngine.getSnapshotManager().getSnapshotHistory().length === originalHistoryLength + 1, "E2E snapshot creation failed.");
+  
+  await freshEngine.stop();
+  console.log("20. Complete End-to-End Configuration Lifecycle... ✓\n");
 
-  // Snapshot sections hierarchy
-  assert(snap.sections.length > 0, "Should generate sections");
-  const appSection = snap.sections.find((s) => s.path === "app");
-  assert(appSection !== undefined, "app section exists");
-  assert(appSection!.values.length > 0, "app section values populate");
-
-  try {
-    (appSection as any).path = "hack";
-    throw new Error("Should have thrown error on modifying snapshot sections");
-  } catch (err: unknown) {
-    assert(err instanceof TypeError, "Expected TypeError on modifying frozen sections");
-  }
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified deep freeze immutability on snapshots, values, and sections.");
-
-  // ==========================================
-  // 9. Validator Rules
-  // ==========================================
-  // eslint-disable-next-line no-console
-  console.log("9. Running Validator Rule Checks...");
-
-  // Invalid key identifiers
-  try {
-    ConfigurationValidator.validateIdentifier("invalid key space", "Test key");
-    throw new Error("Should have rejected space in key");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for space in key"
-    );
-  }
-
-  try {
-    ConfigurationValidator.validateIdentifier("invalid_@_char", "Test key");
-    throw new Error("Should have rejected special symbol in key");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for special symbol in key"
-    );
-  }
-
-  // Schema format validation (invalid type)
-  try {
-    const invalidSchema = {
-      "app.port": { type: "integer" as any, required: true }, // integer is not valid type!
-    };
-    ConfigurationValidator.validateSchema(invalidSchema);
-    throw new Error("Should have rejected invalid type in schema");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for invalid schema type"
-    );
-  }
-
-  // Enum validation in schema missing enumValues
-  try {
-    const invalidSchema = {
-      "app.env": { type: "enum" as any, required: true }, // missing enumValues!
-    };
-    ConfigurationValidator.validateSchema(invalidSchema);
-    throw new Error("Should have rejected enum type with missing enumValues");
-  } catch (err: unknown) {
-    assert(
-      err instanceof ConfigurationValidationException,
-      "Expected ConfigurationValidationException for missing enum values"
-    );
-  }
-  // eslint-disable-next-line no-console
-  console.log("   ✓ Verified schema structures and validator rule constraints.");
-
-  // eslint-disable-next-line no-console
-  console.log("=== ALL CONFIGURATION FRAMEWORK VERIFICATION TESTS PASSED SUCCESSFULLY ===");
+  console.log("=== ALL 20/20 CONFIGURATION ENGINE TESTS PASSED SUCCESSFULLY ===");
 }
 
-runTests().catch((err) => {
-  // eslint-disable-next-line no-console
-  console.error("Test execution failed:", err);
+runTests().catch(err => {
+  console.error("Test suite threw an exception:", err);
   process.exit(1);
 });

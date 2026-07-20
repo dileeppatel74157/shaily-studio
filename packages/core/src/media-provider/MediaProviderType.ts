@@ -1,0 +1,16 @@
+export enum MediaProviderType {
+  OPENAI = "OPENAI",
+  GOOGLE = "GOOGLE",
+  RUNWAY = "RUNWAY",
+  PIKA = "PIKA",
+  KLING = "KLING",
+  LUMA = "LUMA",
+  IDEOGRAM = "IDEOGRAM",
+  FLUX = "FLUX",
+  ELEVENLABS = "ELEVENLABS",
+  WHISPER = "WHISPER",
+  SUNO = "SUNO",
+  MUSICGEN = "MUSICGEN",
+  LOCAL = "LOCAL",
+  CUSTOM = "CUSTOM"
+}

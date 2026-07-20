@@ -1,0 +1,11 @@
+export enum MediaType {
+  IMAGE = "IMAGE",
+  VIDEO = "VIDEO",
+  VOICE = "VOICE",
+  MUSIC = "MUSIC",
+  SFX = "SFX",
+  SUBTITLE = "SUBTITLE",
+  TRANSCRIPTION = "TRANSCRIPTION",
+  UPSCALE = "UPSCALE",
+  EDIT = "EDIT"
+}

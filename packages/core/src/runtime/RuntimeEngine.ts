@@ -13,6 +13,7 @@ import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { DatabaseBuilder } from "../database/DatabaseBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { LLMProviderBuilder } from "../llm-provider/LLMProviderBuilder";
+import { MediaProviderBuilder } from "../media-provider/MediaProviderBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -141,6 +142,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "LLMProviderEngine",
       engine: llmProviderEngine,
       dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const mediaProviderEngine = new MediaProviderBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "MediaProviderEngine",
+      engine: mediaProviderEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine", "LLMProviderEngine"],
       priority: StartupPriority.CRITICAL
     });
 

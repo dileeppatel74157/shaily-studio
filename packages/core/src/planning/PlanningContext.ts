@@ -33,6 +33,7 @@ import { IGatewayEngine } from "../ai-gateway/interfaces";
 import { IProviderExecutionEngine } from "../provider-execution/interfaces";
 import { IDatabaseEngine } from "../database/interfaces";
 import { ILLMProviderEngine } from "../llm-provider/interfaces";
+import { IMediaProviderEngine } from "../media-provider/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -49,6 +50,7 @@ export interface PlanningContext {
   readonly providerExecutionEngine?: IProviderExecutionEngine;
   readonly databaseEngine?: IDatabaseEngine;
   readonly llmProviderEngine?: ILLMProviderEngine;
+  readonly mediaProviderEngine?: IMediaProviderEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

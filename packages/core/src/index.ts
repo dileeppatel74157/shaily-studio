@@ -500,6 +500,7 @@ export * from "./ai-gateway/index";
 export * from "./provider-execution/index";
 export * from "./database/index";
 export * from "./llm-provider/index";
+export * from "./media-provider/index";
 
 
 

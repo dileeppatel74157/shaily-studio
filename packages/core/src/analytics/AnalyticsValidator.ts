@@ -1,174 +1,159 @@
-import { AnalyticsRequest, AnalyticsRecommendation, PerformanceScore } from "./models";
-import { AnalyticsState }    from "./AnalyticsState";
-import { AnalyticsPlatform } from "./AnalyticsPlatform";
 import {
-  AnalyticsValidationException,
-  DuplicateAnalyticsException,
-} from "./types";
+  AnalyticsRecord,
+  MetricSnapshot,
+  TrendAnalysis,
+  LearningDataset,
+  AnalyticsValidationReport,
+  AnalyticsValidationIssue,
+  RevenueEstimate,
+  SubscriberGrowth,
+  CTRReport
+} from "./models";
+import { ValidationException } from "./types";
+import { AnalyticsPlatform } from "./AnalyticsPlatform";
+import { AggregationType } from "./AggregationType";
 
 export class AnalyticsValidator {
+  public static validate(
+    record: AnalyticsRecord,
+    registeredPlatforms: AnalyticsPlatform[]
+  ): AnalyticsValidationReport {
+    const issues: AnalyticsValidationIssue[] = [];
 
-  // ─── Request Validation ─────────────────────────────────────────────────────
+    // 1. Record ID required
+    if (!record.id || record.id.trim() === "") {
+      issues.push({ field: "id", message: "Record ID is required.", severity: "CRITICAL" });
+    }
 
-  public static validateRequest(request: AnalyticsRequest): void {
-    if (!request.id || request.id.trim().length === 0) {
-      throw new AnalyticsValidationException(
-        "AnalyticsRequest must have a non-empty ID."
-      );
+    // 2. Content ID required
+    if (!record.contentId || record.contentId.trim() === "") {
+      issues.push({ field: "contentId", message: "Content ID is required.", severity: "CRITICAL" });
     }
-    if (!request.publishingId || request.publishingId.trim().length === 0) {
-      throw new AnalyticsValidationException(
-        `AnalyticsRequest "${request.id}" must reference a non-empty publishingId.`
-      );
+
+    // 3. Title required
+    if (!record.title || record.title.trim() === "") {
+      issues.push({ field: "title", message: "Title is required.", severity: "CRITICAL" });
     }
-    if (!request.platformVideoId || request.platformVideoId.trim().length === 0) {
-      throw new AnalyticsValidationException(
-        `AnalyticsRequest "${request.id}" must provide a non-empty platformVideoId.`
-      );
+
+    // 4. Timestamp valid (publishedAt)
+    if (!record.publishedAt || record.publishedAt.getTime() > Date.now()) {
+      issues.push({ field: "publishedAt", message: "Published time must be in the past or present.", severity: "CRITICAL" });
     }
-    // Validate platform is a known value
-    if (!Object.values(AnalyticsPlatform).includes(request.platform)) {
-      throw new AnalyticsValidationException(
-        `AnalyticsRequest "${request.id}" has an invalid platform "${request.platform}". ` +
-        `Must be one of: ${Object.values(AnalyticsPlatform).join(", ")}.`
-      );
+
+    // Iterate snapshots
+    for (const platform of record.platforms) {
+      // 5. Platform supported
+      if (!registeredPlatforms.includes(platform)) {
+        issues.push({ field: "platforms", message: `Platform ${platform} has no registered collector.`, severity: "CRITICAL" });
+      }
+
+      const snapshots = record.snapshots[platform];
+      if (snapshots) {
+        let prevTime = 0;
+        for (const snap of snapshots) {
+          // 6. Metric value >= 0
+          const m = snap.metrics;
+          if (m.views < 0) issues.push({ field: "metrics.views", message: "Views cannot be negative.", severity: "CRITICAL" });
+          if (m.impressions < 0) issues.push({ field: "metrics.impressions", message: "Impressions cannot be negative.", severity: "CRITICAL" });
+          if (m.watchTimeSeconds < 0) issues.push({ field: "metrics.watchTimeSeconds", message: "Watch time cannot be negative.", severity: "CRITICAL" });
+
+          // 7. CTR <= 100%
+          if (m.ctrPercent < 0 || m.ctrPercent > 100) {
+            issues.push({ field: "metrics.ctrPercent", message: "CTR must be between 0% and 100%.", severity: "CRITICAL" });
+          }
+
+          // 8. Retention <= 100%
+          if (snap.videoMetrics) {
+            const v = snap.videoMetrics;
+            if (v.completionRatePercent < 0 || v.completionRatePercent > 100) {
+              issues.push({ field: "videoMetrics.completionRatePercent", message: "Completion rate must be between 0% and 100%.", severity: "CRITICAL" });
+            }
+          }
+
+          // 9. Duplicate metric prevention (ordered snapshots timestamp unique check)
+          const snapTime = snap.timestamp.getTime();
+          if (snapTime === prevTime) {
+            issues.push({ field: "snapshots", message: "Duplicate metric snapshot found at the same timestamp.", severity: "CRITICAL" });
+          }
+          prevTime = snapTime;
+
+          // 10. Impressions >= views
+          if (m.impressions < m.views) {
+            issues.push({ field: "metrics.impressions", message: "Impressions must be greater than or equal to views.", severity: "WARNING" });
+          }
+        }
+      }
     }
-    // Collection window bounds
-    const window = request.options?.collectionWindowDays;
-    if (window !== undefined && (window < 1 || window > 365)) {
-      throw new AnalyticsValidationException(
-        `AnalyticsRequest "${request.id}" collectionWindowDays must be between 1 and 365 (got ${window}).`
-      );
-    }
-    // Timestamp must not be in the future
-    if (request.timestamp > new Date()) {
-      throw new AnalyticsValidationException(
-        `AnalyticsRequest "${request.id}" timestamp cannot be in the future.`
-      );
+
+    const valid = !issues.some(i => i.severity === "CRITICAL");
+    return {
+      valid,
+      issues,
+      timestamp: new Date()
+    };
+  }
+
+  public static assertValid(record: AnalyticsRecord, registeredPlatforms: AnalyticsPlatform[]): void {
+    const report = this.validate(record, registeredPlatforms);
+    if (!report.valid) {
+      const crit = report.issues.find(i => i.severity === "CRITICAL");
+      throw new ValidationException(`Validation failed: ${crit?.message}`);
     }
   }
 
-  // ─── Performance Score Validation ───────────────────────────────────────────
-
-  public static validatePerformanceScore(score: PerformanceScore): void {
-    const fields: Array<keyof PerformanceScore> = [
-      "overall", "hook", "retention", "engagement", "ctr", "growth", "revenue", "reach"
-    ];
-    for (const field of fields) {
-      const val = score[field] as number;
-      if (typeof val !== "number" || val < 0 || val > 100) {
-        throw new AnalyticsValidationException(
-          `PerformanceScore.${field} must be a number between 0 and 100 (got ${val}).`
-        );
-      }
+  // Extra validator rules
+  public static validateTrend(trend: TrendAnalysis): void {
+    // 11. Confidence score between 0 and 1
+    if (trend.confidenceScore < 0 || trend.confidenceScore > 1) {
+      throw new ValidationException("Trend confidence score must be between 0.0 and 1.0.");
+    }
+    // 12. Period days positive
+    if (trend.periodDays <= 0) {
+      throw new ValidationException("Trend period days must be positive.");
     }
   }
 
-  // ─── Metric Validation ───────────────────────────────────────────────────────
-
-  public static validateMetrics(metrics: {
-    views: number;
-    ctrPercent: number;
-    averageRetentionPercent: number;
-    revenueUsd: number;
-    engagementRate: number;
-  }): void {
-    if (metrics.views < 0) {
-      throw new AnalyticsValidationException("Views cannot be negative.");
+  public static validateDataset(dataset: LearningDataset): void {
+    // 13. Dataset features count matches labels count
+    if (dataset.features.length !== dataset.labels.length) {
+      throw new ValidationException("Dataset features count must match labels count.");
     }
-    if (metrics.revenueUsd < 0) {
-      throw new AnalyticsValidationException("Revenue cannot be negative.");
-    }
-    if (metrics.ctrPercent < 0 || metrics.ctrPercent > 100) {
-      throw new AnalyticsValidationException(
-        `CTR must be between 0 and 100 (got ${metrics.ctrPercent}).`
-      );
-    }
-    if (metrics.averageRetentionPercent < 0 || metrics.averageRetentionPercent > 100) {
-      throw new AnalyticsValidationException(
-        `Average retention must be between 0 and 100 (got ${metrics.averageRetentionPercent}).`
-      );
-    }
-    if (metrics.engagementRate < 0 || metrics.engagementRate > 100) {
-      throw new AnalyticsValidationException(
-        `Engagement rate must be between 0 and 100 (got ${metrics.engagementRate}).`
-      );
+    // 14. Dataset count matches lists lengths
+    if (dataset.count !== dataset.features.length) {
+      throw new ValidationException("Dataset count mismatch.");
     }
   }
 
-  // ─── Retention Curve Validation ──────────────────────────────────────────────
-
-  public static validateRetentionCurve(dataPoints: Array<{ secondMark: number; retentionPercent: number }>): void {
-    for (const dp of dataPoints) {
-      if (dp.secondMark < 0) {
-        throw new AnalyticsValidationException(
-          `Retention data point has invalid timestamp: ${dp.secondMark}s (must be >= 0).`
-        );
-      }
-      if (dp.retentionPercent < 0 || dp.retentionPercent > 100) {
-        throw new AnalyticsValidationException(
-          `Retention data point at ${dp.secondMark}s has invalid percentage: ${dp.retentionPercent} (must be 0–100).`
-        );
-      }
-    }
-    // Retention should generally be non-increasing
-    for (let i = 1; i < dataPoints.length; i++) {
-      if (dataPoints[i].retentionPercent > dataPoints[i - 1].retentionPercent + 5) {
-        throw new AnalyticsValidationException(
-          `Invalid retention curve: retention increased sharply at second ${dataPoints[i].secondMark} ` +
-          `(${dataPoints[i - 1].retentionPercent}% → ${dataPoints[i].retentionPercent}%). ` +
-          `Spikes of more than 5% are not valid for a standard retention graph.`
-        );
-      }
+  public static validateAggregation(type: AggregationType): void {
+    // 15. Aggregation period valid
+    if (!Object.values(AggregationType).includes(type)) {
+      throw new ValidationException("Invalid aggregation period type.");
     }
   }
 
-  // ─── Recommendations Validation ──────────────────────────────────────────────
-
-  public static validateRecommendations(recs: AnalyticsRecommendation[]): void {
-    const seenIds = new Set<string>();
-    for (const rec of recs) {
-      if (!rec.id || rec.id.trim().length === 0) {
-        throw new AnalyticsValidationException("AnalyticsRecommendation must have a non-empty ID.");
-      }
-      if (seenIds.has(rec.id)) {
-        throw new DuplicateAnalyticsException(rec.id);
-      }
-      seenIds.add(rec.id);
-
-      if (rec.expectedImpactPercent < 0 || rec.expectedImpactPercent > 100) {
-        throw new AnalyticsValidationException(
-          `Recommendation "${rec.id}" expectedImpactPercent must be 0–100 (got ${rec.expectedImpactPercent}).`
-        );
-      }
+  public static validateSnapshot(snap: MetricSnapshot): void {
+    // 16. Snapshot metrics initialized
+    if (!snap.metrics) {
+      throw new ValidationException("Metric snapshot must contain metrics.");
     }
   }
 
-  // ─── State Transition Validation ─────────────────────────────────────────────
+  public static validateRevenue(rev: RevenueEstimate): void {
+    // 17. CPM positive
+    if (rev.cpmUsd < 0) throw new ValidationException("CPM cannot be negative.");
+    // 18. RPM positive
+    if (rev.rpmUsd < 0) throw new ValidationException("RPM cannot be negative.");
+  }
 
-  private static readonly VALID_TRANSITIONS: Record<AnalyticsState, AnalyticsState[]> = {
-    [AnalyticsState.CREATED]:     [AnalyticsState.INITIALIZED],
-    [AnalyticsState.INITIALIZED]: [AnalyticsState.COLLECTING, AnalyticsState.CANCELLED],
-    [AnalyticsState.COLLECTING]:  [AnalyticsState.PROCESSING, AnalyticsState.FAILED, AnalyticsState.CANCELLED],
-    [AnalyticsState.PROCESSING]:  [AnalyticsState.ANALYZING, AnalyticsState.FAILED],
-    [AnalyticsState.ANALYZING]:   [AnalyticsState.REPORTING, AnalyticsState.FAILED],
-    [AnalyticsState.REPORTING]:   [AnalyticsState.COMPLETED, AnalyticsState.FAILED],
-    [AnalyticsState.COMPLETED]:   [],
-    [AnalyticsState.FAILED]:      [AnalyticsState.COLLECTING], // can retry
-    [AnalyticsState.CANCELLED]:   [],
-  };
+  public static validateGrowth(growth: SubscriberGrowth): void {
+    // 19. Total followers positive
+    if (growth.totalFollowers < 0) throw new ValidationException("Total followers cannot be negative.");
+  }
 
-  public static validateStateTransition(
-    jobId: string,
-    from: AnalyticsState,
-    to: AnalyticsState
-  ): void {
-    const allowed = this.VALID_TRANSITIONS[from] || [];
-    if (!allowed.includes(to)) {
-      throw new AnalyticsValidationException(
-        `Invalid state transition for analytics job "${jobId}": "${from}" → "${to}". ` +
-        `Allowed transitions: [${allowed.join(", ")}].`
-      );
+  public static validateCtrReport(report: CTRReport): void {
+    // 20. Ctr matches count math
+    if (report.impressions > 0 && Math.abs((report.clicks / report.impressions) * 100 - report.ctrPercent) > 1.0) {
+      throw new ValidationException("CTR report percent mismatch with clicks/impressions math.");
     }
   }
 }

@@ -1,146 +1,95 @@
-import {
-  AnalyticsRequest,
-  AnalyticsResponse,
-  PlatformAnalytics,
-  NormalizedMetrics,
-  VideoAnalytics,
-  AudienceAnalytics,
-  EngagementMetrics,
-  RevenueMetrics,
-  PerformanceScore,
-  AnalyticsRecommendation,
-  BenchmarkComparison,
-  AnalyticsReport,
-  AnalyticsSnapshot,
-  LearningUpdate,
-} from "./models";
-import { AnalyticsState }    from "./AnalyticsState";
+import { AnalyticsState } from "./AnalyticsState";
 import { AnalyticsPlatform } from "./AnalyticsPlatform";
-import { MetricType }        from "./MetricType";
-
-// ─── Core Engine ──────────────────────────────────────────────────────────────
+import { AggregationType } from "./AggregationType";
+import { MetricType } from "./MetricType";
+import {
+  AnalyticsRecord,
+  PlatformMetrics,
+  VideoMetrics,
+  SocialMetrics,
+  MetricSnapshot,
+  TrendAnalysis,
+  EngagementReport,
+  RetentionCurve,
+  CTRReport,
+  RevenueEstimate,
+  SubscriberGrowth,
+  CollectionJob,
+  AnalyticsHistory,
+  AnalyticsSummary,
+  DashboardMetrics,
+  LearningDataset,
+  AnalyticsSnapshot,
+  AnalyticsEngineStatistics
+} from "./models";
 
 export interface IAnalyticsEngine {
-  readonly state: AnalyticsState;
+  getState(): AnalyticsState;
   initialize(): Promise<void>;
   start(): Promise<void>;
   stop(): Promise<void>;
-  analyze(request: AnalyticsRequest): Promise<AnalyticsResponse>;
-  cancel(analyticsId: string): Promise<void>;
-  getReport(analyticsId: string): AnalyticsReport;
-  getSnapshot(analyticsId: string): AnalyticsSnapshot;
-  getHistory(): AnalyticsResponse[];
+
+  collectMetrics(platforms: AnalyticsPlatform[]): Promise<CollectionJob>;
+  getSnapshot(): AnalyticsSnapshot;
+  getStatistics(): AnalyticsEngineStatistics;
+
+  // Managers
+  getCollectorManager(): ICollectorManager;
+  getAggregationManager(): IAggregationManager;
+  getTrendManager(): ITrendManager;
+  getEngagementManager(): IEngagementManager;
+  getRetentionManager(): IRetentionManager;
+  getReportingManager(): IReportingManager;
+  getDatasetManager(): IDatasetManager;
+  getHistoryManager(): IHistoryManager;
+  getMetricsManager(): IMetricsManager;
+
+  // Events
+  on(event: string, handler: (payload: any) => void): void;
+  off(event: string, handler: (payload: any) => void): void;
 }
 
-// ─── Analytics Provider ───────────────────────────────────────────────────────
-
-export interface IAnalyticsProvider {
-  /** Platform this provider handles */
-  readonly platform: AnalyticsPlatform;
-
-  /**
-   * Fetches raw platform metrics for a given video.
-   * Returns platform-native metric map.
-   */
-  fetchMetrics(
-    platformVideoId: string,
-    windowDays: number
-  ): Promise<Partial<Record<MetricType, number>>>;
-
-  /**
-   * Fetches detailed video analytics (retention graph, traffic sources, etc.)
-   */
-  fetchVideoAnalytics(platformVideoId: string): Promise<Partial<VideoAnalytics>>;
-
-  /**
-   * Fetches audience demographics and behaviour data.
-   */
-  fetchAudienceAnalytics(platformVideoId: string): Promise<Partial<AudienceAnalytics>>;
+export interface ICollectorManager {
+  registerCollector(platform: AnalyticsPlatform, collector: IPlatformCollector): void;
+  getCollector(platform: AnalyticsPlatform): IPlatformCollector | undefined;
+  listCollectors(): IPlatformCollector[];
 }
 
-// ─── Metric Collector ─────────────────────────────────────────────────────────
-
-export interface IMetricCollector {
-  /**
-   * Drives the full collection sequence:
-   * raw metrics → video analytics → audience analytics → normalization.
-   */
-  collect(
-    request: AnalyticsRequest,
-    provider: IAnalyticsProvider
-  ): Promise<PlatformAnalytics>;
-
-  /**
-   * Normalizes platform-raw metrics into the universal NormalizedMetrics schema.
-   * Handles differences in field names, units, and scales across platforms.
-   */
-  normalize(
-    raw: Partial<Record<MetricType, number>>,
-    platform: AnalyticsPlatform
-  ): NormalizedMetrics;
+export interface IPlatformCollector {
+  platform: AnalyticsPlatform;
+  collect(contentId: string): Promise<MetricSnapshot>;
 }
 
-// ─── Performance Analyzer ─────────────────────────────────────────────────────
-
-export interface IPerformanceAnalyzer {
-  /**
-   * Computes a multi-dimensional performance score (0–100) with
-   * weak points, strong points, and a PerformanceLevel classification.
-   */
-  analyze(
-    metrics: NormalizedMetrics,
-    videoAnalytics: VideoAnalytics,
-    engagementMetrics: EngagementMetrics,
-    revenueMetrics: RevenueMetrics
-  ): PerformanceScore;
-
-  /**
-   * Derives engagement metrics from normalized data.
-   */
-  computeEngagement(metrics: NormalizedMetrics): EngagementMetrics;
-
-  /**
-   * Derives revenue metrics from normalized data.
-   */
-  computeRevenue(metrics: NormalizedMetrics): RevenueMetrics;
+export interface IAggregationManager {
+  aggregate(records: AnalyticsRecord[], period: AggregationType): Promise<AnalyticsSummary>;
 }
 
-// ─── Recommendation Engine ────────────────────────────────────────────────────
-
-export interface IRecommendationEngine {
-  /**
-   * Generates prioritized improvement recommendations from performance data.
-   * Each recommendation includes type, expected impact, evidence, and action.
-   */
-  generate(
-    score: PerformanceScore,
-    videoAnalytics: VideoAnalytics,
-    metrics: NormalizedMetrics,
-    platform: AnalyticsPlatform
-  ): AnalyticsRecommendation[];
+export interface ITrendManager {
+  analyzeTrends(records: AnalyticsRecord[], metric: MetricType, periodDays: number): Promise<TrendAnalysis>;
 }
 
-// ─── Benchmark Engine ─────────────────────────────────────────────────────────
-
-export interface IBenchmarkEngine {
-  /**
-   * Compares this video's metrics against channel history and top performers.
-   */
-  compare(
-    metrics: NormalizedMetrics,
-    history: AnalyticsResponse[]
-  ): BenchmarkComparison;
+export interface IEngagementManager {
+  calculateEngagement(record: AnalyticsRecord, platform: AnalyticsPlatform): Promise<EngagementReport>;
 }
 
-// ─── Learning Engine ──────────────────────────────────────────────────────────
+export interface IRetentionManager {
+  analyzeRetention(record: AnalyticsRecord): Promise<RetentionCurve>;
+}
 
-export interface ILearningEngine {
-  /**
-   * Extracts insights from analytics data and propagates them to
-   * Research, Strategy, Script, Channel, and Decision engines via context.
-   */
-  learn(
-    response: AnalyticsResponse,
-    context: Record<string, unknown>
-  ): Promise<LearningUpdate>;
+export interface IReportingManager {
+  generateCreatorReport(summary: AnalyticsSummary): Promise<string>;
+  generatePlatformReport(records: AnalyticsRecord[], platform: AnalyticsPlatform): Promise<string>;
+}
+
+export interface IDatasetManager {
+  generateLearningDataset(records: AnalyticsRecord[]): Promise<LearningDataset>;
+}
+
+export interface IHistoryManager {
+  logMetrics(history: AnalyticsHistory): Promise<void>;
+  getHistory(contentId: string): Promise<AnalyticsHistory[]>;
+}
+
+export interface IMetricsManager {
+  normalizeMetrics(raw: any, platform: AnalyticsPlatform): Promise<MetricSnapshot>;
 }

@@ -1,12 +1,11 @@
-// ─── Analytics Platform ───────────────────────────────────────────────────────
-
 export enum AnalyticsPlatform {
-  YOUTUBE   = "YOUTUBE",
+  YOUTUBE = "YOUTUBE",
   INSTAGRAM = "INSTAGRAM",
-  TIKTOK    = "TIKTOK",
-  FACEBOOK  = "FACEBOOK",
-  X         = "X",
-  LINKEDIN  = "LINKEDIN",
-  RUMBLE    = "RUMBLE",
-  CUSTOM    = "CUSTOM",
+  FACEBOOK = "FACEBOOK",
+  X = "X",
+  LINKEDIN = "LINKEDIN",
+  THREADS = "THREADS",
+  TIKTOK = "TIKTOK",
+  PINTEREST = "PINTEREST",
+  ALL = "ALL"
 }

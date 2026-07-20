@@ -17,6 +17,7 @@ import { MediaProviderBuilder } from "../media-provider/MediaProviderBuilder";
 import { ContentPipelineBuilder } from "../content-pipeline/ContentPipelineBuilder";
 import { YouTubeIntegrationBuilder } from "../youtube-integration/YouTubeIntegrationBuilder";
 import { SocialPlatformBuilder } from "../social-platform/SocialPlatformBuilder";
+import { AnalyticsBuilder } from "../analytics/AnalyticsBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -205,6 +206,23 @@ export class RuntimeEngine implements IRuntimeEngine {
         "DatabaseEngine",
         "ObservabilityEngine",
         "ConfigurationEngine"
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const analyticsEngine = new AnalyticsBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "AnalyticsEngine",
+      engine: analyticsEngine,
+      dependencies: [
+        "YouTubeIntegrationEngine",
+        "SocialPlatformEngine",
+        "DatabaseEngine",
+        "ObservabilityEngine",
+        ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),
+        ...(this._engines.has("MemoryOptimizationEngine") ? ["MemoryOptimizationEngine"] : [])
       ],
       priority: StartupPriority.HIGH
     });

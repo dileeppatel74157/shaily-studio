@@ -1,66 +1,60 @@
-// ─── Analytics Exception Hierarchy ───────────────────────────────────────────
-
 export class AnalyticsException extends Error {
-  constructor(message: string) {
+  constructor(message: string, public readonly code: string = "ANALYTICS_ERROR") {
     super(message);
     this.name = this.constructor.name;
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
-export class AnalyticsValidationException extends AnalyticsException {
+export class CollectionException extends AnalyticsException {
   constructor(message: string) {
-    super(message);
+    super(message, "COLLECTION_FAILED");
   }
 }
 
-export class DuplicateAnalyticsException extends AnalyticsException {
-  constructor(id: string) {
-    super(`Analytics entry with ID "${id}" is already registered.`);
+export class AggregationException extends AnalyticsException {
+  constructor(message: string) {
+    super(message, "AGGREGATION_FAILED");
   }
 }
 
-export class InvalidAnalyticsStateException extends AnalyticsException {
-  constructor(id: string, action: string, currentState: string) {
-    super(
-      `Cannot perform "${action}" on analytics job "${id}" ` +
-      `because it is currently in state "${currentState}".`
-    );
+export class ReportingException extends AnalyticsException {
+  constructor(message: string) {
+    super(message, "REPORTING_FAILED");
   }
 }
 
-export class AnalyticsPlatformException extends AnalyticsException {
-  constructor(platform: string, reason: string) {
-    super(`Analytics provider "${platform}" error: ${reason}`);
+export class TrendException extends AnalyticsException {
+  constructor(message: string) {
+    super(message, "TREND_FAILED");
   }
 }
 
-export class AnalyticsProviderNotFoundException extends AnalyticsException {
-  constructor(platform: string) {
-    super(`No analytics provider registered for platform "${platform}".`);
+export class DatasetException extends AnalyticsException {
+  constructor(message: string) {
+    super(message, "DATASET_FAILED");
   }
 }
 
-// ─── Deep Freeze Utility ──────────────────────────────────────────────────────
+export class ValidationException extends AnalyticsException {
+  constructor(message: string) {
+    super(message, "VALIDATION_FAILED");
+  }
+}
 
 /**
- * Recursively deep-freezes an object to enforce snapshot immutability.
- * Skips the `context` property to avoid circular references.
+ * Deep freezes an object.
  */
-export function deepFreeze<T>(obj: T): T {
-  if (obj === null || typeof obj !== "object") return obj;
-  Object.freeze(obj);
-  const typed = obj as unknown as Record<string, unknown>;
-  Object.getOwnPropertyNames(typed).forEach((prop) => {
-    if (prop === "context") return;
-    if (
-      Object.prototype.hasOwnProperty.call(typed, prop) &&
-      typed[prop] !== null &&
-      (typeof typed[prop] === "object" || typeof typed[prop] === "function") &&
-      !Object.isFrozen(typed[prop])
-    ) {
-      deepFreeze(typed[prop]);
+export function deepFreeze<T extends object>(obj: T): Readonly<T> {
+  const propNames = Reflect.ownKeys(obj);
+
+  for (const name of propNames) {
+    const value = (obj as any)[name];
+
+    if (value && typeof value === "object") {
+      deepFreeze(value);
     }
-  });
-  return obj;
+  }
+
+  return Object.freeze(obj);
 }

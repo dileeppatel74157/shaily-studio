@@ -1,0 +1,7 @@
+export enum CollectionState {
+  PENDING = "PENDING",
+  COLLECTING = "COLLECTING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  PARTIAL = "PARTIAL"
+}

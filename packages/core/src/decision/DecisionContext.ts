@@ -29,6 +29,7 @@ import { IMediaProviderEngine } from "../media-provider/interfaces";
 import { IContentPipelineEngine } from "../content-pipeline/interfaces";
 import { IYouTubeIntegrationEngine } from "../youtube-integration/interfaces";
 import { ISocialPlatformEngine } from "../social-platform/interfaces";
+import { IAnalyticsEngine } from "../analytics/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
@@ -49,6 +50,7 @@ export interface DecisionContext {
   readonly contentPipelineEngine?: IContentPipelineEngine;
   readonly youtubeIntegrationEngine?: IYouTubeIntegrationEngine;
   readonly socialPlatformEngine?: ISocialPlatformEngine;
+  readonly analyticsEngine?: IAnalyticsEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus?: IEventBus;

@@ -23,6 +23,7 @@ import { IConfigurationEngine } from "../configuration/interfaces";
 import { IObservabilityEngine } from "../observability/interfaces";
 import { IGatewayEngine } from "../ai-gateway/interfaces";
 import { IProviderExecutionEngine } from "../provider-execution/interfaces";
+import { IDatabaseEngine } from "../database/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
@@ -37,6 +38,7 @@ export interface DecisionContext {
   readonly observabilityEngine?: IObservabilityEngine;
   readonly gatewayEngine?: IGatewayEngine;
   readonly providerExecutionEngine?: IProviderExecutionEngine;
+  readonly databaseEngine?: IDatabaseEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus?: IEventBus;

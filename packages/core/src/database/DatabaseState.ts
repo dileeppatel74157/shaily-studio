@@ -1,0 +1,11 @@
+export enum DatabaseState {
+  CREATED       = "CREATED",
+  INITIALIZING  = "INITIALIZING",
+  CONNECTING    = "CONNECTING",
+  READY         = "READY",
+  DISCONNECTED  = "DISCONNECTED",
+  MIGRATING     = "MIGRATING",
+  BACKING_UP    = "BACKING_UP",
+  RESTORING     = "RESTORING",
+  FAILED        = "FAILED"
+}

@@ -10,6 +10,7 @@ import { SettingsBuilder } from "../settings/SettingsBuilder";
 import { SystemIntegrationBuilder } from "../system-integration/SystemIntegrationBuilder";
 import { StabilityPerformanceBuilder } from "../stability-performance/StabilityPerformanceBuilder";
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
+import { DatabaseBuilder } from "../database/DatabaseBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
@@ -109,6 +110,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "ConfigurationEngine",
       engine: configurationEngine,
       dependencies: [],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const databaseEngine = new DatabaseBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "DatabaseEngine",
+      engine: databaseEngine,
+      dependencies: ["ConfigurationEngine"],
       priority: StartupPriority.CRITICAL
     });
 

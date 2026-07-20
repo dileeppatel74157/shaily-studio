@@ -12,6 +12,7 @@ import { StabilityPerformanceBuilder } from "../stability-performance/StabilityP
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { DatabaseBuilder } from "../database/DatabaseBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
+import { LLMProviderBuilder } from "../llm-provider/LLMProviderBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -130,6 +131,16 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "ObservabilityEngine",
       engine: observabilityEngine,
       dependencies: ["ConfigurationEngine"],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const llmProviderEngine = new LLMProviderBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "LLMProviderEngine",
+      engine: llmProviderEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
       priority: StartupPriority.CRITICAL
     });
 

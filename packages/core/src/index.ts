@@ -499,6 +499,7 @@ export * from "./observability/index";
 export * from "./ai-gateway/index";
 export * from "./provider-execution/index";
 export * from "./database/index";
+export * from "./llm-provider/index";
 
 
 

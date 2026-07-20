@@ -35,6 +35,7 @@ import { IObservabilityEngine } from "../observability/interfaces";
 import { IGatewayEngine } from "../ai-gateway/interfaces";
 import { IProviderExecutionEngine } from "../provider-execution/interfaces";
 import { IDatabaseEngine } from "../database/interfaces";
+import { ILLMProviderEngine } from "../llm-provider/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -50,6 +51,7 @@ export interface AgentContext {
   readonly gatewayEngine?: IGatewayEngine;
   readonly providerExecutionEngine?: IProviderExecutionEngine;
   readonly databaseEngine?: IDatabaseEngine;
+  readonly llmProviderEngine?: ILLMProviderEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

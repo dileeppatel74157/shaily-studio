@@ -1,0 +1,7 @@
+export enum ProviderState {
+  CREATED = "CREATED",
+  INITIALIZING = "INITIALIZING",
+  READY = "READY",
+  DEGRADED = "DEGRADED",
+  FAILED = "FAILED"
+}

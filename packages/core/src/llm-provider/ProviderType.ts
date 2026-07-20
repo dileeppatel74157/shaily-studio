@@ -1,0 +1,8 @@
+export enum ProviderType {
+  OPENAI = "OPENAI",
+  GEMINI = "GEMINI",
+  ANTHROPIC = "ANTHROPIC",
+  OLLAMA = "OLLAMA",
+  OPENROUTER = "OPENROUTER",
+  CUSTOM = "CUSTOM"
+}

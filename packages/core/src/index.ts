@@ -502,6 +502,7 @@ export * from "./database/index";
 export * from "./llm-provider/index";
 export * from "./media-provider/index";
 export * from "./content-pipeline/index";
+export * from "./youtube-integration/index";
 
 
 

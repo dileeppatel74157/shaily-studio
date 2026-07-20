@@ -27,6 +27,7 @@ import { IDatabaseEngine } from "../database/interfaces";
 import { ILLMProviderEngine } from "../llm-provider/interfaces";
 import { IMediaProviderEngine } from "../media-provider/interfaces";
 import { IContentPipelineEngine } from "../content-pipeline/interfaces";
+import { IYouTubeIntegrationEngine } from "../youtube-integration/interfaces";
 
 export interface DecisionContext {
   readonly logger: ILogger;
@@ -45,6 +46,7 @@ export interface DecisionContext {
   readonly llmProviderEngine?: ILLMProviderEngine;
   readonly mediaProviderEngine?: IMediaProviderEngine;
   readonly contentPipelineEngine?: IContentPipelineEngine;
+  readonly youtubeIntegrationEngine?: IYouTubeIntegrationEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus?: IEventBus;

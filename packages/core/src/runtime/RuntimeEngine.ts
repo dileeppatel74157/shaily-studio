@@ -15,6 +15,7 @@ import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { LLMProviderBuilder } from "../llm-provider/LLMProviderBuilder";
 import { MediaProviderBuilder } from "../media-provider/MediaProviderBuilder";
 import { ContentPipelineBuilder } from "../content-pipeline/ContentPipelineBuilder";
+import { YouTubeIntegrationBuilder } from "../youtube-integration/YouTubeIntegrationBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -172,6 +173,22 @@ export class RuntimeEngine implements IRuntimeEngine {
         ...(this._engines.has("PipelineEngine") ? ["PipelineEngine"] : [])
       ],
       priority: StartupPriority.CRITICAL
+    });
+
+    const youtubeIntegrationEngine = new YouTubeIntegrationBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "YouTubeIntegrationEngine",
+      engine: youtubeIntegrationEngine,
+      dependencies: [
+        "ContentPipelineEngine",
+        "MediaProviderEngine",
+        "ConfigurationEngine",
+        "DatabaseEngine",
+        "ObservabilityEngine"
+      ],
+      priority: StartupPriority.HIGH
     });
 
     const gatewayEngine = new GatewayBuilder()

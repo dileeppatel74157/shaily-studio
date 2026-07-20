@@ -680,6 +680,9 @@ export class MediaProviderEngine implements IMediaProviderEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this._state === MediaProviderState.READY) {
+      this._state = MediaProviderState.CREATED;
+    }
     if (this._state !== MediaProviderState.CREATED) {
       throw new InvalidMediaStateException("initialize", this._state);
     }

@@ -37,6 +37,7 @@ import { IProviderExecutionEngine } from "../provider-execution/interfaces";
 import { IDatabaseEngine } from "../database/interfaces";
 import { ILLMProviderEngine } from "../llm-provider/interfaces";
 import { IMediaProviderEngine } from "../media-provider/interfaces";
+import { IContentPipelineEngine } from "../content-pipeline/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -54,6 +55,7 @@ export interface AgentContext {
   readonly databaseEngine?: IDatabaseEngine;
   readonly llmProviderEngine?: ILLMProviderEngine;
   readonly mediaProviderEngine?: IMediaProviderEngine;
+  readonly contentPipelineEngine?: IContentPipelineEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

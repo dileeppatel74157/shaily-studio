@@ -14,6 +14,7 @@ import { DatabaseBuilder } from "../database/DatabaseBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { LLMProviderBuilder } from "../llm-provider/LLMProviderBuilder";
 import { MediaProviderBuilder } from "../media-provider/MediaProviderBuilder";
+import { ContentPipelineBuilder } from "../content-pipeline/ContentPipelineBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -117,6 +118,7 @@ export class RuntimeEngine implements IRuntimeEngine {
 
     const databaseEngine = new DatabaseBuilder()
       .withContext(_context)
+      .withFilePath(_context.config?.database?.filePath ?? ":memory:")
       .build();
     this.registerEngine({
       id: "DatabaseEngine",
@@ -152,6 +154,23 @@ export class RuntimeEngine implements IRuntimeEngine {
       id: "MediaProviderEngine",
       engine: mediaProviderEngine,
       dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine", "LLMProviderEngine"],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const contentPipelineEngine = new ContentPipelineBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "ContentPipelineEngine",
+      engine: contentPipelineEngine,
+      dependencies: [
+        "LLMProviderEngine",
+        "MediaProviderEngine",
+        "DatabaseEngine",
+        ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),
+        ...(this._engines.has("MemoryOptimizationEngine") ? ["MemoryOptimizationEngine"] : []),
+        ...(this._engines.has("PipelineEngine") ? ["PipelineEngine"] : [])
+      ],
       priority: StartupPriority.CRITICAL
     });
 

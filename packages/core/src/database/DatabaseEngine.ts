@@ -592,6 +592,9 @@ export class DatabaseEngine implements IDatabaseEngine {
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
+    if (this._state === DatabaseState.DISCONNECTED) {
+      this._state = DatabaseState.CREATED;
+    }
     if (this._state !== DatabaseState.CREATED) {
       throw new InvalidDatabaseStateException("initialize", this._state);
     }

@@ -76,6 +76,9 @@ export class SettingsEngine implements
   // --- ISettingsEngine Implementation ---
 
   public async initialize(): Promise<void> {
+    if (this._state === SettingsState.READY) {
+      this._state = SettingsState.CREATED;
+    }
     this.transitionState(SettingsState.INITIALIZING);
     const start = Date.now();
     try {

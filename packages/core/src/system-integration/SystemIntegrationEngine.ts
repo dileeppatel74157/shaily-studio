@@ -104,6 +104,7 @@ export class SystemIntegrationEngine implements
 
   public async initialize(): Promise<void> {
     this.transitionState(IntegrationState.INITIALIZING);
+    this._registrations.length = 0;
     try {
       // 1. Boot Runtime & Discover Engines
       this.transitionState(IntegrationState.DISCOVERING);

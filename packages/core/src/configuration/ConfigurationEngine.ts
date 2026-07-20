@@ -67,6 +67,9 @@ export class ConfigurationEngine implements
   // --- IConfigurationEngine ---
 
   public async initialize(): Promise<void> {
+    if (this._state === ConfigurationState.READY) {
+      this._state = ConfigurationState.CREATED;
+    }
     this.transitionState(ConfigurationState.LOADING);
     try {
       // 1. Load Environment variables

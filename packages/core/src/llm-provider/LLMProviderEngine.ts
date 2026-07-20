@@ -499,6 +499,9 @@ export class LLMProviderEngine implements ILLMProviderEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this._state === ProviderState.READY) {
+      this._state = ProviderState.CREATED;
+    }
     if (this._state !== ProviderState.CREATED) {
       throw new InvalidProviderStateException("initialize", this._state);
     }

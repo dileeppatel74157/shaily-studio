@@ -94,6 +94,9 @@ export class AssistantEngine implements IAssistantEngine {
   // --- IAssistantEngine implementation ---
 
   public async initialize(): Promise<void> {
+    if (this._state === AssistantState.FAILED || this._state === AssistantState.RESPONDING) {
+      this._state = AssistantState.CREATED;
+    }
     if (this._state !== AssistantState.CREATED) {
       throw new InvalidAssistantStateException("initialize", this._state);
     }

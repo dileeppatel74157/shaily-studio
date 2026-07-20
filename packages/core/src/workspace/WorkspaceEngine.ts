@@ -92,6 +92,9 @@ export class WorkspaceEngine implements IWorkspaceEngine {
   // --- IWorkspaceEngine implementation ---
 
   public async initialize(): Promise<void> {
+    if (this._state === WorkspaceState.CLOSED) {
+      this._state = WorkspaceState.CREATED;
+    }
     if (this._state !== WorkspaceState.CREATED) {
       throw new InvalidWorkspaceStateException("initialize", this._state);
     }

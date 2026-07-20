@@ -102,6 +102,9 @@ export class TaskSchedulerEngine implements ITaskSchedulerEngine {
   // --- ITaskSchedulerEngine implementation ---
 
   public async initialize(): Promise<void> {
+    if (this._state === SchedulerState.STOPPED) {
+      this._state = SchedulerState.CREATED;
+    }
     if (this._state !== SchedulerState.CREATED) {
       throw new InvalidTaskSchedulerStateException("initialize", this._state);
     }

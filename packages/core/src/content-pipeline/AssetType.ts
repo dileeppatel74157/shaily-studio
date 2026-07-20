@@ -1,0 +1,10 @@
+export enum AssetType {
+  IMAGE = "IMAGE",
+  VIDEO = "VIDEO",
+  VOICE = "VOICE",
+  MUSIC = "MUSIC",
+  SFX = "SFX",
+  SUBTITLE = "SUBTITLE",
+  THUMBNAIL = "THUMBNAIL",
+  PROJECT = "PROJECT"
+}

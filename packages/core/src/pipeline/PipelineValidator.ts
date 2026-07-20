@@ -10,13 +10,19 @@ import type {
 } from "./models";
 
 const STATE_TRANSITIONS: Record<PipelineState, PipelineState[]> = {
-  [PipelineState.CREATED]:     [PipelineState.INITIALIZED],
-  [PipelineState.INITIALIZED]: [PipelineState.RUNNING, PipelineState.FAILED],
-  [PipelineState.RUNNING]:     [PipelineState.PAUSED, PipelineState.COMPLETED, PipelineState.FAILED],
+  [PipelineState.CREATED]:     [PipelineState.INITIALIZED, PipelineState.VALIDATING],
+  [PipelineState.INITIALIZED]: [PipelineState.RUNNING, PipelineState.FAILED, PipelineState.VALIDATING],
+  [PipelineState.RUNNING]:     [PipelineState.PAUSED, PipelineState.COMPLETED, PipelineState.FAILED, PipelineState.VALIDATING, PipelineState.RESEARCHING, PipelineState.ANALYZING, PipelineState.PLANNING, PipelineState.SCRIPTING, PipelineState.REVIEWING],
   [PipelineState.PAUSED]:      [PipelineState.RUNNING, PipelineState.FAILED],
-  [PipelineState.COMPLETED]:   [PipelineState.INITIALIZED],
-  [PipelineState.FAILED]:      [PipelineState.INITIALIZED],
-  [PipelineState.CANCELLED]:   [PipelineState.INITIALIZED],
+  [PipelineState.COMPLETED]:   [PipelineState.INITIALIZED, PipelineState.RUNNING, PipelineState.CREATED],
+  [PipelineState.FAILED]:      [PipelineState.INITIALIZED, PipelineState.RUNNING, PipelineState.CREATED],
+  [PipelineState.CANCELLED]:   [PipelineState.INITIALIZED, PipelineState.RUNNING, PipelineState.CREATED],
+  [PipelineState.VALIDATING]:  [PipelineState.RESEARCHING, PipelineState.FAILED, PipelineState.CANCELLED],
+  [PipelineState.RESEARCHING]: [PipelineState.ANALYZING, PipelineState.FAILED, PipelineState.CANCELLED],
+  [PipelineState.ANALYZING]:   [PipelineState.PLANNING, PipelineState.FAILED, PipelineState.CANCELLED],
+  [PipelineState.PLANNING]:    [PipelineState.SCRIPTING, PipelineState.FAILED, PipelineState.CANCELLED],
+  [PipelineState.SCRIPTING]:   [PipelineState.REVIEWING, PipelineState.FAILED, PipelineState.CANCELLED],
+  [PipelineState.REVIEWING]:   [PipelineState.COMPLETED, PipelineState.FAILED, PipelineState.CANCELLED],
 };
 
 export class PipelineValidator {

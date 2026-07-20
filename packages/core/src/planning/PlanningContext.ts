@@ -36,6 +36,7 @@ import { ILLMProviderEngine } from "../llm-provider/interfaces";
 import { IMediaProviderEngine } from "../media-provider/interfaces";
 import { IContentPipelineEngine } from "../content-pipeline/interfaces";
 import { IYouTubeIntegrationEngine } from "../youtube-integration/interfaces";
+import { ISocialPlatformEngine } from "../social-platform/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -55,6 +56,7 @@ export interface PlanningContext {
   readonly mediaProviderEngine?: IMediaProviderEngine;
   readonly contentPipelineEngine?: IContentPipelineEngine;
   readonly youtubeIntegrationEngine?: IYouTubeIntegrationEngine;
+  readonly socialPlatformEngine?: ISocialPlatformEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

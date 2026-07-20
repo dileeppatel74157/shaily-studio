@@ -1,0 +1,10 @@
+export enum ContentType {
+  IMAGE = "IMAGE",
+  CAROUSEL = "CAROUSEL",
+  SHORT_VIDEO = "SHORT_VIDEO",
+  LONG_VIDEO = "LONG_VIDEO",
+  STORY = "STORY",
+  REEL = "REEL",
+  TEXT = "TEXT",
+  MIXED = "MIXED"
+}

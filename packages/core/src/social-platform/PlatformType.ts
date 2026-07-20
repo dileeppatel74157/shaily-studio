@@ -1,0 +1,10 @@
+export enum PlatformType {
+  INSTAGRAM = "INSTAGRAM",
+  FACEBOOK = "FACEBOOK",
+  X = "X",
+  LINKEDIN = "LINKEDIN",
+  THREADS = "THREADS",
+  TIKTOK = "TIKTOK",
+  PINTEREST = "PINTEREST",
+  CUSTOM = "CUSTOM"
+}

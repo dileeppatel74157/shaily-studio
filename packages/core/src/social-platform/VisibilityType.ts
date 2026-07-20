@@ -1,0 +1,7 @@
+export enum VisibilityType {
+  PUBLIC = "PUBLIC",
+  PRIVATE = "PRIVATE",
+  UNLISTED = "UNLISTED",
+  FOLLOWERS = "FOLLOWERS",
+  SCHEDULED = "SCHEDULED"
+}

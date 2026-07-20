@@ -18,6 +18,7 @@ import { ContentPipelineBuilder } from "../content-pipeline/ContentPipelineBuild
 import { YouTubeIntegrationBuilder } from "../youtube-integration/YouTubeIntegrationBuilder";
 import { SocialPlatformBuilder } from "../social-platform/SocialPlatformBuilder";
 import { AnalyticsBuilder } from "../analytics/AnalyticsBuilder";
+import { AutonomousImprovementBuilder } from "../autonomous-improvement/AutonomousImprovementBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -219,6 +220,24 @@ export class RuntimeEngine implements IRuntimeEngine {
       dependencies: [
         "YouTubeIntegrationEngine",
         "SocialPlatformEngine",
+        "DatabaseEngine",
+        "ObservabilityEngine",
+        ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),
+        ...(this._engines.has("MemoryOptimizationEngine") ? ["MemoryOptimizationEngine"] : [])
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const autonomousImprovementEngine = new AutonomousImprovementBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "AutonomousImprovementEngine",
+      engine: autonomousImprovementEngine,
+      dependencies: [
+        "AnalyticsEngine",
+        "LLMProviderEngine",
+        "MediaProviderEngine",
         "DatabaseEngine",
         "ObservabilityEngine",
         ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),

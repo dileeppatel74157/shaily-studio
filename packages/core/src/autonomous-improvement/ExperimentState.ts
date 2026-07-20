@@ -1,0 +1,7 @@
+export enum ExperimentState {
+  CREATED = "CREATED",
+  RUNNING = "RUNNING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  CANCELLED = "CANCELLED"
+}

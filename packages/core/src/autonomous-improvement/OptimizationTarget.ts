@@ -1,0 +1,10 @@
+export enum OptimizationTarget {
+  RESEARCH = "RESEARCH",
+  STRATEGY = "STRATEGY",
+  SCRIPT = "SCRIPT",
+  MEDIA = "MEDIA",
+  PUBLISHING = "PUBLISHING",
+  PROVIDER = "PROVIDER",
+  BUDGET = "BUDGET",
+  QUALITY = "QUALITY"
+}

@@ -505,6 +505,7 @@ export * from "./content-pipeline/index";
 export * from "./youtube-integration/index";
 export * from "./social-platform/index";
 export * from "./analytics/index";
+export * from "./autonomous-improvement/index";
 
 
 

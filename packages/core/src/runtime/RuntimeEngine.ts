@@ -19,6 +19,7 @@ import { YouTubeIntegrationBuilder } from "../youtube-integration/YouTubeIntegra
 import { SocialPlatformBuilder } from "../social-platform/SocialPlatformBuilder";
 import { AnalyticsBuilder } from "../analytics/AnalyticsBuilder";
 import { AutonomousImprovementBuilder } from "../autonomous-improvement/AutonomousImprovementBuilder";
+import { DashboardBuilder } from "../dashboard/DashboardBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -242,6 +243,25 @@ export class RuntimeEngine implements IRuntimeEngine {
         "ObservabilityEngine",
         ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),
         ...(this._engines.has("MemoryOptimizationEngine") ? ["MemoryOptimizationEngine"] : [])
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const dashboardEngine = new DashboardBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "DashboardEngine",
+      engine: dashboardEngine,
+      dependencies: [
+        "AnalyticsEngine",
+        "AutonomousImprovementEngine",
+        "ContentPipelineEngine",
+        "YouTubeIntegrationEngine",
+        "SocialPlatformEngine",
+        "ObservabilityEngine",
+        "DatabaseEngine",
+        "ConfigurationEngine"
       ],
       priority: StartupPriority.HIGH
     });

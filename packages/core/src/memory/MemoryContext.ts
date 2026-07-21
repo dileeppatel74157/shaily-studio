@@ -36,6 +36,7 @@ import { IYouTubeIntegrationEngine } from "../youtube-integration/interfaces";
 import { ISocialPlatformEngine } from "../social-platform/interfaces";
 import { IAnalyticsEngine } from "../analytics/interfaces";
 import { IAutonomousImprovementEngine } from "../autonomous-improvement/interfaces";
+import { IDashboardEngine } from "../dashboard/interfaces";
 
 export interface MemoryContext {
   readonly logger: ILogger;
@@ -58,6 +59,7 @@ export interface MemoryContext {
   readonly socialPlatformEngine?: ISocialPlatformEngine;
   readonly analyticsEngine?: IAnalyticsEngine;
   readonly autonomousImprovementEngine?: IAutonomousImprovementEngine;
+  readonly dashboardEngine?: IDashboardEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

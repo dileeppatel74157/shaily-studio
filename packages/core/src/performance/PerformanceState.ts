@@ -1,0 +1,9 @@
+export enum PerformanceState {
+  CREATED = "CREATED",
+  INITIALIZING = "INITIALIZING",
+  READY = "READY",
+  RUNNING = "RUNNING",
+  STOPPING = "STOPPING",
+  STOPPED = "STOPPED",
+  FAILED = "FAILED"
+}

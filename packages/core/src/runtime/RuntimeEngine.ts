@@ -20,6 +20,7 @@ import { SocialPlatformBuilder } from "../social-platform/SocialPlatformBuilder"
 import { AnalyticsBuilder } from "../analytics/AnalyticsBuilder";
 import { AutonomousImprovementBuilder } from "../autonomous-improvement/AutonomousImprovementBuilder";
 import { DashboardBuilder } from "../dashboard/DashboardBuilder";
+import { PerformanceBuilder } from "../performance/PerformanceBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -262,6 +263,24 @@ export class RuntimeEngine implements IRuntimeEngine {
         "ObservabilityEngine",
         "DatabaseEngine",
         "ConfigurationEngine"
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const performanceEngine = new PerformanceBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "PerformanceEngine",
+      engine: performanceEngine,
+      dependencies: [
+        "ConfigurationEngine",
+        "DatabaseEngine",
+        "ObservabilityEngine",
+        "AnalyticsEngine",
+        "AutonomousImprovementEngine",
+        "DashboardEngine",
+        "ContentPipelineEngine"
       ],
       priority: StartupPriority.HIGH
     });

@@ -507,6 +507,7 @@ export * from "./social-platform/index";
 export * from "./analytics/index";
 export * from "./autonomous-improvement/index";
 export * from "./dashboard/index";
+export * from "./performance/index";
 
 
 

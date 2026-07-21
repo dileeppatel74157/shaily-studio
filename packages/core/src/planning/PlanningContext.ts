@@ -40,6 +40,7 @@ import { ISocialPlatformEngine } from "../social-platform/interfaces";
 import { IAnalyticsEngine } from "../analytics/interfaces";
 import { IAutonomousImprovementEngine } from "../autonomous-improvement/interfaces";
 import { IDashboardEngine } from "../dashboard/interfaces";
+import { IPerformanceEngine } from "../performance/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -63,6 +64,7 @@ export interface PlanningContext {
   readonly analyticsEngine?: IAnalyticsEngine;
   readonly autonomousImprovementEngine?: IAutonomousImprovementEngine;
   readonly dashboardEngine?: IDashboardEngine;
+  readonly performanceEngine?: IPerformanceEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

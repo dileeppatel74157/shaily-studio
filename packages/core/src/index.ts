@@ -508,6 +508,7 @@ export * from "./analytics/index";
 export * from "./autonomous-improvement/index";
 export * from "./dashboard/index";
 export * from "./performance/index";
+export * from "./daily-automation/index";
 
 
 

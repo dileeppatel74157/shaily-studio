@@ -21,6 +21,7 @@ import { AnalyticsBuilder } from "../analytics/AnalyticsBuilder";
 import { AutonomousImprovementBuilder } from "../autonomous-improvement/AutonomousImprovementBuilder";
 import { DashboardBuilder } from "../dashboard/DashboardBuilder";
 import { PerformanceBuilder } from "../performance/PerformanceBuilder";
+import { DailyAutomationBuilder } from "../daily-automation/DailyAutomationBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -281,6 +282,32 @@ export class RuntimeEngine implements IRuntimeEngine {
         "AutonomousImprovementEngine",
         "DashboardEngine",
         "ContentPipelineEngine"
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const dailyAutomationEngine = new DailyAutomationBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "DailyAutomationEngine",
+      engine: dailyAutomationEngine,
+      dependencies: [
+        "ConfigurationEngine",
+        "DatabaseEngine",
+        "LLMProviderEngine",
+        "MediaProviderEngine",
+        ...(this._engines.has("PipelineEngine") ? ["PipelineEngine"] : []),
+        "ContentPipelineEngine",
+        "YouTubeIntegrationEngine",
+        "SocialPlatformEngine",
+        "AnalyticsEngine",
+        "AutonomousImprovementEngine",
+        "DashboardEngine",
+        "PerformanceEngine",
+        ...(this._engines.has("ReliabilityEngine") ? ["ReliabilityEngine"] : []),
+        ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),
+        ...(this._engines.has("MemoryOptimizationEngine") ? ["MemoryOptimizationEngine"] : [])
       ],
       priority: StartupPriority.HIGH
     });

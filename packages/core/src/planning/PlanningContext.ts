@@ -41,6 +41,7 @@ import { IAnalyticsEngine } from "../analytics/interfaces";
 import { IAutonomousImprovementEngine } from "../autonomous-improvement/interfaces";
 import { IDashboardEngine } from "../dashboard/interfaces";
 import { IPerformanceEngine } from "../performance/interfaces";
+import { IDailyAutomationEngine } from "../daily-automation/interfaces";
 
 export interface PlanningContext {
   readonly logger: ILogger;
@@ -65,6 +66,7 @@ export interface PlanningContext {
   readonly autonomousImprovementEngine?: IAutonomousImprovementEngine;
   readonly dashboardEngine?: IDashboardEngine;
   readonly performanceEngine?: IPerformanceEngine;
+  readonly dailyAutomationEngine?: IDailyAutomationEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

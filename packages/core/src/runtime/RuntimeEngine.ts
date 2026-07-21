@@ -22,6 +22,7 @@ import { AutonomousImprovementBuilder } from "../autonomous-improvement/Autonomo
 import { DashboardBuilder } from "../dashboard/DashboardBuilder";
 import { PerformanceBuilder } from "../performance/PerformanceBuilder";
 import { DailyAutomationBuilder } from "../daily-automation/DailyAutomationBuilder";
+import { FounderAIBuilder } from "../founder-ai/FounderAIBuilder";
 import { GatewayBuilder } from "../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../provider-execution/ProviderExecutionBuilder";
 import { RuntimeSession } from "./RuntimeSession";
@@ -308,6 +309,30 @@ export class RuntimeEngine implements IRuntimeEngine {
         ...(this._engines.has("ReliabilityEngine") ? ["ReliabilityEngine"] : []),
         ...(this._engines.has("KnowledgeBaseEngine") ? ["KnowledgeBaseEngine"] : []),
         ...(this._engines.has("MemoryOptimizationEngine") ? ["MemoryOptimizationEngine"] : [])
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const founderAIEngine = new FounderAIBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "FounderAIEngine",
+      engine: founderAIEngine,
+      dependencies: [
+        "ConfigurationEngine",
+        "DatabaseEngine",
+        "LLMProviderEngine",
+        "MediaProviderEngine",
+        "ContentPipelineEngine",
+        "YouTubeIntegrationEngine",
+        "SocialPlatformEngine",
+        "AnalyticsEngine",
+        "AutonomousImprovementEngine",
+        "DailyAutomationEngine",
+        "PerformanceEngine",
+        ...(this._engines.has("ReliabilityEngine") ? ["ReliabilityEngine"] : []),
+        "DashboardEngine"
       ],
       priority: StartupPriority.HIGH
     });

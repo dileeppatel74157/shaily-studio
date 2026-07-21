@@ -45,6 +45,7 @@ import { IAutonomousImprovementEngine } from "../autonomous-improvement/interfac
 import { IDashboardEngine } from "../dashboard/interfaces";
 import { IPerformanceEngine } from "../performance/interfaces";
 import { IDailyAutomationEngine } from "../daily-automation/interfaces";
+import { IFounderAIEngine } from "../founder-ai/interfaces";
 
 export interface AgentContext {
   readonly logger: ILogger;
@@ -70,6 +71,7 @@ export interface AgentContext {
   readonly dashboardEngine?: IDashboardEngine;
   readonly performanceEngine?: IPerformanceEngine;
   readonly dailyAutomationEngine?: IDailyAutomationEngine;
+  readonly founderAIEngine?: IFounderAIEngine;
   readonly config: IConfig;
   readonly registry: IServiceRegistry;
   readonly eventBus: IEventBus;

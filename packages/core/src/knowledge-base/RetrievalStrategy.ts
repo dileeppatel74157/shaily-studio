@@ -1,12 +1,2 @@
-export enum RetrievalStrategy {
-  SIMILARITY = "SIMILARITY",
-  HYBRID = "HYBRID",
-  KEYWORD = "KEYWORD",
-  VECTOR = "VECTOR",
-  METADATA = "METADATA",
-  TAG = "TAG",
-  RECENT = "RECENT",
-  HIGHEST_SCORE = "HIGHEST_SCORE",
-  CROSS_PROJECT = "CROSS_PROJECT",
-  CROSS_WORKSPACE = "CROSS_WORKSPACE",
-}
+export * from "./types/RetrievalStrategy";
+

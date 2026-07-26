@@ -1,18 +1,2 @@
-export enum KnowledgeNodeType {
-  RESEARCH = "RESEARCH",
-  STRATEGY = "STRATEGY",
-  SCRIPT = "SCRIPT",
-  IMAGE = "IMAGE",
-  VIDEO = "VIDEO",
-  AUDIO = "AUDIO",
-  PROMPT = "PROMPT",
-  CONVERSATION = "CONVERSATION",
-  DECISION = "DECISION",
-  ANALYTICS = "ANALYTICS",
-  PROVIDER = "PROVIDER",
-  DOCUMENT = "DOCUMENT",
-  CONCEPT = "CONCEPT",
-  PATTERN = "PATTERN",
-  TEMPLATE = "TEMPLATE",
-  UNKNOWN = "UNKNOWN",
-}
+export * from "./types/KnowledgeNodeType";
+

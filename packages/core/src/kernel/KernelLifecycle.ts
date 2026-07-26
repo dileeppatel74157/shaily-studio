@@ -1,8 +1,2 @@
-import { KernelState } from "./KernelState";
+export * from "./types/KernelLifecycle";
 
-export interface KernelLifecycle {
-  readonly state: KernelState;
-  readonly initializedAt?: Date;
-  readonly startedAt?: Date;
-  readonly stoppedAt?: Date;
-}

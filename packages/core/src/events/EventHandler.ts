@@ -1,3 +1,2 @@
-import { Event } from "./Event";
+export * from "./types/EventHandler";
 
-export type EventHandler<TEvent extends Event = Event> = (event: TEvent) => void | Promise<void>;

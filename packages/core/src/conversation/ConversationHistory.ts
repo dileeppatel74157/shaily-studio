@@ -1,7 +1,2 @@
-import { ConversationMessage } from "./ConversationMessage";
+export * from "./models/ConversationHistory";
 
-export interface ConversationHistory {
-  readonly conversationId: string;
-  readonly messages: readonly ConversationMessage[];
-  readonly version: number;
-}

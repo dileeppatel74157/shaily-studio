@@ -1,1 +1,2 @@
-export type AgentCapability = string;
+export * from "./types/AgentCapability";
+

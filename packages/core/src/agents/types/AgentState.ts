@@ -1,0 +1,9 @@
+export enum AgentState {
+  CREATED = "CREATED",
+  READY = "READY",
+  RUNNING = "RUNNING",
+  PAUSED = "PAUSED",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  STOPPED = "STOPPED",
+}

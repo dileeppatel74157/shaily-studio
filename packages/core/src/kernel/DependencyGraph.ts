@@ -1,12 +1,2 @@
-export interface DependencyNode {
-  readonly id: string;
-  readonly dependencies: readonly string[];
-}
+export * from "./models/DependencyGraph";
 
-export class DependencyGraph {
-  public readonly nodes: readonly DependencyNode[];
-
-  constructor(nodes: readonly DependencyNode[]) {
-    this.nodes = nodes;
-  }
-}

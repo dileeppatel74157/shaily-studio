@@ -1,6 +1,2 @@
-export enum KernelCapability {
-  DEPENDENCY_RESOLUTION = "DEPENDENCY_RESOLUTION",
-  HOT_PLUGGING = "HOT_PLUGGING",
-  LIFECYCLE_HOOKS = "LIFECYCLE_HOOKS",
-  SNAPSHOTS = "SNAPSHOTS",
-}
+export * from "./types/KernelCapability";
+

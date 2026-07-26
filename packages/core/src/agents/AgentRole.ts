@@ -1,1 +1,2 @@
-export type AgentRole = string;
+export * from "./types/AgentRole";
+

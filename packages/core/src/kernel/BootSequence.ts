@@ -1,4 +1,2 @@
-export interface BootSequence {
-  readonly startupOrder: readonly string[];
-  readonly timestamp: Date;
-}
+export * from "./types/BootSequence";
+

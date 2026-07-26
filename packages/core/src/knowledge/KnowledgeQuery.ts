@@ -1,8 +1,2 @@
-import { KnowledgeMetadata } from "./KnowledgeMetadata";
+export * from "./models/KnowledgeQuery";
 
-export interface KnowledgeQuery {
-  readonly keyword?: string;
-  readonly exact?: boolean;
-  readonly collection?: string;
-  readonly metadata?: KnowledgeMetadata;
-}

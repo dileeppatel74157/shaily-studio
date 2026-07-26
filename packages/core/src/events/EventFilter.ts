@@ -1,3 +1,2 @@
-import { Event } from "./Event";
+export * from "./types/EventFilter";
 
-export type EventFilter = (event: Event) => boolean | Promise<boolean>;

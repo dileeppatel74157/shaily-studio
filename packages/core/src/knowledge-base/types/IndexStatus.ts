@@ -1,0 +1,8 @@
+export enum IndexStatus {
+  PENDING = "PENDING",
+  INDEXING = "INDEXING",
+  INDEXED = "INDEXED",
+  STALE = "STALE",
+  FAILED = "FAILED",
+  DELETED = "DELETED",
+}

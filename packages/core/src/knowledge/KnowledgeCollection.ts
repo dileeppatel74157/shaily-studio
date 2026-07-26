@@ -1,7 +1,2 @@
-import { KnowledgeMetadata } from "./KnowledgeMetadata";
+export * from "./models/KnowledgeCollection";
 
-export interface KnowledgeCollection {
-  readonly name: string;
-  readonly description: string;
-  readonly metadata: KnowledgeMetadata;
-}

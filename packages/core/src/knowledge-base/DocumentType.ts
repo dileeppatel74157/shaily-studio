@@ -1,12 +1,2 @@
-export enum DocumentType {
-  MARKDOWN = "MARKDOWN",
-  TXT = "TXT",
-  JSON = "JSON",
-  PDF_METADATA = "PDF_METADATA",
-  IMAGE_METADATA = "IMAGE_METADATA",
-  VIDEO_METADATA = "VIDEO_METADATA",
-  AUDIO_METADATA = "AUDIO_METADATA",
-  CSV = "CSV",
-  HTML = "HTML",
-  UNKNOWN = "UNKNOWN",
-}
+export * from "./types/DocumentType";
+

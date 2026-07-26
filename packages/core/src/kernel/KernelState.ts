@@ -1,8 +1,2 @@
-export enum KernelState {
-  CREATED = "CREATED",
-  INITIALIZING = "INITIALIZING",
-  READY = "READY",
-  RUNNING = "RUNNING",
-  STOPPED = "STOPPED",
-  FAILED = "FAILED",
-}
+export * from "./types/KernelState";
+

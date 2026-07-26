@@ -1,9 +1,2 @@
-import { KnowledgeMetadata } from "./KnowledgeMetadata";
+export * from "./models/KnowledgeResult";
 
-export interface KnowledgeResult {
-  readonly documentId: string;
-  readonly chunkId: string;
-  readonly text: string;
-  readonly score: number;
-  readonly metadata: KnowledgeMetadata;
-}

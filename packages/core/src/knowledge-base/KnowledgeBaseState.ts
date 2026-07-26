@@ -1,11 +1,2 @@
-export enum KnowledgeBaseState {
-  CREATED = "CREATED",
-  INITIALIZING = "INITIALIZING",
-  READY = "READY",
-  INDEXING = "INDEXING",
-  SEARCHING = "SEARCHING",
-  PAUSED = "PAUSED",
-  STOPPING = "STOPPING",
-  STOPPED = "STOPPED",
-  FAILED = "FAILED",
-}
+export * from "./types/KnowledgeBaseState";
+

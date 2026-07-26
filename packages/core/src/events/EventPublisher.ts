@@ -1,5 +1,2 @@
-import { Event } from "./Event";
+export * from "./types/EventPublisher";
 
-export interface EventPublisher {
-  publish(event: Event): Promise<void>;
-}

@@ -1,7 +1,2 @@
-import { SkillParameter } from "./SkillParameter";
+export * from "./models/SkillCapability";
 
-export interface SkillCapability {
-  readonly name: string;
-  readonly description: string;
-  readonly parameters: ReadonlyArray<SkillParameter>;
-}

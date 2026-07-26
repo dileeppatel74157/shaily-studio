@@ -1,33 +1,28 @@
-export * from "./SkillState";
-export * from "./SkillType";
-export * from "./SkillScope";
-export * from "./SkillVisibility";
-export * from "./SkillMetadata";
-export * from "./SkillManifest";
-export * from "./SkillCapability";
-export * from "./SkillDependency";
-export * from "./SkillRequirement";
-export * from "./SkillParameter";
-export * from "./SkillExecution";
-export * from "./SkillExecutionResult";
-export * from "./SkillContext";
-export * from "./SkillConfiguration";
-export * from "./SkillPermission";
-export * from "./SkillVersion";
-export * from "./SkillAuthor";
-export {
-  SkillException,
-  SkillValidationException,
-  DuplicateSkillException,
-  SkillDependencyException,
-  InvalidSkillStateException,
-} from "./types";
-export * from "./SkillSnapshot";
-export * from "./ISkill";
-export * from "./ISkillRegistry";
-export * from "./ISkillLoader";
-export * from "./Skill";
-export * from "./SkillRegistry";
-export * from "./SkillLoader";
-export * from "./SkillBuilder";
-export * from "./SkillValidator";
+export * from "./models/SkillState";
+export * from "./models/SkillType";
+export * from "./models/SkillScope";
+export * from "./models/SkillVisibility";
+export * from "./models/SkillMetadata";
+export * from "./models/SkillManifest";
+export * from "./models/SkillCapability";
+export * from "./models/SkillDependency";
+export * from "./models/SkillRequirement";
+export * from "./models/SkillParameter";
+export * from "./models/SkillPermission";
+export * from "./models/SkillVersion";
+export * from "./models/SkillAuthor";
+export * from "./models/SkillSnapshot";
+export * from "./models/SkillExecution";
+export * from "./models/SkillExecutionResult";
+export * from "./models/SkillContext";
+export * from "./models/SkillConfiguration";
+export * from "./models/Skill";
+
+export * from "./interfaces/ISkill";
+export * from "./types/types";
+export * from "./loader/ISkillLoader";
+export * from "./loader/SkillLoader";
+export * from "./registry/ISkillRegistry";
+export * from "./registry/SkillRegistry";
+export * from "./validation/SkillValidator";
+export * from "./builder/SkillBuilder";

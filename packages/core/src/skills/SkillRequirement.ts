@@ -1,4 +1,2 @@
-export interface SkillRequirement {
-  readonly name: string;
-  readonly value: string;
-}
+export * from "./models/SkillRequirement";
+

@@ -1,25 +1,75 @@
-FROM node:22-alpine
+# syntax=docker/dockerfile:1
 
-RUN npm install -g pnpm
+# ─── Stage 1: Base Runtime ────────────────────────────────────────────────────
+FROM node:22-alpine AS base
+
+# Install libc6-compat for Next.js on alpine
+RUN apk add --no-cache libc6-compat
+
+# Install pnpm globally
+RUN npm install -g pnpm@latest
 
 WORKDIR /app
 
-# Prevent pnpm interactive prompts
+# Prevent interactive prompts
 ENV CI=true
 
-# Copy workspace files
+# ─── Stage 2: Dependencies ────────────────────────────────────────────────────
+FROM base AS dependencies
+
+# Copy package lock and workspace configs
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
-COPY packages/ ./packages/
+
+# Copy individual package.json files for dependency resolution caching
 COPY apps/web/package.json ./apps/web/
+COPY packages/config/package.json ./packages/config/
+COPY packages/core/package.json ./packages/core/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/ui/package.json ./packages/ui/
+COPY packages/providers/google/package.json ./packages/providers/google/
+COPY packages/providers/grok/package.json ./packages/providers/grok/
+COPY packages/providers/nvidia/package.json ./packages/providers/nvidia/
+COPY packages/providers/ollama/package.json ./packages/providers/ollama/
+COPY packages/providers/openai/package.json ./packages/providers/openai/
 
-# Install dependencies
-RUN pnpm install --config.confirmModulesPurge=false
+# Install workspace dependencies using BuildKit cache mounts
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
+    pnpm install --frozen-lockfile --config.confirmModulesPurge=false
 
-# Copy source
-COPY apps/web/ ./apps/web/
+# ─── Stage 3: Builder ─────────────────────────────────────────────────────────
+FROM dependencies AS builder
 
-WORKDIR /app/apps/web
+# Copy all source files
+COPY . .
+
+# Build all packages and applications (topological order)
+RUN pnpm build
+
+# Prune devDependencies to keep image small
+RUN pnpm prune --prod
+
+# ─── Stage 4: Development Target ──────────────────────────────────────────────
+FROM dependencies AS development
+
+# Copy all source files
+COPY . .
 
 EXPOSE 3000
+CMD ["pnpm", "--filter", "web", "dev"]
 
-CMD ["pnpm", "dev"]
+# ─── Stage 5: Production Target ───────────────────────────────────────────────
+FROM base AS production
+
+ENV NODE_ENV=production
+
+# Setup non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy built workspace and node_modules from builder
+COPY --from=builder --chown=nextjs:nodejs /app /app
+
+USER nextjs
+
+EXPOSE 3000
+CMD ["pnpm", "--filter", "web", "start"]

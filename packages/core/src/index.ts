@@ -82,3 +82,12 @@ export * from "./dashboard";
 export * from "./performance";
 export * from "./daily-automation";
 export * from "./founder-ai";
+
+export {
+  ProviderType,
+  ProviderState,
+  ProviderHealth,
+  ProviderSnapshot,
+  ProviderConfiguration,
+  ProviderCapability
+} from "./providers";

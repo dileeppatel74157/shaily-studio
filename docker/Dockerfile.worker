@@ -1,24 +1,73 @@
-FROM python:3.12-slim
+# syntax=docker/dockerfile:1
+
+# ─── Stage 1: Base Runtime ────────────────────────────────────────────────────
+FROM python:3.12-slim AS base
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Setup non-root user
+RUN groupadd --system --gid 10001 appgroup && \
+    useradd --system --uid 10001 --gid appgroup appuser
+
+# Put virtual environment on PATH
+ENV PATH="/opt/venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# Install minimal runtime library dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# ─── Stage 2: Builder ─────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Install system build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy packages and application code
-COPY packages/ /app/packages/
-COPY apps/worker/ /app/apps/worker/
+# Create virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install requirements
-RUN pip install --no-cache-dir -r /app/packages/agents/requirements.txt
-RUN pip install --no-cache-dir -r /app/apps/worker/requirements.txt
+# Copy requirements first to leverage cache
+COPY packages/agents/requirements.txt /app/packages/agents/requirements.txt
+COPY apps/worker/requirements.txt /app/apps/worker/requirements.txt
 
-# Install the agents package in editable mode
-RUN pip install -e /app/packages/agents
+# Install pip requirements using BuildKit cache mounts
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip && \
+    pip install -r /app/packages/agents/requirements.txt && \
+    pip install -r /app/apps/worker/requirements.txt
 
-WORKDIR /app/apps/worker
+# Copy source code of agents package and worker app
+COPY packages/agents /app/packages/agents
+COPY apps/worker /app/apps/worker
+
+# Install agents package
+RUN pip install /app/packages/agents
+
+# ─── Stage 3: Development Target ──────────────────────────────────────────────
+FROM builder AS development
+
+CMD ["arq", "worker.WorkerSettings"]
+
+# ─── Stage 4: Production Target ───────────────────────────────────────────────
+FROM base AS production
+
+# Copy venv from builder stage
+COPY --from=builder /opt/venv /opt/venv
+
+# Copy application source
+COPY --from=builder /app /app
+
+# Ensure non-root ownership
+RUN chown -R appuser:appgroup /app
+
+USER appuser
 
 CMD ["arq", "worker.WorkerSettings"]

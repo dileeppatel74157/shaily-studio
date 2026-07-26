@@ -1,0 +1,57 @@
+# Version control
+.git
+.gitattributes
+.gitignore
+
+# Package manager files
+node_modules
+**/node_modules
+.pnpm-store
+.npm
+
+# Build and compilation outputs
+dist
+**/dist
+build
+**/build
+.next
+**/.next
+out
+**/out
+*.tsbuildinfo
+
+# Python compilation and environment
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+env
+.pytest_cache
+.egg-info
+*.egg-info
+
+# Local state, database data and storage
+postgres_data
+storage
+**/storage
+infrastructure/qdrant/storage
+infrastructure/qdrant/
+infrastructure/postgres/
+database/data
+logs
+*.log
+
+# Environments and secrets
+.env
+.env.*
+!.env.example
+secrets
+
+# IDE and OS files
+.vscode
+.idea
+.DS_Store
+Thumbs.db

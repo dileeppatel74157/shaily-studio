@@ -34,16 +34,12 @@ services:
   qdrant:
     image: qdrant/qdrant:latest
     container_name: shaily-qdrant
-
     ports:
       - "6333:6333"
       - "6334:6334"
-
     volumes:
       - ./infrastructure/qdrant:/qdrant/storage
-
     restart: unless-stopped
-
     healthcheck:
       test:
         [
@@ -61,6 +57,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+      target: development
     container_name: shaily-api
     ports:
       - "8000:8000"
@@ -77,11 +74,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   worker:
     build:
       context: .
       dockerfile: docker/Dockerfile.worker
+      target: development
     container_name: shaily-worker
     environment:
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-shaily_admin}:${POSTGRES_PASSWORD:-shaily_secure_password_123}@postgres:5432/${POSTGRES_DB:-shaily_studio_dev}
@@ -94,11 +98,18 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os, sys; pids = [p for p in os.listdir('/proc') if p.isdigit()]; sys.exit(0 if any(b'arq' in open(f'/proc/{p}/cmdline', 'rb').read() for p in pids) else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
   web:
     build:
       context: .
       dockerfile: docker/Dockerfile.web
+      target: development
     container_name: shaily-web
     ports:
       - "3000:3000"
@@ -108,9 +119,21 @@ services:
       - NODE_ENV=development
     volumes:
       - .:/app
+      - /app/node_modules
       - /app/apps/web/node_modules
+      - /app/packages/core/node_modules
+      - /app/packages/shared/node_modules
+      - /app/packages/ui/node_modules
+      - /app/packages/config/node_modules
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({ host: 'localhost', port: 3000, path: '/', timeout: 2000 }, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 volumes:
   postgres_data:

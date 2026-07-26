@@ -1,6 +1,2 @@
-export type MemoryImportance =
-  | "LOW"
-  | "NORMAL"
-  | "HIGH"
-  | "CRITICAL"
-  | "PERMANENT";
+export * from "./models/MemoryImportance";
+

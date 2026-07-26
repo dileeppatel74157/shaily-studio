@@ -1,1 +1,2 @@
-export type MemoryCapability = string;
+export * from "./models/MemoryCapability";
+

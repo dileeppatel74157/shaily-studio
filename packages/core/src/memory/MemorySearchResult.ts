@@ -1,6 +1,2 @@
-import { MemoryEntry } from "./MemoryEntry";
+export * from "./models/MemorySearchResult";
 
-export interface MemorySearchResult {
-  readonly entry: MemoryEntry;
-  readonly score: number;
-}

@@ -11,11 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${POSTGRES_USER:-shaily_admin} -d ${POSTGRES_DB:-shaily_studio_dev}",
-        ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shaily_admin} -d ${POSTGRES_DB:-shaily_studio_dev}" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -26,11 +22,11 @@ services:
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 5s
       timeout: 5s
       retries: 5
-      
+
   qdrant:
     image: qdrant/qdrant:latest
     container_name: shaily-qdrant
@@ -41,14 +37,7 @@ services:
       - ./infrastructure/qdrant:/qdrant/storage
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--spider",
-          "-q",
-          "http://localhost:6333/healthz"
-        ]
+      test: [ "CMD", "wget", "-qO-", "http://localhost:6333/" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -75,7 +64,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      test: [ "CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -99,7 +88,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "python", "-c", "import os, sys; pids = [p for p in os.listdir('/proc') if p.isdigit()]; sys.exit(0 if any(b'arq' in open(f'/proc/{p}/cmdline', 'rb').read() for p in pids) else 1)"]
+      test: [ "CMD", "python", "-c", "import os, sys; pids = [p for p in os.listdir('/proc') if p.isdigit()]; sys.exit(0 if any(b'arq' in open(f'/proc/{p}/cmdline', 'rb').read() for p in pids) else 1)" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -129,7 +118,7 @@ services:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({ host: 'localhost', port: 3000, path: '/', timeout: 2000 }, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();"]
+      test: [ "CMD", "node", "-e", "const http = require('http'); const req = http.request({ host: 'localhost', port: 3000, path: '/', timeout: 2000 }, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();" ]
       interval: 10s
       timeout: 5s
       retries: 3

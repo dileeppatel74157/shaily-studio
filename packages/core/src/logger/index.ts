@@ -13,3 +13,5 @@ export { LogMetadata } from "./LogMetadata";
 export { LogTransport } from "./LogTransport";
 export { ConsoleTransport } from "./ConsoleTransport";
 export { TransportFailureHandler, TransportPipeline } from "./TransportPipeline";
+export { logSystemEvent } from "./logSystemEvent";
+

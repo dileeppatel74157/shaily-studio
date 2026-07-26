@@ -1,5 +1,5 @@
 import { RuntimeSession } from "./RuntimeSession";
-import { RuntimeValidationException } from "./types";
+import { RuntimeValidationException } from "../types/types";
 
 export class RuntimeSessionRegistry {
   private readonly _sessions = new Map<string, RuntimeSession>();

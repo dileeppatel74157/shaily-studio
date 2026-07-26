@@ -1,8 +1,1 @@
-export enum ProjectState {
-  CREATED = "CREATED",
-  ACTIVE = "ACTIVE",
-  PAUSED = "PAUSED",
-  COMPLETED = "COMPLETED",
-  ARCHIVED = "ARCHIVED",
-  DELETED = "DELETED",
-}
+export * from "./models/ProjectState";

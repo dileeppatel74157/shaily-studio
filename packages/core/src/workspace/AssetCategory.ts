@@ -1,14 +1,1 @@
-export enum AssetCategory {
-  RESEARCH = "RESEARCH",
-  SCRIPT = "SCRIPT",
-  IMAGE = "IMAGE",
-  VIDEO = "VIDEO",
-  VOICE = "VOICE",
-  MUSIC = "MUSIC",
-  SFX = "SFX",
-  SUBTITLE = "SUBTITLE",
-  THUMBNAIL = "THUMBNAIL",
-  EXPORT = "EXPORT",
-  DOCUMENT = "DOCUMENT",
-  OTHER = "OTHER",
-}
+export * from "./models/AssetCategory";

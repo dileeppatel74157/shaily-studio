@@ -1,9 +1,9 @@
-export { Config } from "./Config";
-export { ConfigBuilder } from "./ConfigBuilder";
-export { ConfigSchema, ConfigValueType, SchemaProperty } from "./ConfigSchema";
-export { ConfigSource } from "./ConfigSource";
-export { EnvironmentSource } from "./EnvironmentSource";
-export { IConfig } from "./IConfig";
-export { MemorySource } from "./MemorySource";
-export { ConfigValidator, DefaultConfigValidator } from "./ConfigValidator";
-export { ConfigSnapshot, ImmutableConfigSnapshot } from "./ConfigSnapshot";
+export { Config } from "./engine/Config";
+export { ConfigBuilder } from "./builder/ConfigBuilder";
+export { ConfigSchema, ConfigValueType, SchemaProperty } from "./models/ConfigSchema";
+export { ConfigSource } from "./types/ConfigSource";
+export { EnvironmentSource } from "./engine/EnvironmentSource";
+export { IConfig } from "./interfaces/IConfig";
+export { MemorySource } from "./engine/MemorySource";
+export { ConfigValidator, DefaultConfigValidator } from "./validation/ConfigValidator";
+export { ConfigSnapshot, ImmutableConfigSnapshot } from "./models/ConfigSnapshot";

@@ -1,9 +1,2 @@
-export enum ArchiveState {
-  PENDING = "PENDING",
-  ARCHIVING = "ARCHIVING",
-  ARCHIVED = "ARCHIVED",
-  RESTORING = "RESTORING",
-  RESTORED = "RESTORED",
-  FAILED = "FAILED",
-  DELETED = "DELETED",
-}
+export * from "./types/ArchiveState";
+

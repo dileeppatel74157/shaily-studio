@@ -1,9 +1,2 @@
-export interface Clock {
-  now(): Date;
-}
+export * from "./models/Clock";
 
-export class SystemClock implements Clock {
-  public now(): Date {
-    return new Date();
-  }
-}

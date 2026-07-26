@@ -1,4 +1,2 @@
-export enum ImportExportFormat {
-  JSON = "JSON",
-  YAML = "YAML"
-}
+export * from "./types/ImportExportFormat";
+

@@ -1,12 +1,2 @@
-export enum SettingsCategory {
-  GENERAL = "GENERAL",
-  API_KEYS = "API_KEYS",
-  PROVIDERS = "PROVIDERS",
-  MODELS = "MODELS",
-  GPU = "GPU",
-  RENDER = "RENDER",
-  THEME = "THEME",
-  WORKSPACE = "WORKSPACE",
-  BACKUP = "BACKUP",
-  SYSTEM = "SYSTEM"
-}
+export * from "./types/SettingsCategory";
+

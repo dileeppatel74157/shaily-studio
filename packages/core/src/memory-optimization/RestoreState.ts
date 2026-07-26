@@ -1,7 +1,2 @@
-export enum RestoreState {
-  PENDING = "PENDING",
-  LOADING = "LOADING",
-  VALIDATING = "VALIDATING",
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-}
+export * from "./types/RestoreState";
+

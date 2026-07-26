@@ -1,8 +1,2 @@
-export enum CompressionStrategy {
-  LOSSLESS = "LOSSLESS",
-  SEMANTIC = "SEMANTIC",
-  CONTEXT_SUMMARY = "CONTEXT_SUMMARY",
-  SNAPSHOT = "SNAPSHOT",
-  EMBEDDING = "EMBEDDING",
-  METADATA = "METADATA",
-}
+export * from "./types/CompressionStrategy";
+

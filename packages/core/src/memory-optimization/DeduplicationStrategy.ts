@@ -1,7 +1,2 @@
-export enum DeduplicationStrategy {
-  EXACT_MATCH = "EXACT_MATCH",
-  SEMANTIC_SIMILARITY = "SEMANTIC_SIMILARITY",
-  HASH_FINGERPRINT = "HASH_FINGERPRINT",
-  EMBEDDING_DISTANCE = "EMBEDDING_DISTANCE",
-  METADATA_KEY = "METADATA_KEY",
-}
+export * from "./types/DeduplicationStrategy";
+

@@ -1,12 +1,2 @@
-export enum SettingsState {
-  CREATED = "CREATED",
-  INITIALIZING = "INITIALIZING",
-  READY = "READY",
-  LOADING = "LOADING",
-  SAVING = "SAVING",
-  IMPORTING = "IMPORTING",
-  EXPORTING = "EXPORTING",
-  BACKING_UP = "BACKING_UP",
-  RESTORING = "RESTORING",
-  FAILED = "FAILED"
-}
+export * from "./types/SettingsState";
+

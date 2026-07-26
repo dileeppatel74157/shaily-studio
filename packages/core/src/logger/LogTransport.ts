@@ -1,5 +1,1 @@
-import { LogEntry } from "./LogEntry";
-
-export interface LogTransport {
-  send(entry: LogEntry): void;
-}
+export * from "./interfaces/LogTransport";

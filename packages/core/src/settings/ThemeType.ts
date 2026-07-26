@@ -1,6 +1,2 @@
-export enum ThemeType {
-  DARK = "DARK",
-  LIGHT = "LIGHT",
-  CYBERPUNK = "CYBERPUNK",
-  SYSTEM = "SYSTEM"
-}
+export * from "./types/ThemeType";
+

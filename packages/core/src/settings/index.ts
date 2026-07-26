@@ -1,16 +1,16 @@
-export { SettingsState } from "./SettingsState";
-export { SettingsCategory } from "./SettingsCategory";
-export { ProviderType } from "./ProviderType";
-export { ThemeType } from "./ThemeType";
-export { BackupType } from "./BackupType";
-export { ImportExportFormat } from "./ImportExportFormat";
-export { ConfigurationScope } from "./ConfigurationScope";
-export { ValidationSeverity } from "./ValidationSeverity";
+export { SettingsState } from "./types/SettingsState";
+export { SettingsCategory } from "./types/SettingsCategory";
+export { ProviderType } from "./types/ProviderType";
+export { ThemeType } from "./types/ThemeType";
+export { BackupType } from "./types/BackupType";
+export { ImportExportFormat } from "./types/ImportExportFormat";
+export { ConfigurationScope } from "./types/ConfigurationScope";
+export { ValidationSeverity } from "./types/ValidationSeverity";
 
-export * from "./models";
-export * from "./interfaces";
-export * from "./types";
+export * from "./models/models";
+export * from "./interfaces/interfaces";
+export * from "./types/types";
 
-export { SettingsValidator } from "./SettingsValidator";
-export { SettingsEngine } from "./SettingsEngine";
-export { SettingsBuilder } from "./SettingsBuilder";
+export { SettingsValidator } from "./validation/SettingsValidator";
+export { SettingsEngine } from "./engine/SettingsEngine";
+export { SettingsBuilder } from "./builder/SettingsBuilder";

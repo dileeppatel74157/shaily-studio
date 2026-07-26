@@ -9,3 +9,10 @@ description = "Modular core framework for AI agents"
 dependencies = [
     "pydantic>=2.0.0"
 ]
+
+[tool.setuptools]
+py-modules = [
+    "base",
+    "executor",
+    "registry"
+]

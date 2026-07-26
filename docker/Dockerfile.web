@@ -4,18 +4,22 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-# Copy root configurations and workspace files
+# Prevent pnpm interactive prompts
+ENV CI=true
+
+# Copy workspace files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
 COPY packages/ ./packages/
 COPY apps/web/package.json ./apps/web/
 
-# Install dependencies (links workspace packages)
-RUN pnpm install
+# Install dependencies
+RUN pnpm install --config.confirmModulesPurge=false
 
-# Copy web source code
+# Copy source
 COPY apps/web/ ./apps/web/
 
 WORKDIR /app/apps/web
+
 EXPOSE 3000
 
 CMD ["pnpm", "dev"]

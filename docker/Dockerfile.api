@@ -54,6 +54,8 @@ RUN pip install /app/packages/agents
 # ─── Stage 3: Development Target ──────────────────────────────────────────────
 FROM builder AS development
 
+WORKDIR /app/apps/api
+
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
@@ -65,6 +67,8 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Copy application source
 COPY --from=builder /app /app
+
+WORKDIR /app/apps/api
 
 # Ensure non-root ownership
 RUN chown -R appuser:appgroup /app

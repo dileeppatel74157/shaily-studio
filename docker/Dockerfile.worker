@@ -54,6 +54,8 @@ RUN pip install /app/packages/agents
 # ─── Stage 3: Development Target ──────────────────────────────────────────────
 FROM builder AS development
 
+WORKDIR /app/apps/worker
+
 CMD ["arq", "worker.WorkerSettings"]
 
 # ─── Stage 4: Production Target ───────────────────────────────────────────────
@@ -64,6 +66,8 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Copy application source
 COPY --from=builder /app /app
+
+WORKDIR /app/apps/worker
 
 # Ensure non-root ownership
 RUN chown -R appuser:appgroup /app

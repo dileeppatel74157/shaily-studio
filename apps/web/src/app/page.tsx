@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Button, Card, CardHeader, CardTitle, CardDescription, CardContent } from "@shaily/ui";
-import { DEFAULT_AGENTS, SYSTEM_VERSION } from "@shaily/core";
+import { DEFAULT_AGENTS, SYSTEM_VERSION } from "@shaily/core/client";
 import { TaskPayload, TaskStatus } from "@shaily/shared";
 import { useStudioStore } from "@/store";
 import {

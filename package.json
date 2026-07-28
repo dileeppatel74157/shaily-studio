@@ -2,6 +2,7 @@
   "name": "shaily-studio",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "pnpm@11.9.0",
   "description": "Production-grade personal AI Content Operating System",
   "scripts": {
     "dev": "pnpm --filter web dev",

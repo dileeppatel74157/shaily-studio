@@ -4,7 +4,12 @@
     "outDir": "./dist",
     "rootDir": "./src"
   },
-  "include": ["src/**/*"],
+  "include": [
+  "src/client/**/*",
+  "src/constants/**/*",
+  "src/logger/**/*",
+  "src/agents/types/constants.ts"
+],
   "exclude": [
     "node_modules",
     "dist",

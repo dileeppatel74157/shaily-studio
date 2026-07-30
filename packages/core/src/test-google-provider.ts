@@ -1,6 +1,27 @@
-import { GeminiProvider } from "@shaily/provider-google";
 import { GeminiBuilder } from "@shaily/provider-google";
-import { IProviderTransport, ProviderContext, ProviderState } from "@shaily/core";
+import { ProviderContext } from "@shaily/core";
+import * as fs from "fs";
+import * as path from "path";
+
+function loadEnv() {
+  const envPath = path.resolve(process.cwd(), ".env");
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, "utf-8");
+    for (const line of envContent.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const index = trimmed.indexOf("=");
+      if (index > 0) {
+        const key = trimmed.substring(0, index).trim();
+        let val = trimmed.substring(index + 1).trim();
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.substring(1, val.length - 1);
+        }
+        process.env[key] = val;
+      }
+    }
+  }
+}
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {
@@ -9,84 +30,23 @@ function assert(condition: boolean, message: string): void {
   }
 }
 
-class MockGeminiTransport implements IProviderTransport {
-  public readonly baseUrl = "https://generativelanguage.googleapis.com/v1beta";
-
-  public async execute(request: any): Promise<any> {
-    if (request.url.includes(":embedContent")) {
-      return {
-        status: 200,
-        statusText: "OK",
-        headers: {},
-        body: {
-          embedding: { values: [0.5, 0.6, 0.7] },
-        },
-        latency: 40,
-      };
-    }
-
-    return {
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      body: {
-        candidates: [
-          {
-            content: {
-              parts: [{ text: "Hello from mock Gemini provider" }],
-            },
-            finishReason: "STOP",
-          },
-        ],
-        usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 22, totalTokenCount: 34 },
-      },
-      latency: 90,
-    };
-  }
-
-  public async *stream(request: any): AsyncGenerator<any> {
-    yield {
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      body: {
-        candidates: [{ content: { parts: [{ text: "Hello" }] }, finishReason: null }],
-      },
-      latency: 10,
-    };
-    yield {
-      status: 200,
-      statusText: "OK",
-      headers: {},
-      body: {
-        candidates: [{ content: { parts: [{ text: " Gemini" }] }, finishReason: "STOP" }],
-      },
-      latency: 20,
-    };
-  }
-
-  public async cancel(requestId: string): Promise<void> {}
-  public async health(): Promise<any> {
-    return { isHealthy: true, latency: 10 };
-  }
-  public snapshot(): any {
-    return {};
-  }
-}
-
 async function runTests() {
   console.log("=== START GEMINI PROVIDER TESTS ===");
 
+  loadEnv();
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  assert(!!apiKey, "GEMINI_API_KEY must be loaded from .env");
+  assert(!apiKey.includes("your_"), "GEMINI_API_KEY must be a real key, not a placeholder");
+
   const context: ProviderContext = { env: "test", namespace: "default", metadata: {} };
-  const config = { apiKey: "mock-gemini-key", models: [], settings: {} };
-  const transport = new MockGeminiTransport();
+  const config = { apiKey, models: ["gemini-3.5-flash-lite", "gemini-embedding-2"], settings: {} };
 
   const provider = new GeminiBuilder()
     .withId("google-test-provider")
     .withName("Google Gemini Test Provider")
     .withContext(context)
     .withConfiguration(config)
-    .withTransport(transport)
     .build();
 
   await provider.initialize();
@@ -98,28 +58,28 @@ async function runTests() {
   // Test Execute Chat
   console.log("Testing execute chat completions...");
   const executeResult = await provider.execute({
-    model: "gemini-1.5-flash",
+    model: "gemini-3.5-flash-lite",
     messages: [{ role: "user", content: "hello" }],
   });
 
-  assert(executeResult.content === "Hello from mock Gemini provider", "completions content mismatch");
-  assert(executeResult.usage?.promptTokens === 12, "prompt tokens count mismatch");
+  console.log("Gemini Response:", executeResult.content);
+  assert(!!executeResult.content, "Response content should exist");
+  assert(executeResult.usage !== undefined && executeResult.usage.promptTokens > 0, "usage prompt tokens should be populated");
 
   // Test Execute Embeddings
   console.log("Testing execute embeddings...");
   const embeddingResult = await provider.execute({
-    model: "text-embedding-004",
+    model: "gemini-embedding-2",
     prompt: "embed this",
   });
 
   const embeddingValues = JSON.parse(embeddingResult.content || "[]");
-  assert(Array.isArray(embeddingValues) && embeddingValues.length === 3, "embeddings format mismatch");
-  assert(embeddingValues[0] === 0.5, "embedding values mismatch");
+  assert(Array.isArray(embeddingValues) && embeddingValues.length > 0, "embeddings format mismatch");
 
   // Test Stream Chat
   console.log("Testing stream chat completions...");
   const streamGen = provider.stream({
-    model: "gemini-1.5-flash",
+    model: "gemini-3.5-flash-lite",
     messages: [{ role: "user", content: "hello" }],
   });
 
@@ -127,7 +87,32 @@ async function runTests() {
   for await (const chunk of streamGen) {
     fullText += chunk.content;
   }
-  assert(fullText === "Hello Gemini", "streaming content mismatch");
+  console.log("Stream Gemini Response:", fullText);
+  assert(fullText.length > 0, "streaming response should not be empty");
+
+  // Test Error Handling (Authentication Failure)
+  console.log("Testing error handling with bad API key...");
+  const badConfig = { apiKey: "bad-gemini-key", models: ["gemini-3.5-flash-lite"], settings: {} };
+  const badProvider = new GeminiBuilder()
+    .withId("google-bad-provider")
+    .withName("Google Gemini Bad Provider")
+    .withContext(context)
+    .withConfiguration(badConfig)
+    .build();
+
+  await badProvider.initialize();
+  await badProvider.start();
+
+  try {
+    await badProvider.execute({
+      model: "gemini-3.5-flash-lite",
+      messages: [{ role: "user", content: "hello" }],
+    });
+    assert(false, "Should have thrown an authentication error for invalid key");
+  } catch (err: any) {
+    console.log("Successfully caught expected error:", err.message);
+    assert(err.message.includes("HTTP 400") || err.message.includes("API key not valid") || err.message.includes("API_KEY_INVALID"), "Error message should reflect auth/key issues");
+  }
 
   console.log("=== ALL GEMINI PROVIDER TESTS PASSED SUCCESSFULLY ===");
 }

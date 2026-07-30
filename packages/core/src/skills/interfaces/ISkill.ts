@@ -1,8 +1,8 @@
-import { SkillState } from "./SkillState";
-import { SkillManifest } from "./SkillManifest";
-import { SkillContext } from "./SkillContext";
-import { SkillConfiguration } from "./SkillConfiguration";
-import { SkillExecutionResult } from "./SkillExecutionResult";
+import { SkillState } from "../SkillState";
+import { SkillManifest } from "../SkillManifest";
+import { SkillContext } from "../SkillContext";
+import { SkillConfiguration } from "../SkillConfiguration";
+import { SkillExecutionResult } from "../SkillExecutionResult";
 
 export interface ISkill {
   readonly id: string;

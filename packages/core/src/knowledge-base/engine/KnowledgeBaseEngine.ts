@@ -11,14 +11,14 @@ import {
   IProviderHistoryManager,
   IKnowledgeBaseReporter,
 } from "../interfaces/interfaces";
-import { KnowledgeBaseState } from "../types/KnowledgeBaseState";
-import { KnowledgeNodeType } from "../types/KnowledgeNodeType";
-import { RelationshipType } from "../types/RelationshipType";
-import { EmbeddingProvider } from "../types/EmbeddingProvider";
-import { IndexStatus } from "../types/IndexStatus";
-import { DocumentType } from "../types/DocumentType";
-import { RetrievalStrategy } from "../types/RetrievalStrategy";
-import { KnowledgeSource } from "../types/KnowledgeSource";
+import { KnowledgeBaseState } from "../KnowledgeBaseState";
+import { KnowledgeNodeType } from "../KnowledgeNodeType";
+import { RelationshipType } from "../RelationshipType";
+import { EmbeddingProvider } from "../EmbeddingProvider";
+import { IndexStatus } from "../IndexStatus";
+import { DocumentType } from "../DocumentType";
+import { RetrievalStrategy } from "../RetrievalStrategy";
+import { KnowledgeSource } from "../KnowledgeSource";
 import {
   KnowledgeNode,
   KnowledgeRelationship,

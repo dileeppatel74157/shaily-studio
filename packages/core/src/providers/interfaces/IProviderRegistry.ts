@@ -1,7 +1,7 @@
 import { IProvider } from "./IProvider";
 import { ProviderRegistrySnapshot } from "../types/types";
 import { ProviderFeature } from "../models/ProviderFeature";
-import { ModelDescriptor } from "../router/ModelDescriptor";
+import { ModelDescriptor } from "../../router/ModelDescriptor";
 
 export interface IProviderRegistry {
   register(provider: IProvider): void;

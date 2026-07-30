@@ -1,8 +1,8 @@
 import { Job } from "../models/Job";
 import { JobContext } from "../models/JobContext";
-import { ILogger } from "../logger/ILogger";
-import { IEventBus } from "../events/IEventBus";
-import { EventBuilder } from "../events/EventBuilder";
+import { ILogger } from "../../logger/ILogger";
+import { IEventBus } from "../../events/IEventBus";
+import { EventBuilder } from "../../events/EventBuilder";
 
 export class JobExecutor {
   constructor(

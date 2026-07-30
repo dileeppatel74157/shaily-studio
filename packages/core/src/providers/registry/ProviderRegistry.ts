@@ -3,7 +3,7 @@ import { ProviderType } from "../models/ProviderType";
 import { ProviderValidationException, ProviderRegistrySnapshot, deepFreeze } from "../types/types";
 import { IProviderRegistry } from "../interfaces/IProviderRegistry";
 import { ProviderFeature } from "../models/ProviderFeature";
-import { ModelDescriptor } from "../router/ModelDescriptor";
+import { ModelDescriptor } from "../../router/ModelDescriptor";
 
 export class ProviderRegistry implements IProviderRegistry {
   private readonly _providers = new Map<string, IProvider>();

@@ -1,4 +1,4 @@
-import { ILogger } from "../logger/ILogger";
+import { ILogger } from "../../logger/ILogger";
 
 export interface ProviderContext {
   readonly env?: string;

@@ -7,5 +7,7 @@ export enum ProviderAdapterType {
   TAVILY      = "TAVILY",
   YOUTUBE     = "YOUTUBE",
   INSTAGRAM   = "INSTAGRAM",
-  FACEBOOK    = "FACEBOOK"
+  FACEBOOK    = "FACEBOOK",
+  NVIDIA      = "NVIDIA",
+  GROK        = "GROK"
 }

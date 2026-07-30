@@ -1,3 +1,5 @@
+import * as fs from "fs";
+import * as path from "path";
 import { ConfigurationState } from "./ConfigurationState";
 import { ConfigurationScope } from "./ConfigurationScope";
 import { ConfigurationSource } from "./ConfigurationSource";
@@ -138,19 +140,59 @@ export class ConfigurationEngine implements
   // --- IEnvironmentManager ---
 
   public async loadEnvironment(): Promise<EnvironmentConfiguration> {
-    this._environment = {
-      envType: EnvironmentType.PRODUCTION,
-      variables: {
-        "NODE_ENV": "production",
-        "PORT": "8000",
-        "DATABASE_URL": "postgresql://shaily:passwd@localhost:5432/studio"
-      },
-      sources: {
-        "NODE_ENV": ConfigurationSource.ENV,
-        "PORT": ConfigurationSource.ENV_LOCAL,
-        "DATABASE_URL": ConfigurationSource.WORKSPACE
-      }
+    const variables: Record<string, string> = {
+      "NODE_ENV": process.env.NODE_ENV || "production",
+      "PORT": process.env.PORT || "8000",
+      "DATABASE_URL": process.env.DATABASE_URL || "postgresql://shaily:passwd@localhost:5432/studio"
     };
+
+    const sources: Record<string, ConfigurationSource> = {
+      "NODE_ENV": ConfigurationSource.ENV,
+      "PORT": ConfigurationSource.ENV_LOCAL,
+      "DATABASE_URL": ConfigurationSource.WORKSPACE
+    };
+
+    // Find and parse .env
+    let envPath = this._configPath || path.resolve(process.cwd(), ".env");
+    if (!fs.existsSync(envPath)) {
+      let currentDir = process.cwd();
+      for (let i = 0; i < 5; i++) {
+        const checkPath = path.join(currentDir, ".env");
+        if (fs.existsSync(checkPath)) {
+          envPath = checkPath;
+          break;
+        }
+        currentDir = path.dirname(currentDir);
+      }
+    }
+
+    if (fs.existsSync(envPath)) {
+      try {
+        const content = fs.readFileSync(envPath, "utf-8");
+        const lines = content.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || trimmed.startsWith("#")) continue;
+          const index = trimmed.indexOf("=");
+          if (index > 0) {
+            const key = trimmed.substring(0, index).trim();
+            const val = trimmed.substring(index + 1).trim().replace(/^['"]|['"]$/g, "");
+            variables[key] = val;
+            sources[key] = ConfigurationSource.ENV;
+            process.env[key] = val;
+          }
+        }
+      } catch (err) {
+        this._context.logger?.warn("Failed to read .env file: " + err);
+      }
+    }
+
+    this._environment = {
+      envType: variables["NODE_ENV"] === "production" ? EnvironmentType.PRODUCTION : EnvironmentType.DEVELOPMENT,
+      variables,
+      sources
+    };
+
     return this._environment;
   }
 
@@ -166,11 +208,29 @@ export class ConfigurationEngine implements
   // --- ISecretsManager ---
 
   public async loadSecrets(): Promise<SecretEntry[]> {
-    // Obfuscate load
-    this._secrets = [
-      { id: "sec-openai", key: "OPENAI_API_KEY", value: "enc-sk-proj-openai-key-value-12345", type: SecretType.API_KEY, masked: true, createdAt: new Date(), updatedAt: new Date() },
-      { id: "sec-gemini", key: "GEMINI_API_KEY", value: "enc-AIzaSy-gemini-key-value-12345", type: SecretType.API_KEY, masked: true, createdAt: new Date(), updatedAt: new Date() }
+    const secretKeys = [
+      { key: "OPENAI_API_KEY", type: SecretType.API_KEY, id: "sec-openai", fallback: "sk-proj-openai-key-value-12345" },
+      { key: "GEMINI_API_KEY", type: SecretType.API_KEY, id: "sec-gemini", fallback: "AIzaSy-gemini-key-value-12345" },
+      { key: "NVIDIA_API_KEY", type: SecretType.API_KEY, id: "sec-nvidia", fallback: "nvapi-mock-key-value-12345" },
+      { key: "GROK_API_KEY", type: SecretType.API_KEY, id: "sec-grok", fallback: "grok-mock-key-value-12345" },
+      { key: "YOUTUBE_API_KEY", type: SecretType.API_KEY, id: "sec-youtube", fallback: "yt-mock-key-value-12345" }
     ];
+
+    this._secrets = [];
+    for (const item of secretKeys) {
+      const val = process.env[item.key] || item.fallback;
+      const encValue = await this.encryptSecret(val);
+      this._secrets.push({
+        id: item.id,
+        key: item.key,
+        value: encValue,
+        type: item.type,
+        masked: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+    }
+
     return this._secrets;
   }
 

@@ -58,7 +58,7 @@ async function runTests() {
 
   // ── 3. Provider registration and discovery ────────────────────────────────
   const providers = engine.getRegistry().discoverProviders();
-  assert(providers.length === 9, `Expected 9 built-in providers, got ${providers.length}.`);
+  assert(providers.length === 11, `Expected 11 built-in providers, got ${providers.length}.`);
   const ids = providers.map(p => p.providerId);
   assert(ids.includes("openai"),     "OpenAI provider not registered.");
   assert(ids.includes("gemini"),     "Gemini provider not registered.");

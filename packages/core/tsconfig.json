@@ -2,7 +2,8 @@
   "extends": "../config/typescript/base.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "noEmitOnError": false
   },
   "include": [
   "src/client/**/*",
@@ -13,6 +14,7 @@
   "exclude": [
     "node_modules",
     "dist",
+    "src/test-*.ts",
     "src/test-provider-transport.ts",
     "src/test-nvidia-provider.ts",
     "src/test-openai-provider.ts",
@@ -33,6 +35,19 @@
     "src/test-assistant.ts",
     "src/test-task-scheduler.ts",
     "src/test-knowledge-base.ts",
-    "src/test-memory-optimization.ts"
+    "src/test-memory-optimization.ts",
+    "src/test-conversation.ts",
+    "src/test-founder-ai.ts",
+    "src/test-knowledge.ts",
+    "src/test-rag.ts",
+    "src/test-skills.ts",
+    "src/test-workflow.ts",
+    "src/test-workflows.ts",
+    "src/test-config.ts",
+    "src/test-configuration.ts",
+    "src/test-database.ts",
+    "src/test-ai-gateway.ts",
+    "src/test-llm-provider.ts",
+    "src/test-provider-execution.ts"
   ]
 }

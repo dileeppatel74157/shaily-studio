@@ -28,10 +28,12 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "@shaily/shared": "workspace:*"
+    "@shaily/shared": "workspace:*",
+    "pg": "^8.12.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.6",
     "typescript": "^5.5.4",
     "@shaily/provider-nvidia": "workspace:*",
     "@shaily/provider-openai": "workspace:*",

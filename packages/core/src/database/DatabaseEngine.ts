@@ -1,3 +1,4 @@
+import { Pool } from "pg";
 import { IDatabaseEngine, IConnectionManager, IMigrationManager, ITransactionManager,
   IQueryManager, ICacheManager, IBackupManager, IRestoreManager,
   IHealthManager, IStatisticsManager, IProviderManager } from "./interfaces";
@@ -44,6 +45,7 @@ interface StatsAccumulator {
 class ConnectionManagerImpl implements IConnectionManager {
   private readonly _connections = new Map<string, DatabaseConnection>();
   private _pool: ConnectionPool | undefined;
+  private _pgPool: Pool | undefined;
 
   constructor(private readonly _engine: DatabaseEngine) {}
 
@@ -62,12 +64,48 @@ class ConnectionManagerImpl implements IConnectionManager {
     };
     this._connections.set(id, conn);
 
-    // Simulate async connection handshake
-    await new Promise(r => setTimeout(r, 0));
-    conn.state = ConnectionState.CONNECTED;
-    conn.lastActivityAt = new Date();
+    if (config.provider === DatabaseProvider.POSTGRESQL) {
+      const connectionString = config.url || process.env.DATABASE_URL;
+      const isRealPg = !!connectionString && (connectionString.startsWith("postgresql://") || connectionString.startsWith("postgres://"));
+      
+      if (isRealPg) {
+        try {
+          const poolConfig: any = {
+            max: config.maxConnections ?? config.poolSize ?? 10,
+            idleTimeoutMillis: config.idleTimeoutMs ?? 30000,
+            connectionTimeoutMillis: config.connectionTimeoutMs ?? 2000,
+          };
+          if (connectionString) {
+            poolConfig.connectionString = connectionString;
+          } else {
+            poolConfig.host = config.host;
+            poolConfig.port = config.port;
+            poolConfig.database = config.database;
+            poolConfig.user = config.username;
+            poolConfig.password = config.password;
+          }
+          this._pgPool = new Pool(poolConfig);
 
-    // Initialise pool if first connection
+          const client = await this._pgPool.connect();
+          client.release();
+
+          conn.state = ConnectionState.CONNECTED;
+          conn.lastActivityAt = new Date();
+        } catch (err: any) {
+          conn.state = ConnectionState.FAILED;
+          throw new ConnectionException(`PostgreSQL connection failed: ${err.message}`, err);
+        }
+      } else {
+        await new Promise(r => setTimeout(r, 0));
+        conn.state = ConnectionState.CONNECTED;
+        conn.lastActivityAt = new Date();
+      }
+    } else {
+      await new Promise(r => setTimeout(r, 0));
+      conn.state = ConnectionState.CONNECTED;
+      conn.lastActivityAt = new Date();
+    }
+
     if (!this._pool) {
       this._pool = {
         id: `pool-${id}`,
@@ -98,15 +136,26 @@ class ConnectionManagerImpl implements IConnectionManager {
       this._pool.activeCount--;
       this._pool.totalReleased++;
     }
+    if (this._pgPool) {
+      await this._pgPool.end();
+      this._pgPool = undefined;
+    }
   }
 
   async reconnect(connectionId: string): Promise<void> {
     const conn = this._connections.get(connectionId);
     if (!conn) throw new ConnectionException(`Connection "${connectionId}" not found.`);
     conn.state = ConnectionState.RECONNECTING;
-    await new Promise(r => setTimeout(r, 0));
-    conn.state = ConnectionState.CONNECTED;
-    conn.lastActivityAt = new Date();
+    if (this._engine._config?.provider === DatabaseProvider.POSTGRESQL) {
+      if (this._pgPool) {
+        await this._pgPool.end().catch(() => {});
+      }
+      await this.connect(this._engine._config!);
+    } else {
+      await new Promise(r => setTimeout(r, 0));
+      conn.state = ConnectionState.CONNECTED;
+      conn.lastActivityAt = new Date();
+    }
   }
 
   getConnection(id: string): DatabaseConnection | undefined {
@@ -120,6 +169,10 @@ class ConnectionManagerImpl implements IConnectionManager {
   getPool(): ConnectionPool | undefined {
     return this._pool;
   }
+
+  getPgPool(): Pool | undefined {
+    return this._pgPool;
+  }
 }
 
 // ─── MigrationManagerImpl ─────────────────────────────────────────────────────
@@ -128,7 +181,7 @@ class MigrationManagerImpl implements IMigrationManager {
   private readonly _migrations: Migration[] = [];
 
   constructor(private readonly _engine: DatabaseEngine) {
-    // Seed three built-in baseline migrations
+    // Seed built-in migrations including task and memory tables
     this._migrations.push(
       {
         id: "mig-001", version: 1, name: "create_core_schema",
@@ -150,6 +203,20 @@ class MigrationManagerImpl implements IMigrationManager {
         upSql: "CREATE TABLE IF NOT EXISTS cache (key TEXT PRIMARY KEY, value TEXT, expires_at TEXT);",
         downSql: "DROP TABLE IF EXISTS cache;",
         checksum: "ghi789"
+      },
+      {
+        id: "mig-004", version: 4, name: "create_tasks_table",
+        description: "Create tasks history table", state: MigrationState.PENDING,
+        upSql: "CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, agent_id TEXT, status TEXT, input_data TEXT, error TEXT, created_at TEXT);",
+        downSql: "DROP TABLE IF EXISTS tasks;",
+        checksum: "jkl012"
+      },
+      {
+        id: "mig-005", version: 5, name: "create_memory_table",
+        description: "Create agent memory table", state: MigrationState.PENDING,
+        upSql: "CREATE TABLE IF NOT EXISTS memory (id TEXT PRIMARY KEY, key TEXT, value TEXT, updated_at TEXT);",
+        downSql: "DROP TABLE IF EXISTS memory;",
+        checksum: "mno345"
       }
     );
   }
@@ -158,7 +225,22 @@ class MigrationManagerImpl implements IMigrationManager {
     const pending = this._migrations.filter(m => m.state === MigrationState.PENDING);
     for (const m of pending) {
       m.state = MigrationState.RUNNING;
-      await new Promise(r => setTimeout(r, 0));
+      const provider = this._engine.getProviderManager().getActiveProvider();
+      const connManager = this._engine.getConnectionManager() as ConnectionManagerImpl;
+      if (provider === DatabaseProvider.POSTGRESQL && connManager.getPgPool()) {
+        try {
+          await this._engine.getQueryManager().execute({
+            id: `mig-${m.id}-${Date.now()}`,
+            sql: m.upSql
+          });
+        } catch (err: any) {
+          m.state = MigrationState.FAILED;
+          m.error = err.message;
+          throw new MigrationException(`Migration ${m.name} failed: ${err.message}`, err);
+        }
+      } else {
+        await new Promise(r => setTimeout(r, 0));
+      }
       m.state = MigrationState.COMPLETED;
       m.appliedAt = new Date();
       m.durationMs = Math.floor(Math.random() * 20) + 1;
@@ -271,9 +353,34 @@ class QueryManagerImpl implements IQueryManager {
       this._engine._stats.cacheMisses++;
     }
 
-    // Simulate execution
-    await new Promise(r => setTimeout(r, 0));
-    const rows = isWrite ? [] : [{ id: "row-1", data: "sample" }];
+    let rows: any[] = [];
+    let rowsAffected: number | undefined;
+
+    const provider = this._engine.getProviderManager().getActiveProvider();
+    const connManager = this._engine.getConnectionManager() as ConnectionManagerImpl;
+    const pgPool = connManager.getPgPool();
+    if (provider === DatabaseProvider.POSTGRESQL && pgPool) {
+
+      try {
+        const sql = request.sql || "";
+        const params = request.params || [];
+        let pgSql = sql;
+        let pIndex = 1;
+        while (pgSql.includes("?")) {
+          pgSql = pgSql.replace("?", `$${pIndex++}`);
+        }
+
+        const res = await pgPool.query(pgSql, params);
+        rows = res.rows;
+        rowsAffected = res.rowCount ?? undefined;
+      } catch (err: any) {
+        throw new QueryException(`PostgreSQL query failed: ${err.message}`, err);
+      }
+    } else {
+      await new Promise(r => setTimeout(r, 0));
+      rows = isWrite ? [] : [{ id: "row-1", data: "sample" }];
+      rowsAffected = isWrite ? 1 : undefined;
+    }
 
     const durationMs = Date.now() - start;
     this._engine._stats.totalQueries++;
@@ -282,7 +389,6 @@ class QueryManagerImpl implements IQueryManager {
       this._engine._stats.totalWrites++;
     } else {
       this._engine._stats.totalReads++;
-      // Populate cache
       if (this._engine._config?.cachePolicy !== CachePolicy.NONE) {
         this._cache.set(request.id, rows, this._engine._config?.cachePolicy);
       }
@@ -292,7 +398,7 @@ class QueryManagerImpl implements IQueryManager {
       id: `resp-${Date.now()}`,
       requestId: request.id,
       rows,
-      rowsAffected: isWrite ? 1 : undefined,
+      rowsAffected,
       durationMs,
       fromCache: false
     };
@@ -444,8 +550,22 @@ class HealthManagerImpl implements IHealthManager {
 
   async checkHealth(): Promise<HealthReport> {
     const connections = this._engine.getConnectionManager().listConnections();
-    const active = connections.filter(c => c.state === ConnectionState.CONNECTED).length;
-    const failed = connections.filter(c => c.state === ConnectionState.FAILED).length;
+    let active = connections.filter(c => c.state === ConnectionState.CONNECTED).length;
+    let failed = connections.filter(c => c.state === ConnectionState.FAILED).length;
+
+    const provider = this._engine.getProviderManager().getActiveProvider();
+    if (provider === DatabaseProvider.POSTGRESQL && active > 0) {
+      try {
+        await this._engine.getQueryManager().execute({
+          id: `health-${Date.now()}`,
+          sql: "SELECT 1"
+        });
+      } catch (err) {
+        active = 0;
+        failed = connections.length;
+      }
+    }
+
     const stats = this._engine._stats;
 
     const cacheHitRate = stats.cacheHits + stats.cacheMisses > 0
@@ -599,6 +719,11 @@ export class DatabaseEngine implements IDatabaseEngine {
       throw new InvalidDatabaseStateException("initialize", this._state);
     }
     this._state = DatabaseState.INITIALIZING;
+    
+    if (this._activeProvider === DatabaseProvider.POSTGRESQL) {
+      await this._connectionManager.connect(this._config!);
+    }
+
     // Run baseline migrations
     this._state = DatabaseState.MIGRATING;
     await this._migrationManager.runMigrations();
@@ -610,7 +735,10 @@ export class DatabaseEngine implements IDatabaseEngine {
       throw new InvalidDatabaseStateException("connect", this._state);
     }
     this._state = DatabaseState.CONNECTING;
-    await this._connectionManager.connect(this._config!);
+    const existingConn = this._connectionManager.listConnections()[0];
+    if (!existingConn || existingConn.state !== ConnectionState.CONNECTED) {
+      await this._connectionManager.connect(this._config!);
+    }
     this._state = DatabaseState.READY;
     this.emit(DatabaseEventType.CONNECTED, { provider: this._activeProvider });
   }

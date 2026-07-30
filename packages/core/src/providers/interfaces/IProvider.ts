@@ -6,7 +6,7 @@ import { ProviderResponse, ProviderResponseChunk } from "../models/ProviderRespo
 import { ProviderSnapshot } from "../models/ProviderSnapshot";
 import { ProviderState } from "../models/ProviderState";
 import { ProviderMetadata } from "../models/ProviderMetadata";
-import { ModelDescriptor } from "../router/ModelDescriptor";
+import { ModelDescriptor } from "../../router/ModelDescriptor";
 
 export interface IProvider {
   readonly id: string;

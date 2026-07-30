@@ -106,6 +106,7 @@ export class NvidiaProvider extends Provider {
       url: `${this._transport.baseUrl}/chat/completions`,
       method: "POST",
       body,
+      response_format: request.responseFormat,
     });
 
     for await (const chunk of streamGenerator) {

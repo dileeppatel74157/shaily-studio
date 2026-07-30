@@ -51,16 +51,96 @@ import {
 // Built-in provider adapter implementations
 // ---------------------------------------------------------------------------
 class BuiltInAdapter implements IProviderAdapter {
+  private _realProvider: any;
+
   constructor(
     public readonly providerId: string,
     public readonly adapterType: ProviderAdapterType
   ) {}
 
-  async connect(): Promise<void> { /* noop — local simulation */ }
+  async connect(): Promise<void> {
+    const apiKey = process.env[`${this.adapterType}_API_KEY`] || process.env[`${this.providerId.toUpperCase()}_API_KEY`];
+    const isMockKey = !apiKey || apiKey.includes("-mock-key-value-12345") || apiKey.includes("your_") || apiKey.includes("sk-proj-");
+
+    if (apiKey && !isMockKey) {
+      try {
+        if (this.adapterType === ProviderAdapterType.GEMINI) {
+          const { GeminiProvider } = require("@shaily/provider-google");
+          this._realProvider = new GeminiProvider(
+            this.providerId,
+            "Gemini Real Provider",
+            { env: "prod", namespace: "studio" },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.OPENAI) {
+          const { OpenAIProvider } = require("@shaily/provider-openai");
+          this._realProvider = new OpenAIProvider(
+            this.providerId,
+            "OpenAI Real Provider",
+            { env: "prod", namespace: "studio" },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.NVIDIA) {
+          const { NvidiaProvider } = require("@shaily/provider-nvidia");
+          this._realProvider = new NvidiaProvider(
+            this.providerId,
+            "Nvidia Real Provider",
+            { env: "prod", namespace: "studio" },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.GROK) {
+          const { GrokProvider } = require("@shaily/provider-grok");
+          this._realProvider = new GrokProvider(
+            this.providerId,
+            "Grok Real Provider",
+            { env: "prod", namespace: "studio" },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.OLLAMA) {
+          const { OllamaProvider } = require("@shaily/provider-ollama");
+          this._realProvider = new OllamaProvider(
+            this.providerId,
+            "Ollama Real Provider",
+            { env: "prod", namespace: "studio" },
+            { baseUrl: process.env.OLLAMA_BASE_URL || "http://localhost:11434" }
+          );
+        }
+
+        if (this._realProvider) {
+          await this._realProvider.initialize();
+          await this._realProvider.start();
+        }
+      } catch (err) {
+        this._realProvider = undefined;
+      }
+    }
+  }
 
   async execute(request: GatewayRequest): Promise<GatewayResponse> {
+    if (this._realProvider) {
+      const start = Date.now();
+      const response = await this._realProvider.execute({
+        model: request.model,
+        messages: [{ role: "user", content: request.prompt }],
+        temperature: 0.7,
+        maxTokens: 1000
+      });
+      const latencyMs = Date.now() - start;
+      return {
+        requestId: request.requestId,
+        providerId: this.providerId,
+        model: response.model,
+        content: response.content || response.text || "",
+        promptTokens: response.usage?.promptTokens || 0,
+        completionTokens: response.usage?.completionTokens || 0,
+        totalTokens: response.usage?.totalTokens || 0,
+        costUsd: (response.usage?.totalTokens || 0) * 0.000_002,
+        latencyMs,
+        finishReason: response.finishReason || "stop"
+      };
+    }
+
     const start = Date.now();
-    // Simulate realistic prompt/completion token counts
     const promptTokens = Math.ceil(request.prompt.length / 4);
     const completionTokens = Math.floor(promptTokens * 0.6);
     return {
@@ -78,6 +158,31 @@ class BuiltInAdapter implements IProviderAdapter {
   }
 
   async *stream(request: GatewayRequest): AsyncGenerator<GatewayResponseChunk> {
+    if (this._realProvider) {
+      const chunks = this._realProvider.stream({
+        model: request.model,
+        messages: [{ role: "user", content: request.prompt }],
+        temperature: 0.7,
+        maxTokens: 1000
+      });
+      let index = 0;
+      for await (const chunk of chunks) {
+        yield {
+          requestId: request.requestId,
+          chunkIndex: index++,
+          delta: chunk.content || "",
+          done: false
+        };
+      }
+      yield {
+        requestId: request.requestId,
+        chunkIndex: index,
+        delta: "",
+        done: true
+      };
+      return;
+    }
+
     const words = `[${this.adapterType}] Streaming response for: ${request.prompt}`.split(" ");
     for (let i = 0; i < words.length; i++) {
       yield {
@@ -89,9 +194,24 @@ class BuiltInAdapter implements IProviderAdapter {
     }
   }
 
-  async disconnect(): Promise<void> { /* noop */ }
+  async disconnect(): Promise<void> {
+    if (this._realProvider) {
+      await this._realProvider.stop().catch(() => {});
+    }
+  }
 
   async healthCheck(): Promise<ProviderHealthStatus> {
+    if (this._realProvider) {
+      const health = this._realProvider.health();
+      return {
+        providerId: this.providerId,
+        healthy: health.status === "HEALTHY",
+        lastChecked: new Date(),
+        failureCount: 0,
+        consecutiveFails: 0,
+        averageLatencyMs: health.latency
+      };
+    }
     return {
       providerId: this.providerId,
       healthy: true,
@@ -181,6 +301,9 @@ export class GatewayEngine implements
     this.transitionState(GatewayState.INITIALIZING);
     this._validator.validate(this.getSnapshot());
     this._registerBuiltInProviders();
+    for (const adapter of this._adapters.values()) {
+      await adapter.connect().catch(() => {});
+    }
     this._startedAt = new Date();
     this.transitionState(GatewayState.RUNNING);
     await this._context.eventBus?.publish({ type: GatewayEventType.REQUEST_ROUTED, payload: { status: "initialized" } });
@@ -668,7 +791,9 @@ export class GatewayEngine implements
     const builtIns: Array<{ id: string; type: ProviderAdapterType; name: string; models: string[]; priority: number }> = [
       { id: "openai",      type: ProviderAdapterType.OPENAI,      name: "OpenAI",      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],         priority: 100 },
       { id: "gemini",      type: ProviderAdapterType.GEMINI,      name: "Gemini",      models: ["gemini-2.0-flash", "gemini-1.5-pro"],              priority: 90  },
+      { id: "nvidia",      type: ProviderAdapterType.NVIDIA,      name: "Nvidia",      models: ["nvidia/llama-3.1-70b-instruct"],                   priority: 85  },
       { id: "openrouter",  type: ProviderAdapterType.OPENROUTER,  name: "OpenRouter",  models: ["anthropic/claude-3.5-sonnet", "meta-llama/llama-3"], priority: 80  },
+      { id: "grok",        type: ProviderAdapterType.GROK,        name: "Grok",        models: ["grok-2", "grok-2-mini"],                           priority: 75  },
       { id: "huggingface", type: ProviderAdapterType.HUGGINGFACE, name: "HuggingFace", models: ["mistralai/Mistral-7B-Instruct-v0.3"],              priority: 70  },
       { id: "ollama",      type: ProviderAdapterType.OLLAMA,      name: "Ollama",      models: ["llama3.2", "mistral", "phi3"],                     priority: 60  },
       { id: "tavily",      type: ProviderAdapterType.TAVILY,      name: "Tavily",      models: ["tavily-search-basic", "tavily-search-advanced"],   priority: 50  },
@@ -687,9 +812,9 @@ export class GatewayEngine implements
         displayName: bi.name,
         capabilities: {
           supportsStreaming: true,
-          supportsVision: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI,
-          supportsTools: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI,
-          supportsJsonMode: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OPENROUTER,
+          supportsVision: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.NVIDIA,
+          supportsTools: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.GROK,
+          supportsJsonMode: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OPENROUTER || bi.type === ProviderAdapterType.GROK,
           maxContextTokens: bi.type === ProviderAdapterType.OLLAMA ? 32_768 : 128_000,
           availableModels: bi.models
         },

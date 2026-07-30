@@ -48,7 +48,8 @@ export { JobEngine } from "../jobs/JobEngine";
 export { MemoryStore } from "../memory/MemoryStore";
 
 // Database implementation
-export { LocalDatabase } from "../database/LocalDatabase";
+export { DatabaseEngine } from "../database/DatabaseEngine";
+export { DatabaseBuilder } from "../database/DatabaseBuilder";
 
 // Node integrations & other engines/builders
 export { SystemIntegrationEngine } from "../system-integration/SystemIntegrationEngine";
@@ -63,7 +64,8 @@ export { PlanningBuilder } from "../planning/PlanningBuilder";
 export { WorkflowEngine } from "../workflow/WorkflowEngine";
 export { WorkflowBuilder } from "../workflow/WorkflowBuilder";
 
-export { OrchestratorEngine } from "../orchestrator/OrchestratorEngine";
+export { Orchestrator } from "../orchestrator/Orchestrator";
+export { AgentOrchestrator } from "../orchestrator/AgentOrchestrator";
 export { OrchestratorBuilder } from "../orchestrator/OrchestratorBuilder";
 
 export { AssistantEngine } from "../assistant/AssistantEngine";

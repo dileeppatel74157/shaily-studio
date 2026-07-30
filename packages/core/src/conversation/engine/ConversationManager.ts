@@ -11,7 +11,7 @@ import { ConversationSession } from "../models/ConversationSession";
 import { ConversationContext } from "../models/ConversationContext";
 import { ConversationState } from "../types/ConversationState";
 import { ConversationValidator } from "../validation/ConversationValidator";
-import { MetricType } from "../observability/MetricType";
+import { MetricType } from "../../observability/MetricType";
 import {
   InvalidConversationStateException,
   ConversationValidationException,

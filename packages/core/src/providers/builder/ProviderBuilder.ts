@@ -1,13 +1,13 @@
-import { Provider, ProviderHandler } from "./Provider";
-import { ProviderContext } from "./ProviderContext";
-import { ProviderConfiguration } from "./ProviderConfiguration";
-import { ProviderType } from "./ProviderType";
-import { ProviderFeature } from "./ProviderFeature";
-import { ProviderCapabilities } from "./ProviderCapability";
-import { ProviderRequest } from "./ProviderRequest";
-import { ProviderResponse, ProviderResponseChunk } from "./ProviderResponse";
-import { ProviderValidationException } from "./types";
-import { ModelDescriptor } from "../router/ModelDescriptor";
+import { Provider, ProviderHandler } from "../engine/Provider";
+import { ProviderContext } from "../models/ProviderContext";
+import { ProviderConfiguration } from "../models/ProviderConfiguration";
+import { ProviderType } from "../models/ProviderType";
+import { ProviderFeature } from "../models/ProviderFeature";
+import { ProviderCapabilities } from "../models/ProviderCapability";
+import { ProviderRequest } from "../models/ProviderRequest";
+import { ProviderResponse, ProviderResponseChunk } from "../models/ProviderResponse";
+import { ProviderValidationException } from "../types/types";
+import { ModelDescriptor } from "../../router/ModelDescriptor";
 
 class ConcreteProvider extends Provider {
   public get models(): readonly ModelDescriptor[] {

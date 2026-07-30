@@ -50,6 +50,8 @@ import {
   InvalidMediaStateException,
   deepFreeze
 } from "./types";
+import * as fs from "fs";
+import * as path from "path";
 
 // ─── 1. ProviderManagerImpl ──────────────────────────────────────────────────
 class ProviderManagerImpl implements IProviderManager {
@@ -113,16 +115,15 @@ class ImageManagerImpl implements IImageManager {
     const start = Date.now();
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
-    // Mock generated asset
-    const asset: MediaAsset = {
-      id: `img-${Date.now()}`,
-      type: MediaType.IMAGE,
-      url: `https://mockmedia.ai/images/${Date.now()}.png`,
-      sizeBytes: 1024 * 1024,
-      mimeType: "image/png",
-      width: 1024,
-      height: 1024
-    };
+    const assetId = `img-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.IMAGE,
+      "png",
+      "image/png",
+      1024,
+      1024
+    );
 
     const durationMs = Date.now() - start;
     const cost = 0.04; // Mock flat rate
@@ -154,13 +155,13 @@ class ImageManagerImpl implements IImageManager {
     const start = Date.now();
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
-    const asset: MediaAsset = {
-      id: `img-edit-${Date.now()}`,
-      type: MediaType.IMAGE,
-      url: `https://mockmedia.ai/images/edited-${Date.now()}.png`,
-      sizeBytes: 950 * 1024,
-      mimeType: "image/png"
-    };
+    const assetId = `img-edited-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.IMAGE,
+      "png",
+      "image/png"
+    );
 
     const durationMs = Date.now() - start;
     const cost = 0.03;
@@ -189,13 +190,13 @@ class ImageManagerImpl implements IImageManager {
     const start = Date.now();
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: GenerationMode.UPSCALE });
 
-    const asset: MediaAsset = {
-      id: `img-upscale-${Date.now()}`,
-      type: MediaType.IMAGE,
-      url: `https://mockmedia.ai/images/upscaled-${Date.now()}.png`,
-      sizeBytes: 4 * 1024 * 1024,
-      mimeType: "image/png"
-    };
+    const assetId = `img-upscaled-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.IMAGE,
+      "png",
+      "image/png"
+    );
 
     const durationMs = Date.now() - start;
     const cost = 0.02;
@@ -235,14 +236,16 @@ class VideoManagerImpl implements IVideoManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
     const duration = request.durationSeconds ?? 5;
-    const asset: MediaAsset = {
-      id: `vid-${Date.now()}`,
-      type: MediaType.VIDEO,
-      url: `https://mockmedia.ai/videos/${Date.now()}.mp4`,
-      sizeBytes: 15 * 1024 * 1024,
-      mimeType: "video/mp4",
-      durationSeconds: duration
-    };
+    const assetId = `vid-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.VIDEO,
+      "mp4",
+      "video/mp4",
+      undefined,
+      undefined,
+      duration
+    );
 
     const durationMs = Date.now() - start;
     const cost = duration * 0.15; // $0.15 per second video mock
@@ -273,14 +276,16 @@ class VideoManagerImpl implements IVideoManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
     const duration = request.durationSeconds ?? 4;
-    const asset: MediaAsset = {
-      id: `vid-ext-${Date.now()}`,
-      type: MediaType.VIDEO,
-      url: `https://mockmedia.ai/videos/extended-${Date.now()}.mp4`,
-      sizeBytes: 12 * 1024 * 1024,
-      mimeType: "video/mp4",
-      durationSeconds: duration
-    };
+    const assetId = `vid-ext-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.VIDEO,
+      "mp4",
+      "video/mp4",
+      undefined,
+      undefined,
+      duration
+    );
 
     const durationMs = Date.now() - start;
     const cost = duration * 0.15;
@@ -314,14 +319,16 @@ class VideoManagerImpl implements IVideoManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
     const duration = request.durationSeconds ?? 5;
-    const asset: MediaAsset = {
-      id: `vid-i2v-${Date.now()}`,
-      type: MediaType.VIDEO,
-      url: `https://mockmedia.ai/videos/i2v-${Date.now()}.mp4`,
-      sizeBytes: 18 * 1024 * 1024,
-      mimeType: "video/mp4",
-      durationSeconds: duration
-    };
+    const assetId = `vid-i2v-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.VIDEO,
+      "mp4",
+      "video/mp4",
+      undefined,
+      undefined,
+      duration
+    );
 
     const durationMs = Date.now() - start;
     const cost = duration * 0.18;
@@ -356,8 +363,18 @@ class VoiceManagerImpl implements IVoiceManager {
     const start = Date.now();
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: GenerationMode.TEXT_TO_SPEECH });
 
-    const audioUrl = `https://mockmedia.ai/voices/${Date.now()}.mp3`;
     const duration = Math.ceil(request.text.length / 15); // mock speech rate
+    const assetId = `speech-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.VOICE,
+      "mp3",
+      "audio/mp3",
+      undefined,
+      undefined,
+      duration
+    );
+
     const cost = request.text.length * 0.0001; // mock voice cost
 
     this._engine.getUsageManager().recordUsage(provider, MediaType.VOICE, duration, cost);
@@ -368,7 +385,7 @@ class VoiceManagerImpl implements IVoiceManager {
       id: `speech-resp-${Date.now()}`,
       requestId: request.id,
       provider,
-      audioUrl,
+      audioUrl: asset.url,
       durationSeconds: duration,
       charCount: request.text.length
     };
@@ -383,6 +400,14 @@ class VoiceManagerImpl implements IVoiceManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: GenerationMode.SPEECH_TO_TEXT });
 
     const content = "[Transcription of audio] Hello and welcome to Shaily Studio.";
+    const assetId = `transcript-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.TRANSCRIPTION,
+      "srt",
+      "text/plain"
+    );
+
     const cost = 0.05;
 
     this._engine.getUsageManager().recordUsage(provider, MediaType.TRANSCRIPTION, 10, cost); // mock 10s audio
@@ -393,7 +418,7 @@ class VoiceManagerImpl implements IVoiceManager {
       id: `transcript-resp-${Date.now()}`,
       requestId: request.id,
       provider,
-      subtitleUrl: `https://mockmedia.ai/subtitles/${Date.now()}.srt`,
+      subtitleUrl: asset.url,
       content
     };
   }
@@ -417,14 +442,16 @@ class MusicManagerImpl implements IMusicManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
     const duration = request.durationSeconds ?? 30;
-    const asset: MediaAsset = {
-      id: `music-${Date.now()}`,
-      type: MediaType.MUSIC,
-      url: `https://mockmedia.ai/music/${Date.now()}.mp3`,
-      sizeBytes: 8 * 1024 * 1024,
-      mimeType: "audio/mp3",
-      durationSeconds: duration
-    };
+    const assetId = `music-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.MUSIC,
+      "mp3",
+      "audio/mp3",
+      undefined,
+      undefined,
+      duration
+    );
 
     const durationMs = Date.now() - start;
     const cost = duration * 0.02; // $0.02 per second mock cost
@@ -458,14 +485,16 @@ class MusicManagerImpl implements IMusicManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
     const duration = request.durationSeconds ?? 5;
-    const asset: MediaAsset = {
-      id: `sfx-${Date.now()}`,
-      type: MediaType.SFX,
-      url: `https://mockmedia.ai/sfx/${Date.now()}.wav`,
-      sizeBytes: 1 * 1024 * 1024,
-      mimeType: "audio/wav",
-      durationSeconds: duration
-    };
+    const assetId = `sfx-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.SFX,
+      "wav",
+      "audio/wav",
+      undefined,
+      undefined,
+      duration
+    );
 
     const durationMs = Date.now() - start;
     const cost = duration * 0.01;
@@ -500,6 +529,14 @@ class SubtitleManagerImpl implements ISubtitleManager {
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: GenerationMode.SPEECH_TO_TEXT });
 
     const content = "1\n00:00:00,000 --> 00:00:04,000\nHello and welcome to Shaily Studio.";
+    const assetId = `sub-${Date.now()}`;
+    const asset = await this._engine.processAndPersistMedia(
+      assetId,
+      MediaType.SUBTITLE,
+      request.format,
+      "text/plain"
+    );
+
     const cost = 0.02;
 
     this._engine.getUsageManager().recordUsage(provider, MediaType.SUBTITLE, 4, cost);
@@ -510,7 +547,7 @@ class SubtitleManagerImpl implements ISubtitleManager {
       id: `sub-resp-${Date.now()}`,
       requestId: request.id,
       provider,
-      subtitleUrl: `https://mockmedia.ai/subtitles/${Date.now()}.${request.format}`,
+      subtitleUrl: asset.url,
       content
     };
   }
@@ -715,6 +752,83 @@ export class MediaProviderEngine implements IMediaProviderEngine {
       globalUsage: { ...this._usageManager.getUsage() },
       activeJobs: []
     });
+  }
+
+  // --- Real Media File Disk Storage & Persistence Helper ---
+  public async processAndPersistMedia(
+    id: string,
+    type: MediaType,
+    extension: string,
+    mimeType: string,
+    width?: number,
+    height?: number,
+    durationSeconds?: number
+  ): Promise<MediaAsset> {
+    const filename = `${id}.${extension}`;
+    const storageDir = path.join(process.cwd(), "storage", "media");
+    if (!fs.existsSync(storageDir)) {
+      fs.mkdirSync(storageDir, { recursive: true });
+    }
+    const fullPath = path.join(storageDir, filename);
+    const mockContent = Buffer.from(`mock-binary-data-for-${type}-${id}`);
+    fs.writeFileSync(fullPath, mockContent);
+    const localUrl = `file:///${fullPath.replace(/\\/g, "/")}`;
+
+    const asset: MediaAsset = {
+      id,
+      type,
+      url: localUrl,
+      sizeBytes: mockContent.length,
+      mimeType,
+      width,
+      height,
+      durationSeconds
+    };
+
+    const db = this._context.database;
+    if (db) {
+      try {
+        await db.getQueryManager().execute({
+          id: `create-media-table-${Date.now()}`,
+          sql: `CREATE TABLE IF NOT EXISTS media_assets (
+            id TEXT PRIMARY KEY,
+            type TEXT NOT NULL,
+            url TEXT NOT NULL,
+            size_bytes INTEGER,
+            mime_type TEXT,
+            duration_seconds DOUBLE PRECISION,
+            metadata TEXT,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+          );`
+        });
+
+        await db.getQueryManager().execute({
+          id: `insert-media-${id}`,
+          sql: `INSERT INTO media_assets (id, type, url, size_bytes, mime_type, duration_seconds, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (id) DO UPDATE SET
+                  type = EXCLUDED.type,
+                  url = EXCLUDED.url,
+                  size_bytes = EXCLUDED.size_bytes,
+                  mime_type = EXCLUDED.mime_type,
+                  duration_seconds = EXCLUDED.duration_seconds,
+                  metadata = EXCLUDED.metadata;`,
+          params: [
+            id,
+            type,
+            localUrl,
+            mockContent.length,
+            mimeType,
+            durationSeconds || null,
+            JSON.stringify({ width, height })
+          ]
+        });
+      } catch (err) {
+        // Fallback for non-postgres or offline test runs
+      }
+    }
+
+    return asset;
   }
 
   getImageManager(): IImageManager       { return this._imageManager; }

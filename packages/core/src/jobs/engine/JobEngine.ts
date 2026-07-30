@@ -4,9 +4,9 @@ import { JobQueue } from "../models/JobQueue";
 import { JobExecutor } from "../executor/JobExecutor";
 import { JobEngineSnapshot } from "../models/JobSnapshot";
 import { JobStatus } from "../types/JobStatus";
-import { ILogger } from "../logger/ILogger";
-import { IEventBus } from "../events/IEventBus";
-import { EventBuilder } from "../events/EventBuilder";
+import { ILogger } from "../../logger/ILogger";
+import { IEventBus } from "../../events/IEventBus";
+import { EventBuilder } from "../../events/EventBuilder";
 import { JobEngineNotRunningException } from "../types/types";
 
 export class JobEngine implements IJobEngine {

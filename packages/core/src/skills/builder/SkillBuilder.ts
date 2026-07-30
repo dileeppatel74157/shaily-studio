@@ -1,12 +1,12 @@
-import { Skill, SkillExecutorFn } from "./Skill";
-import { SkillManifest } from "./SkillManifest";
-import { SkillContext } from "./SkillContext";
-import { SkillConfiguration } from "./SkillConfiguration";
-import { SkillType } from "./SkillType";
-import { SkillScope } from "./SkillScope";
-import { SkillVisibility } from "./SkillVisibility";
-import { SkillVersion } from "./SkillVersion";
-import { SkillAuthor } from "./SkillAuthor";
+import { Skill, SkillExecutorFn } from "../Skill";
+import { SkillManifest } from "../SkillManifest";
+import { SkillContext } from "../SkillContext";
+import { SkillConfiguration } from "../SkillConfiguration";
+import { SkillType } from "../SkillType";
+import { SkillScope } from "../SkillScope";
+import { SkillVisibility } from "../SkillVisibility";
+import { SkillVersion } from "../SkillVersion";
+import { SkillAuthor } from "../SkillAuthor";
 
 export class SkillBuilder {
   private _id!: string;

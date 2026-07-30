@@ -11,7 +11,7 @@ import { ProviderConfiguration } from "../models/ProviderConfiguration";
 import { InvalidProviderStateException, deepFreeze } from "../types/types";
 import { ProviderValidator } from "../validation/ProviderValidator";
 import { ProviderMetadata } from "../models/ProviderMetadata";
-import { ModelDescriptor } from "../router/ModelDescriptor";
+import { ModelDescriptor } from "../../router/ModelDescriptor";
 
 export interface ProviderHandler {
   initialize?(context: ProviderContext): Promise<void>;

@@ -72,6 +72,31 @@ export class ConfigurationValidator {
       }
     }
 
+    // Image Primary and Fallback provider checks (only if image generation is enabled/configured)
+    const imagePrimary = variables["IMAGE_PRIMARY_PROVIDER"];
+    if (imagePrimary !== undefined && imagePrimary !== null) {
+      if (imagePrimary.trim() === "") {
+        issues.push({ key: "IMAGE_PRIMARY_PROVIDER", message: "IMAGE_PRIMARY_PROVIDER cannot be empty.", severity: "error" });
+      }
+
+      const imageModel = variables["IMAGE_PROVIDER_MODEL"];
+      if (!imageModel || imageModel.trim() === "") {
+        issues.push({ key: "IMAGE_PROVIDER_MODEL", message: "IMAGE_PROVIDER_MODEL cannot be empty.", severity: "error" });
+      }
+
+      const imageFallbacks = variables["IMAGE_FALLBACK_PROVIDERS"];
+      if (imageFallbacks !== undefined && imageFallbacks !== null) {
+        const fallbackRegex = /^[a-zA-Z0-9_.,-]+$/;
+        if (imageFallbacks.trim() !== "" && !fallbackRegex.test(imageFallbacks)) {
+          issues.push({
+            key: "IMAGE_FALLBACK_PROVIDERS",
+            message: `IMAGE_FALLBACK_PROVIDERS "${imageFallbacks}" contains invalid characters. Only comma-separated alphanumeric provider IDs are allowed.`,
+            severity: "error"
+          });
+        }
+      }
+    }
+
     // 4-6. Runtime ports & host check
     const runtime = snapshot.runtime;
     if (runtime.port <= 0 || runtime.port > 65535) {

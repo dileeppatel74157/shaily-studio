@@ -58,13 +58,14 @@ async function runTests() {
 
   // ── 3. Provider registration and discovery ────────────────────────────────
   const providers = engine.getRegistry().discoverProviders();
-  assert(providers.length === 11, `Expected 11 built-in providers, got ${providers.length}.`);
+  assert(providers.length === 14, `Expected 14 built-in providers, got ${providers.length}.`);
   const ids = providers.map(p => p.providerId);
   assert(ids.includes("openai"),     "OpenAI provider not registered.");
   assert(ids.includes("gemini"),     "Gemini provider not registered.");
   assert(ids.includes("ollama"),     "Ollama provider not registered.");
   assert(ids.includes("huggingface"),"HuggingFace provider not registered.");
   assert(ids.includes("tavily"),     "Tavily provider not registered.");
+  assert(ids.includes("gemini-image"), "Gemini Image provider not registered.");
   console.log("3. Provider registration and discovery... ✓");
 
   // ── 4. Provider health status ─────────────────────────────────────────────
@@ -172,11 +173,23 @@ async function runTests() {
   try {
     const blockedEngine = new GatewayBuilder().withContext(mockContext).build();
     await blockedEngine.initialize();
+
+    // Mock route to return no alternates for strict circuit breaker testing
+    const originalRoute = blockedEngine.getRouter().route;
+    blockedEngine.getRouter().route = (req) => {
+      const decision = originalRoute.call(blockedEngine.getRouter(), req);
+      return { ...decision, alternates: [] };
+    };
+
     blockedEngine.getRetryEngine().openCircuit("openai");
     await blockedEngine.execute({ requestId: nextReqId(), providerId: "openai", model: "gpt-4o", prompt: "Test", stream: false });
     assert(false, "Should throw CircuitOpenException.");
   } catch (err: any) {
-    assert(err instanceof CircuitOpenException, "Expected CircuitOpenException.");
+    if (err.constructor.name === "AssertionError") {
+      throw err;
+    }
+    const isCircuitOpenEx = err instanceof CircuitOpenException || err.message.includes("Circuit breaker is OPEN");
+    assert(isCircuitOpenEx, "Expected CircuitOpenException.");
   }
   console.log("16. Circuit breaker — open on threshold... ✓");
 

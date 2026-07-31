@@ -70,12 +70,28 @@ FALLBACK_PROVIDERS=nvidia,openai,ollama
 
 Configure media generation providers for images, voices, and music:
 
+*   **Google Gemini (Image)**: Uses the existing `GEMINI_API_KEY`.
 *   **OpenAI DALL-E (Image)**: Uses `OPENAI_API_KEY`.
 *   **ElevenLabs (Voice)**:
     *   Set `ELEVENLABS_API_KEY` in `.env`.
     *   Obtain from: [ElevenLabs Profile](https://elevenlabs.io/).
 *   **Suno / MusicGen (Music/SFX)**:
     *   Set `SUNO_API_KEY` or `MUSICGEN_API_KEY` in `.env` if using cloud endpoints.
+
+### Image Routing Configuration
+
+The system supports capability-based image generation routing and fallback, similar to the main LLM gateway.
+
+*   `IMAGE_PRIMARY_PROVIDER`: The primary provider for image requests (e.g. `gemini`).
+*   `IMAGE_FALLBACK_PROVIDERS`: A comma-separated list of fallback providers (e.g. `nvidia,openai`).
+*   `IMAGE_PROVIDER_MODEL`: The model ID to use (e.g. `gemini-2.5-flash-image-preview`).
+
+Example `.env` configuration:
+```env
+IMAGE_PRIMARY_PROVIDER=gemini
+IMAGE_FALLBACK_PROVIDERS=nvidia,openai
+IMAGE_PROVIDER_MODEL=gemini-2.5-flash-image-preview
+```
 
 ---
 

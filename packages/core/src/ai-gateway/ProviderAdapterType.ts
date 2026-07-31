@@ -9,5 +9,8 @@ export enum ProviderAdapterType {
   INSTAGRAM   = "INSTAGRAM",
   FACEBOOK    = "FACEBOOK",
   NVIDIA      = "NVIDIA",
-  GROK        = "GROK"
+  GROK        = "GROK",
+  GEMINI_IMAGE = "GEMINI_IMAGE",
+  NVIDIA_IMAGE = "NVIDIA_IMAGE",
+  OPENAI_IMAGE = "OPENAI_IMAGE"
 }

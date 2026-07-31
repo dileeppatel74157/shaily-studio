@@ -154,7 +154,10 @@ export class ConfigurationEngine implements
       "STORAGE_BUCKET_TEMP": process.env.STORAGE_BUCKET_TEMP || "temp",
       "STORAGE_BUCKET_CACHE": process.env.STORAGE_BUCKET_CACHE || "cache",
       "PRIMARY_PROVIDER": process.env.PRIMARY_PROVIDER || "gemini",
-      "FALLBACK_PROVIDERS": process.env.FALLBACK_PROVIDERS || "nvidia,openai,ollama"
+      "FALLBACK_PROVIDERS": process.env.FALLBACK_PROVIDERS || "nvidia,openai,ollama",
+      "IMAGE_PRIMARY_PROVIDER": process.env.IMAGE_PRIMARY_PROVIDER || "gemini",
+      "IMAGE_FALLBACK_PROVIDERS": process.env.IMAGE_FALLBACK_PROVIDERS || "nvidia,openai",
+      "IMAGE_PROVIDER_MODEL": process.env.IMAGE_PROVIDER_MODEL || "gemini-2.5-flash-image-preview"
     };
 
     const sources: Record<string, ConfigurationSource> = {
@@ -171,7 +174,10 @@ export class ConfigurationEngine implements
       "STORAGE_BUCKET_TEMP": ConfigurationSource.ENV,
       "STORAGE_BUCKET_CACHE": ConfigurationSource.ENV,
       "PRIMARY_PROVIDER": ConfigurationSource.ENV,
-      "FALLBACK_PROVIDERS": ConfigurationSource.ENV
+      "FALLBACK_PROVIDERS": ConfigurationSource.ENV,
+      "IMAGE_PRIMARY_PROVIDER": ConfigurationSource.ENV,
+      "IMAGE_FALLBACK_PROVIDERS": ConfigurationSource.ENV,
+      "IMAGE_PROVIDER_MODEL": ConfigurationSource.ENV
     };
 
     // Find and parse .env

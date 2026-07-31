@@ -55,11 +55,15 @@ class BuiltInAdapter implements IProviderAdapter {
 
   constructor(
     public readonly providerId: string,
-    public readonly adapterType: ProviderAdapterType
+    public readonly adapterType: ProviderAdapterType,
+    private readonly _context?: any
   ) {}
 
   async connect(): Promise<void> {
-    const apiKey = process.env[`${this.adapterType}_API_KEY`] || process.env[`${this.providerId.toUpperCase()}_API_KEY`];
+    let apiKey = process.env[`${this.adapterType}_API_KEY`] || process.env[`${this.providerId.toUpperCase()}_API_KEY`];
+    if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE) {
+      apiKey = process.env.GEMINI_API_KEY || apiKey;
+    }
     const isMockKey = !apiKey || apiKey.includes("-mock-key-value-12345") || apiKey.includes("your_") || apiKey.includes("sk-proj-");
 
     if (apiKey && !isMockKey) {
@@ -70,6 +74,15 @@ class BuiltInAdapter implements IProviderAdapter {
             this.providerId,
             "Gemini Real Provider",
             { env: "prod", namespace: "studio" },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE) {
+          const { GeminiImageProvider } = require("@shaily/provider-google");
+          const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+          this._realProvider = new GeminiImageProvider(
+            this.providerId,
+            "Gemini Image Real Provider",
+            { env: "prod", namespace: "studio", storage },
             { apiKey }
           );
         } else if (this.adapterType === ProviderAdapterType.OPENAI) {
@@ -119,6 +132,53 @@ class BuiltInAdapter implements IProviderAdapter {
   async execute(request: GatewayRequest): Promise<GatewayResponse> {
     if (this._realProvider) {
       const start = Date.now();
+      
+      if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE) {
+        const response = await this._realProvider.execute({
+          model: request.model,
+          prompt: request.prompt,
+          negativePrompt: request.imageParams?.negativePrompt,
+          width: request.imageParams?.width,
+          height: request.imageParams?.height,
+          numberOfImages: request.imageParams?.numberOfImages || request.imageParams?.numImages || 1,
+          seed: request.imageParams?.seed,
+          mimeType: request.imageParams?.mimeType,
+          requestId: request.requestId,
+        });
+        const latencyMs = Date.now() - start;
+        return {
+          requestId: request.requestId,
+          providerId: this.providerId,
+          model: response.model,
+          content: response.storedImagePath || response.content,
+          text: response.storedImagePath || response.text,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          costUsd: 0.05,
+          latencyMs,
+          finishReason: "stop",
+          metadata: {
+            storageBucket: response.storageBucket,
+            mimeType: response.mimeType,
+            width: response.width,
+            height: response.height,
+            imageMetadata: response.metadata
+          },
+          assets: [
+            {
+              id: `asset-${Date.now()}`,
+              type: "IMAGE",
+              url: response.storedImagePath,
+              mimeType: response.mimeType,
+              width: response.width,
+              height: response.height,
+              metadata: response.metadata
+            }
+          ]
+        };
+      }
+
       const response = await this._realProvider.execute({
         model: request.model,
         messages: [{ role: "user", content: request.prompt }],
@@ -905,6 +965,8 @@ export class GatewayEngine implements
   private _registerBuiltInProviders(): void {
     let primary = "gemini";
     let fallbacks = ["nvidia", "openai", "ollama"];
+    let imagePrimary = "gemini-image";
+    let imageFallbacks = ["nvidia-image", "openai-image"];
 
     if (this._context) {
       try {
@@ -916,11 +978,35 @@ export class GatewayEngine implements
           if (fallbackStr) {
             fallbacks = fallbackStr.split(",").map((s: string) => s.trim().toLowerCase());
           }
+
+          const imgPrimaryStr = envMgr.resolveVariable("IMAGE_PRIMARY_PROVIDER");
+          if (imgPrimaryStr) {
+            imagePrimary = imgPrimaryStr.endsWith("-image") ? imgPrimaryStr : `${imgPrimaryStr}-image`;
+          }
+          const imgFallbackStr = envMgr.resolveVariable("IMAGE_FALLBACK_PROVIDERS");
+          if (imgFallbackStr) {
+            imageFallbacks = imgFallbackStr.split(",").map((s: string) => {
+              const cleaned = s.trim().toLowerCase();
+              return cleaned.endsWith("-image") ? cleaned : `${cleaned}-image`;
+            });
+          }
         }
       } catch (e) {
         primary = process.env.PRIMARY_PROVIDER || primary;
         if (process.env.FALLBACK_PROVIDERS) {
           fallbacks = process.env.FALLBACK_PROVIDERS.split(",").map((s: string) => s.trim().toLowerCase());
+        }
+
+        const imgPrimaryStr = process.env.IMAGE_PRIMARY_PROVIDER;
+        if (imgPrimaryStr) {
+          imagePrimary = imgPrimaryStr.endsWith("-image") ? imgPrimaryStr : `${imgPrimaryStr}-image`;
+        }
+        const imgFallbackStr = process.env.IMAGE_FALLBACK_PROVIDERS;
+        if (imgFallbackStr) {
+          imageFallbacks = imgFallbackStr.split(",").map((s: string) => {
+            const cleaned = s.trim().toLowerCase();
+            return cleaned.endsWith("-image") ? cleaned : `${cleaned}-image`;
+          });
         }
       }
     } else {
@@ -928,9 +1014,22 @@ export class GatewayEngine implements
       if (process.env.FALLBACK_PROVIDERS) {
         fallbacks = process.env.FALLBACK_PROVIDERS.split(",").map((s: string) => s.trim().toLowerCase());
       }
+
+      const imgPrimaryStr = process.env.IMAGE_PRIMARY_PROVIDER;
+      if (imgPrimaryStr) {
+        imagePrimary = imgPrimaryStr.endsWith("-image") ? imgPrimaryStr : `${imgPrimaryStr}-image`;
+      }
+      const imgFallbackStr = process.env.IMAGE_FALLBACK_PROVIDERS;
+      if (imgFallbackStr) {
+        imageFallbacks = imgFallbackStr.split(",").map((s: string) => {
+          const cleaned = s.trim().toLowerCase();
+          return cleaned.endsWith("-image") ? cleaned : `${cleaned}-image`;
+        });
+      }
     }
 
     const priorityOrder = [primary, ...fallbacks];
+    const imagePriorityOrder = [imagePrimary, ...imageFallbacks];
 
     const builtIns: Array<{ id: string; type: ProviderAdapterType; name: string; models: string[]; priority: number }> = [
       { id: "openai",      type: ProviderAdapterType.OPENAI,      name: "OpenAI",      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],         priority: 100 },
@@ -943,18 +1042,28 @@ export class GatewayEngine implements
       { id: "tavily",      type: ProviderAdapterType.TAVILY,      name: "Tavily",      models: ["tavily-search-basic", "tavily-search-advanced"],   priority: 50  },
       { id: "youtube",     type: ProviderAdapterType.YOUTUBE,     name: "YouTube",     models: ["youtube-data-v3"],                                 priority: 40  },
       { id: "instagram",   type: ProviderAdapterType.INSTAGRAM,   name: "Instagram",   models: ["instagram-graph-v18"],                             priority: 30  },
-      { id: "facebook",    type: ProviderAdapterType.FACEBOOK,    name: "Facebook",    models: ["facebook-graph-v18"],                              priority: 20  }
+      { id: "facebook",    type: ProviderAdapterType.FACEBOOK,    name: "Facebook",    models: ["facebook-graph-v18"],                              priority: 20  },
+      { id: "gemini-image", type: ProviderAdapterType.GEMINI_IMAGE, name: "Gemini Image", models: [process.env.IMAGE_PROVIDER_MODEL || "gemini-2.5-flash-image-preview"], priority: 95 },
+      { id: "nvidia-image", type: ProviderAdapterType.NVIDIA_IMAGE, name: "Nvidia Image", models: ["nvidia-image-model"], priority: 85 },
+      { id: "openai-image", type: ProviderAdapterType.OPENAI_IMAGE, name: "OpenAI Image", models: ["dall-e-3"], priority: 80 }
     ];
 
     for (const bi of builtIns) {
-      const adapter = new BuiltInAdapter(bi.id, bi.type);
+      const adapter = new BuiltInAdapter(bi.id, bi.type, this._context);
       this._adapters.set(bi.id, adapter);
 
       // Dynamically calculate priority
       let calculatedPriority = bi.priority;
-      const index = priorityOrder.indexOf(bi.id);
-      if (index !== -1) {
-        calculatedPriority = 1000 - index * 100;
+      if (bi.id.endsWith("-image")) {
+        const index = imagePriorityOrder.indexOf(bi.id);
+        if (index !== -1) {
+          calculatedPriority = 1000 - index * 100;
+        }
+      } else {
+        const index = priorityOrder.indexOf(bi.id);
+        if (index !== -1) {
+          calculatedPriority = 1000 - index * 100;
+        }
       }
 
       const entry: ProviderRegistryEntry = {
@@ -962,17 +1071,17 @@ export class GatewayEngine implements
         adapterType: bi.type,
         displayName: bi.name,
         capabilities: {
-          supportsStreaming: true,
+          supportsStreaming: !bi.id.endsWith("-image"),
           supportsVision: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.NVIDIA,
           supportsTools: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.GROK,
           supportsJsonMode: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OPENROUTER || bi.type === ProviderAdapterType.GROK,
           maxContextTokens: bi.type === ProviderAdapterType.OLLAMA ? 32_768 : 128_000,
           availableModels: bi.models,
-          supportsChat: true,
-          supportsImages: bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI,
+          supportsChat: !bi.id.endsWith("-image"),
+          supportsImages: bi.id.endsWith("-image"),
           supportsVideo: false,
           supportsVoice: false,
-          supportsEmbeddings: bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA
+          supportsEmbeddings: !bi.id.endsWith("-image") && (bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA)
         },
         priority: calculatedPriority,
         enabled: true,

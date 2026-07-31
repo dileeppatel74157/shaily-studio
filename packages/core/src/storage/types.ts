@@ -28,6 +28,9 @@ export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
+  if (obj instanceof Uint8Array) {
+    return obj;
+  }
   Object.freeze(obj);
   
   const typedObj = obj as unknown as Record<string, unknown>;

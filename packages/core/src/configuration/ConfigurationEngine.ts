@@ -152,7 +152,9 @@ export class ConfigurationEngine implements
       "STORAGE_BUCKET_EXPORTS": process.env.STORAGE_BUCKET_EXPORTS || "exports",
       "STORAGE_BUCKET_THUMBNAILS": process.env.STORAGE_BUCKET_THUMBNAILS || "thumbnails",
       "STORAGE_BUCKET_TEMP": process.env.STORAGE_BUCKET_TEMP || "temp",
-      "STORAGE_BUCKET_CACHE": process.env.STORAGE_BUCKET_CACHE || "cache"
+      "STORAGE_BUCKET_CACHE": process.env.STORAGE_BUCKET_CACHE || "cache",
+      "PRIMARY_PROVIDER": process.env.PRIMARY_PROVIDER || "gemini",
+      "FALLBACK_PROVIDERS": process.env.FALLBACK_PROVIDERS || "nvidia,openai,ollama"
     };
 
     const sources: Record<string, ConfigurationSource> = {
@@ -167,7 +169,9 @@ export class ConfigurationEngine implements
       "STORAGE_BUCKET_EXPORTS": ConfigurationSource.ENV,
       "STORAGE_BUCKET_THUMBNAILS": ConfigurationSource.ENV,
       "STORAGE_BUCKET_TEMP": ConfigurationSource.ENV,
-      "STORAGE_BUCKET_CACHE": ConfigurationSource.ENV
+      "STORAGE_BUCKET_CACHE": ConfigurationSource.ENV,
+      "PRIMARY_PROVIDER": ConfigurationSource.ENV,
+      "FALLBACK_PROVIDERS": ConfigurationSource.ENV
     };
 
     // Find and parse .env

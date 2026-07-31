@@ -27,6 +27,13 @@ export interface GatewayRequest {
   maxTokens?: number;
   temperature?: number;
   metadata?: Record<string, any>;
+  // Multi-domain contracts
+  requestType?: "chat" | "image" | "video" | "voice" | "embeddings";
+  mediaType?: string;
+  imageParams?: Record<string, any>;
+  videoParams?: Record<string, any>;
+  voiceParams?: Record<string, any>;
+  embeddingInput?: string | string[];
 }
 
 // 3. GatewayResponse
@@ -41,6 +48,11 @@ export interface GatewayResponse {
   costUsd: number;
   latencyMs: number;
   finishReason: string;
+  // Multi-domain contracts
+  text?: string;
+  assets?: any[];
+  urls?: string[];
+  metadata?: Record<string, any>;
 }
 
 // 4. GatewayResponseChunk
@@ -70,6 +82,12 @@ export interface ProviderCapabilities {
   supportsJsonMode: boolean;
   maxContextTokens: number;
   availableModels: string[];
+  // Multi-domain capabilities
+  supportsChat?: boolean;
+  supportsImages?: boolean;
+  supportsVideo?: boolean;
+  supportsVoice?: boolean;
+  supportsEmbeddings?: boolean;
 }
 
 // 7. ProviderHealthStatus

@@ -54,6 +54,24 @@ export class ConfigurationValidator {
       }
     }
 
+    // Primary and Fallback provider checks
+    const primaryProvider = variables["PRIMARY_PROVIDER"];
+    if (!primaryProvider || primaryProvider.trim() === "") {
+      issues.push({ key: "PRIMARY_PROVIDER", message: "PRIMARY_PROVIDER cannot be empty.", severity: "error" });
+    }
+
+    const fallbackProviders = variables["FALLBACK_PROVIDERS"];
+    if (fallbackProviders !== undefined && fallbackProviders !== null) {
+      const fallbackRegex = /^[a-zA-Z0-9_.,-]+$/;
+      if (fallbackProviders.trim() !== "" && !fallbackRegex.test(fallbackProviders)) {
+        issues.push({
+          key: "FALLBACK_PROVIDERS",
+          message: `FALLBACK_PROVIDERS "${fallbackProviders}" contains invalid characters. Only comma-separated alphanumeric provider IDs are allowed.`,
+          severity: "error"
+        });
+      }
+    }
+
     // 4-6. Runtime ports & host check
     const runtime = snapshot.runtime;
     if (runtime.port <= 0 || runtime.port > 65535) {

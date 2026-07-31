@@ -49,6 +49,21 @@ Configure the API keys for the language models you wish to use:
     *   Ensure Ollama is running locally (`ollama serve`).
     *   Set `OLLAMA_BASE_URL=http://localhost:11434`.
 
+### Provider Fallback & Priorities Configuration
+
+The system supports automatic provider fallback and routing based on capabilities. If a primary provider fails with a recoverable error (such as a timeout, rate limit, or temporary 5xx outage), the AI Gateway will automatically route the request to the configured fallback chain.
+
+To configure provider priority:
+
+1. Specify the primary provider via `PRIMARY_PROVIDER`.
+2. Specify a comma-separated list of fallback providers via `FALLBACK_PROVIDERS`.
+
+Example `.env` configuration:
+```env
+PRIMARY_PROVIDER=gemini
+FALLBACK_PROVIDERS=nvidia,openai,ollama
+```
+
 ---
 
 ## Step 4: Media Providers

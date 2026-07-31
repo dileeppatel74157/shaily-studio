@@ -336,38 +336,125 @@ export class GatewayEngine implements
   // ===========================================================================
   // Main pipeline
   // ===========================================================================
+  private _isRecoverableError(error: any): boolean {
+    const message = String(error.message || error).toLowerCase();
+    const status = error.status || error.statusCode;
+
+    // Unrecoverable HTTP status codes
+    if (status === 400 || status === 401 || status === 403 || status === 404) {
+      // Treat quota exceeded as recoverable even if 403 or 429
+      if (message.includes("quota")) return true;
+      return false;
+    }
+
+    // Explicit unrecoverable phrases
+    if (
+      message.includes("api key") || 
+      message.includes("unauthorized") || 
+      message.includes("invalid request") || 
+      message.includes("not found") ||
+      message.includes("bad request") ||
+      message.includes("malformed payload") ||
+      message.includes("validation error") ||
+      message.includes("unsupported model")
+    ) {
+      return false;
+    }
+
+    return true; // Default to recoverable for timeouts, 429s, network failures, connection resets, circuit breaker open, etc.
+  }
+
   async execute(request: GatewayRequest): Promise<GatewayResponse> {
-    this._validator.validateRequest(request.requestId, request.prompt, request.model);
+    this._validator.validateRequest(request.requestId, request.prompt, request.model, request.requestType, request.embeddingInput);
 
     const decision = this.route(request);
-    const providerId = decision.selectedProviderId;
+    const providersToTry = [decision.selectedProviderId, ...(decision.alternates || [])];
+    
+    let lastError: any;
 
-    const adapter = this._adapters.get(providerId);
-    if (!adapter) throw new ProviderNotFoundException(providerId);
+    for (const providerId of providersToTry) {
+      const adapter = this._adapters.get(providerId);
+      if (!adapter) continue;
 
-    // Retry wrapper
-    const response = await this.executeWithRetry(async () => {
-      const start = Date.now();
-      const raw = await adapter.execute({ ...request, providerId });
-      return this.normalize(raw, request, Date.now() - start);
-    }, providerId);
+      // Check circuit breaker/cooldown early before attempting
+      const status = this.getCircuitStatus(providerId);
+      if (status.state === CircuitBreakerState.OPEN) {
+        lastError = new CircuitOpenException(providerId);
+        continue;
+      }
 
-    this.collectUsage(response);
-    this.countRequest(providerId);
-    await this._context.eventBus?.publish({ type: GatewayEventType.RESPONSE_RECEIVED, payload: response });
+      try {
+        const response = await this.executeWithRetry(async () => {
+          const start = Date.now();
+          const raw = await adapter.execute({ ...request, providerId });
+          return this.normalize(raw, request, Date.now() - start);
+        }, providerId);
 
-    return response;
+        this.collectUsage(response);
+        this.countRequest(providerId);
+        await this._context.eventBus?.publish({ type: GatewayEventType.RESPONSE_RECEIVED, payload: response });
+
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        
+        // If error is unrecoverable, abort immediately (no fallback)
+        if (!this._isRecoverableError(err)) {
+          break;
+        }
+
+        this._context.logger?.warn(`Provider "${providerId}" failed with recoverable error: ${err.message}. Retrying on fallback provider...`);
+        
+        // Push fallback event
+        if (this._context.eventBus) {
+          await this._context.eventBus.publish({
+            type: GatewayEventType.REQUEST_ROUTED,
+            payload: {
+              status: "fallback",
+              fromProvider: providerId,
+              error: err.message
+            }
+          });
+        }
+      }
+    }
+
+    throw new GatewayException(`All candidate providers failed. Last error: ${lastError?.message || lastError}`);
   }
 
   async *stream(request: GatewayRequest): AsyncGenerator<GatewayResponseChunk> {
-    this._validator.validateRequest(request.requestId, request.prompt, request.model);
+    this._validator.validateRequest(request.requestId, request.prompt, request.model, request.requestType, request.embeddingInput);
     this._validator.validateStreamingResponse(request.requestId);
 
     const decision = this.route(request);
-    const adapter  = this._adapters.get(decision.selectedProviderId);
-    if (!adapter) throw new ProviderNotFoundException(decision.selectedProviderId);
+    const providersToTry = [decision.selectedProviderId, ...(decision.alternates || [])];
 
-    yield* adapter.stream({ ...request, providerId: decision.selectedProviderId });
+    let lastError: any;
+
+    for (const providerId of providersToTry) {
+      const adapter = this._adapters.get(providerId);
+      if (!adapter) continue;
+
+      // Check circuit breaker state
+      const status = this.getCircuitStatus(providerId);
+      if (status.state === CircuitBreakerState.OPEN) {
+        lastError = new CircuitOpenException(providerId);
+        continue;
+      }
+
+      try {
+        yield* adapter.stream({ ...request, providerId });
+        return; // Success, return
+      } catch (err: any) {
+        lastError = err;
+        if (!this._isRecoverableError(err)) {
+          break;
+        }
+        this._context.logger?.warn(`Provider "${providerId}" streaming failed: ${err.message}. Trying fallback...`);
+      }
+    }
+
+    throw new GatewayException(`All candidate providers failed during streaming. Last error: ${lastError?.message || lastError}`);
   }
 
   // ===========================================================================
@@ -414,13 +501,32 @@ export class GatewayEngine implements
   // IRequestRouter
   // ===========================================================================
   route(request: GatewayRequest): GatewayRouteDecision {
-    const providers = this.discoverProviders();
+    let providers = this.discoverProviders();
     if (providers.length === 0) throw new GatewayException("No providers registered in gateway.");
+
+    // Filter based on capabilities
+    if (request.requestType) {
+      if (request.requestType === "chat") {
+        providers = providers.filter(p => p.capabilities.supportsChat !== false);
+      } else if (request.requestType === "image") {
+        providers = providers.filter(p => p.capabilities.supportsImages === true);
+      } else if (request.requestType === "video") {
+        providers = providers.filter(p => p.capabilities.supportsVideo === true);
+      } else if (request.requestType === "voice") {
+        providers = providers.filter(p => p.capabilities.supportsVoice === true);
+      } else if (request.requestType === "embeddings") {
+        providers = providers.filter(p => p.capabilities.supportsEmbeddings === true);
+      }
+    }
+
+    if (providers.length === 0) {
+      throw new GatewayException(`No providers found supporting requestType "${request.requestType}".`);
+    }
 
     let selected = request.providerId;
     const strategy = this._config.routingStrategy;
 
-    if (!this._providers.has(selected)) {
+    if (!selected || !providers.some(p => p.providerId === selected)) {
       // Auto-select using strategy
       if (strategy === RequestRoutingStrategy.ROUND_ROBIN) {
         selected = providers[this._rrCursor % providers.length].providerId;
@@ -434,7 +540,10 @@ export class GatewayEngine implements
       }
     }
 
-    const alternates = providers.filter(p => p.providerId !== selected).map(p => p.providerId);
+    const alternates = providers
+      .filter(p => p.providerId !== selected)
+      .sort((a, b) => b.priority - a.priority)
+      .map(p => p.providerId);
     this._validator.validateRouteDecision(selected);
 
     return { selectedProviderId: selected, strategy, alternates, reason: "auto-selected" };
@@ -447,8 +556,9 @@ export class GatewayEngine implements
   }
 
   applyFallback(failedProviderId: string, request: GatewayRequest): string | undefined {
-    const providers = this.discoverProviders().filter(p => p.providerId !== failedProviderId);
-    return providers[0]?.providerId;
+    const decision = this.route(request);
+    const alternates = [decision.selectedProviderId, ...(decision.alternates || [])].filter(id => id !== failedProviderId);
+    return alternates[0];
   }
 
   balanceLoad(): LoadBalancerState {
@@ -583,6 +693,11 @@ export class GatewayEngine implements
         return await fn();
       } catch (err) {
         lastError = err;
+
+        if (!this._isRecoverableError(err)) {
+          throw err;
+        }
+
         const delay = this.applyBackoff(attempt);
         const retryAttempt: RetryAttempt = {
           requestId: `retry-${Date.now()}`,
@@ -788,6 +903,35 @@ export class GatewayEngine implements
   // Private — register all built-in provider adapters
   // ===========================================================================
   private _registerBuiltInProviders(): void {
+    let primary = "gemini";
+    let fallbacks = ["nvidia", "openai", "ollama"];
+
+    if (this._context) {
+      try {
+        const configEngine = this._context.resolve("IConfiguration");
+        if (configEngine && typeof configEngine.getEnvironmentManager === "function") {
+          const envMgr = configEngine.getEnvironmentManager();
+          primary = envMgr.resolveVariable("PRIMARY_PROVIDER") || primary;
+          const fallbackStr = envMgr.resolveVariable("FALLBACK_PROVIDERS");
+          if (fallbackStr) {
+            fallbacks = fallbackStr.split(",").map((s: string) => s.trim().toLowerCase());
+          }
+        }
+      } catch (e) {
+        primary = process.env.PRIMARY_PROVIDER || primary;
+        if (process.env.FALLBACK_PROVIDERS) {
+          fallbacks = process.env.FALLBACK_PROVIDERS.split(",").map((s: string) => s.trim().toLowerCase());
+        }
+      }
+    } else {
+      primary = process.env.PRIMARY_PROVIDER || primary;
+      if (process.env.FALLBACK_PROVIDERS) {
+        fallbacks = process.env.FALLBACK_PROVIDERS.split(",").map((s: string) => s.trim().toLowerCase());
+      }
+    }
+
+    const priorityOrder = [primary, ...fallbacks];
+
     const builtIns: Array<{ id: string; type: ProviderAdapterType; name: string; models: string[]; priority: number }> = [
       { id: "openai",      type: ProviderAdapterType.OPENAI,      name: "OpenAI",      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],         priority: 100 },
       { id: "gemini",      type: ProviderAdapterType.GEMINI,      name: "Gemini",      models: ["gemini-2.0-flash", "gemini-1.5-pro"],              priority: 90  },
@@ -806,6 +950,13 @@ export class GatewayEngine implements
       const adapter = new BuiltInAdapter(bi.id, bi.type);
       this._adapters.set(bi.id, adapter);
 
+      // Dynamically calculate priority
+      let calculatedPriority = bi.priority;
+      const index = priorityOrder.indexOf(bi.id);
+      if (index !== -1) {
+        calculatedPriority = 1000 - index * 100;
+      }
+
       const entry: ProviderRegistryEntry = {
         providerId: bi.id,
         adapterType: bi.type,
@@ -816,9 +967,14 @@ export class GatewayEngine implements
           supportsTools: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.GROK,
           supportsJsonMode: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OPENROUTER || bi.type === ProviderAdapterType.GROK,
           maxContextTokens: bi.type === ProviderAdapterType.OLLAMA ? 32_768 : 128_000,
-          availableModels: bi.models
+          availableModels: bi.models,
+          supportsChat: true,
+          supportsImages: bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI,
+          supportsVideo: false,
+          supportsVoice: false,
+          supportsEmbeddings: bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA
         },
-        priority: bi.priority,
+        priority: calculatedPriority,
         enabled: true,
         version: "1.0.0"
       };

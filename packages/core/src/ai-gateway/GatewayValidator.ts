@@ -43,10 +43,11 @@ export class GatewayValidator {
     }
   }
 
-  validateRequest(requestId: string, prompt: string, model: string): void {
-    // 7. Request must include a non-empty prompt
-    if (!prompt || prompt.trim() === "") {
-      throw new GatewayValidationException(`Request "${requestId}" must include a non-empty prompt.`);
+  validateRequest(requestId: string, prompt: string, model: string, requestType?: string, embeddingInput?: any): void {
+    // 7. Request must include a non-empty prompt (or embeddingInput)
+    const hasInput = (prompt && prompt.trim() !== "") || (embeddingInput !== undefined && embeddingInput !== null);
+    if (!hasInput) {
+      throw new GatewayValidationException(`Request "${requestId}" must include a non-empty prompt or embeddingInput.`);
     }
 
     // 8. Model must be a non-empty string

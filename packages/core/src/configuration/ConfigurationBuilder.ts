@@ -11,6 +11,10 @@ export class ConfigurationBuilder {
     return this;
   }
 
+  public withSchema(schema: any): this {
+    return this;
+  }
+
   public withConfigPath(path: string): this {
     this._configPath = path;
     return this;

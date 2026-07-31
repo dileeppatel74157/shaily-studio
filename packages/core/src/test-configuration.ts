@@ -1,3 +1,4 @@
+import * as path from "path";
 import { ConfigurationBuilder } from "./configuration/ConfigurationBuilder";
 import { ConfigurationState } from "./configuration/ConfigurationState";
 import { ConfigurationScope } from "./configuration/ConfigurationScope";
@@ -46,7 +47,10 @@ async function runTests() {
   console.log("1. Builder Validation... ✓");
 
   // 2. Environment Loading
-  const engine = new ConfigurationBuilder().withContext(mockContext).build();
+  const engine = new ConfigurationBuilder()
+    .withContext(mockContext)
+    .withConfigPath(path.resolve(__dirname, "does-not-exist.env"))
+    .build();
   assert(engine.getState() === ConfigurationState.CREATED, "Engine state should be CREATED.");
   
   await engine.initialize();
@@ -59,7 +63,7 @@ async function runTests() {
 
   // 3. Secret Loading
   const secrets = engine.getSecretsManager().getSecrets();
-  assert(secrets.length === 2, "Expected 2 loaded secrets.");
+  assert(secrets.length === 5, "Expected 5 loaded secrets.");
   assert(secrets.some(s => s.key === "OPENAI_API_KEY"), "OpenAI API key missing.");
   console.log("3. Secret Loading... ✓");
 
@@ -190,7 +194,10 @@ async function runTests() {
   console.log("19. Validator Rules... ✓");
 
   // 20. Complete End-to-End Configuration Lifecycle
-  const freshEngine = new ConfigurationBuilder().withContext(mockContext).build();
+  const freshEngine = new ConfigurationBuilder()
+    .withContext(mockContext)
+    .withConfigPath(path.resolve(__dirname, "does-not-exist.env"))
+    .build();
   await freshEngine.initialize();
   await freshEngine.start();
   
@@ -201,7 +208,56 @@ async function runTests() {
   await freshEngine.stop();
   console.log("20. Complete End-to-End Configuration Lifecycle... ✓\n");
 
-  console.log("=== ALL 20/20 CONFIGURATION ENGINE TESTS PASSED SUCCESSFULLY ===");
+  // 21. Storage Configuration Verification
+  console.log("21. Running Storage Configuration Verification...");
+  const storageEngine = new ConfigurationBuilder()
+    .withContext(mockContext)
+    .withConfigPath(path.resolve(__dirname, "does-not-exist.env"))
+    .build();
+  await storageEngine.initialize();
+  const storageEnv = storageEngine.getEnvironmentManager().getEnvironment();
+  assert(storageEnv.variables["STORAGE_PROVIDER"] === "local", "Expected STORAGE_PROVIDER to load as 'local'.");
+  assert(storageEnv.variables["LOCAL_STORAGE_PATH"] === "./storage", "Expected LOCAL_STORAGE_PATH to load as './storage'.");
+  assert(storageEnv.variables["STORAGE_BUCKET_IMAGES"] === "images", "Expected STORAGE_BUCKET_IMAGES to load as 'images'.");
+  console.log("   ✓ Verified environment loads STORAGE_PROVIDER, LOCAL_STORAGE_PATH, and bucket names.");
+
+  // 22. Storage Validation - Missing STORAGE_PROVIDER
+  console.log("22. Running Storage Validation - Missing STORAGE_PROVIDER...");
+  const validator = storageEngine.getValidator();
+  const storageSnap1 = storageEngine.getSnapshot();
+  const storageSnap1Copy = JSON.parse(JSON.stringify(storageSnap1));
+  delete storageSnap1Copy.environment.variables["STORAGE_PROVIDER"];
+  const report1 = await validator.validate(storageSnap1Copy);
+  assert(report1.result === ValidationResult.FAILED, "Expected validation failure for missing STORAGE_PROVIDER.");
+  assert(report1.issues.some(issue => issue.key === "STORAGE_PROVIDER" && issue.severity === "error"), "Expected error issue for missing STORAGE_PROVIDER.");
+  console.log("   ✓ Verified validation error on missing STORAGE_PROVIDER.");
+
+  // 23. Storage Validation - Missing LOCAL_STORAGE_PATH
+  console.log("23. Running Storage Validation - Missing LOCAL_STORAGE_PATH...");
+  const storageSnap2Copy = JSON.parse(JSON.stringify(storageSnap1));
+  storageSnap2Copy.environment.variables["STORAGE_PROVIDER"] = "local";
+  delete storageSnap2Copy.environment.variables["LOCAL_STORAGE_PATH"];
+  const report2 = await validator.validate(storageSnap2Copy);
+  assert(report2.result === ValidationResult.FAILED, "Expected validation failure for missing LOCAL_STORAGE_PATH when provider is local.");
+  assert(report2.issues.some(issue => issue.key === "LOCAL_STORAGE_PATH" && issue.severity === "error"), "Expected error issue for missing LOCAL_STORAGE_PATH.");
+  console.log("   ✓ Verified validation error on missing LOCAL_STORAGE_PATH.");
+
+  // 24. Storage Validation - Invalid Bucket Name
+  console.log("24. Running Storage Validation - Invalid Bucket Name...");
+  const storageSnap3Copy = JSON.parse(JSON.stringify(storageSnap1));
+  storageSnap3Copy.environment.variables["STORAGE_BUCKET_IMAGES"] = "invalid bucket/name";
+  const report3 = await validator.validate(storageSnap3Copy);
+  assert(report3.result === ValidationResult.FAILED, "Expected validation failure for invalid bucket name.");
+  assert(report3.issues.some(issue => issue.key === "STORAGE_BUCKET_IMAGES" && issue.severity === "error"), "Expected error issue for invalid bucket name.");
+  console.log("   ✓ Verified validation error on invalid bucket name.");
+
+  // 25. Storage Validation - Valid Configuration
+  console.log("25. Running Storage Validation - Valid Configuration...");
+  const report4 = await validator.validate(storageSnap1);
+  assert(report4.result === ValidationResult.PASSED || report4.result === ValidationResult.WARNING, "Expected validation success for valid configuration.");
+  console.log("   ✓ Verified validation success for valid configuration.");
+
+  console.log("=== ALL 25/25 CONFIGURATION ENGINE TESTS PASSED SUCCESSFULLY ===");
 }
 
 runTests().catch(err => {

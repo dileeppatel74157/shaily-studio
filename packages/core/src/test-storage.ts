@@ -1,5 +1,9 @@
+"use strict";
+import * as fs from "fs";
+import * as path from "path";
 import { StorageBuilder } from "./storage/StorageBuilder";
 import { StorageContext } from "./storage/StorageContext";
+import { FileSystemStorageProvider } from "./storage/StorageProvider";
 import { StorageBucket } from "./storage/StorageBucket";
 import { StorageObject } from "./storage/StorageObject";
 import { StorageQuery } from "./storage/StorageQuery";
@@ -445,6 +449,47 @@ async function runTests() {
 
   // eslint-disable-next-line no-console
   console.log("   ✓ Verified validator rule constraints.");
+
+  // ==========================================
+  // 9. Integration - Local FileSystem Storage Initialization
+  // ==========================================
+  // eslint-disable-next-line no-console
+  console.log("9. Running Local FileSystem Storage Integration...");
+  const tempTestDir = path.resolve(__dirname, `../temp-storage-test-${Date.now()}`);
+  
+  // Clean up if exists
+  if (fs.existsSync(tempTestDir)) {
+    fs.rmSync(tempTestDir, { recursive: true, force: true });
+  }
+
+  const testBuckets = ["images-test", "videos-test", "audio-test"];
+  
+  const fsProvider = new FileSystemStorageProvider(tempTestDir, testBuckets);
+  const integrationStorage = new StorageBuilder()
+    .withContext({ env: "test", namespace: "integration-test" })
+    .withProvider(fsProvider)
+    .build();
+
+  await integrationStorage.initialize();
+  await integrationStorage.start();
+
+  // 1. Verify root storage directory is created
+  assert(fs.existsSync(tempTestDir), "Root storage directory should be created");
+
+  // 2. Verify buckets initialize correctly from the bucketIds array
+  for (const bucketId of testBuckets) {
+    assert(integrationStorage.hasBucket(bucketId), `Storage should have initialized bucket: ${bucketId}`);
+    const bucketPath = path.join(tempTestDir, bucketId);
+    assert(fs.existsSync(bucketPath), `Directory for bucket ${bucketId} should exist on disk`);
+    const metaPath = path.join(bucketPath, ".bucket-metadata.json");
+    assert(fs.existsSync(metaPath), `Metadata file for bucket ${bucketId} should exist on disk`);
+  }
+
+  // Clean up
+  await integrationStorage.stop();
+  fs.rmSync(tempTestDir, { recursive: true, force: true });
+  // eslint-disable-next-line no-console
+  console.log("   ✓ Verified Local FileSystem Storage initialization and bucket pre-creation.");
 
   // eslint-disable-next-line no-console
   console.log("=== ALL STORAGE FRAMEWORK VERIFICATION TESTS PASSED SUCCESSFULLY ===");

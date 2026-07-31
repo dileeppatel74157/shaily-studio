@@ -143,18 +143,36 @@ export class ConfigurationEngine implements
     const variables: Record<string, string> = {
       "NODE_ENV": process.env.NODE_ENV || "production",
       "PORT": process.env.PORT || "8000",
-      "DATABASE_URL": process.env.DATABASE_URL || "postgresql://shaily:passwd@localhost:5432/studio"
+      "DATABASE_URL": process.env.DATABASE_URL || "postgresql://shaily:passwd@localhost:5432/studio",
+      "STORAGE_PROVIDER": process.env.STORAGE_PROVIDER || "local",
+      "LOCAL_STORAGE_PATH": process.env.LOCAL_STORAGE_PATH || "./storage",
+      "STORAGE_BUCKET_IMAGES": process.env.STORAGE_BUCKET_IMAGES || "images",
+      "STORAGE_BUCKET_VIDEOS": process.env.STORAGE_BUCKET_VIDEOS || "videos",
+      "STORAGE_BUCKET_AUDIO": process.env.STORAGE_BUCKET_AUDIO || "audio",
+      "STORAGE_BUCKET_EXPORTS": process.env.STORAGE_BUCKET_EXPORTS || "exports",
+      "STORAGE_BUCKET_THUMBNAILS": process.env.STORAGE_BUCKET_THUMBNAILS || "thumbnails",
+      "STORAGE_BUCKET_TEMP": process.env.STORAGE_BUCKET_TEMP || "temp",
+      "STORAGE_BUCKET_CACHE": process.env.STORAGE_BUCKET_CACHE || "cache"
     };
 
     const sources: Record<string, ConfigurationSource> = {
       "NODE_ENV": ConfigurationSource.ENV,
       "PORT": ConfigurationSource.ENV_LOCAL,
-      "DATABASE_URL": ConfigurationSource.WORKSPACE
+      "DATABASE_URL": ConfigurationSource.WORKSPACE,
+      "STORAGE_PROVIDER": ConfigurationSource.ENV,
+      "LOCAL_STORAGE_PATH": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_IMAGES": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_VIDEOS": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_AUDIO": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_EXPORTS": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_THUMBNAILS": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_TEMP": ConfigurationSource.ENV,
+      "STORAGE_BUCKET_CACHE": ConfigurationSource.ENV
     };
 
     // Find and parse .env
     let envPath = this._configPath || path.resolve(process.cwd(), ".env");
-    if (!fs.existsSync(envPath)) {
+    if (!this._configPath && !fs.existsSync(envPath)) {
       let currentDir = process.cwd();
       for (let i = 0; i < 5; i++) {
         const checkPath = path.join(currentDir, ".env");

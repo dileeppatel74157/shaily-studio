@@ -27,6 +27,7 @@ import { IPluginRegistry } from "../plugins/IPluginRegistry";
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { SecurityBuilder } from "../security/SecurityBuilder";
 import { StorageBuilder } from "../storage/StorageBuilder";
+import { FileSystemStorageProvider } from "../storage/StorageProvider";
 import { SchedulerBuilder } from "../scheduler/SchedulerBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { MessageBusBuilder } from "../messagebus/MessageBusBuilder";
@@ -126,9 +127,67 @@ export class CompositionBuilder {
 
     if (!c.contains("IStorage")) {
       c.addSingleton("IStorage", null, (p) => {
-        return new StorageBuilder()
-          .withContext(getCtx(p))
-          .build();
+        // Resolve configuration if registered
+        let storageProviderType = "local";
+        let localStoragePath = "./storage";
+        let bucketIds: string[] = [];
+
+        if (c.contains("IConfiguration")) {
+          try {
+            const configEngine = p.resolve<any>("IConfiguration");
+            if (configEngine && typeof configEngine.getEnvironmentManager === "function") {
+              const envMgr = configEngine.getEnvironmentManager();
+              storageProviderType = envMgr.resolveVariable("STORAGE_PROVIDER") || "local";
+              localStoragePath = envMgr.resolveVariable("LOCAL_STORAGE_PATH") || "./storage";
+              
+              const bucketKeys = [
+                "STORAGE_BUCKET_IMAGES",
+                "STORAGE_BUCKET_VIDEOS",
+                "STORAGE_BUCKET_AUDIO",
+                "STORAGE_BUCKET_EXPORTS",
+                "STORAGE_BUCKET_THUMBNAILS",
+                "STORAGE_BUCKET_TEMP",
+                "STORAGE_BUCKET_CACHE"
+              ];
+              bucketIds = bucketKeys
+                .map(k => envMgr.resolveVariable(k))
+                .filter((v): v is string => !!v && v.trim() !== "");
+            }
+          } catch (e) {
+            // Configuration might not be initialized yet
+          }
+        }
+
+        // Fallback to process.env if variables weren't resolved from config
+        if (!storageProviderType) {
+          storageProviderType = process.env.STORAGE_PROVIDER || "local";
+        }
+        if (!localStoragePath) {
+          localStoragePath = process.env.LOCAL_STORAGE_PATH || "./storage";
+        }
+        if (bucketIds.length === 0) {
+          const bucketKeys = [
+            "STORAGE_BUCKET_IMAGES",
+            "STORAGE_BUCKET_VIDEOS",
+            "STORAGE_BUCKET_AUDIO",
+            "STORAGE_BUCKET_EXPORTS",
+            "STORAGE_BUCKET_THUMBNAILS",
+            "STORAGE_BUCKET_TEMP",
+            "STORAGE_BUCKET_CACHE"
+          ];
+          bucketIds = bucketKeys
+            .map(k => process.env[k])
+            .filter((v): v is string => !!v && v.trim() !== "");
+        }
+
+        const builder = new StorageBuilder().withContext(getCtx(p));
+
+        if (storageProviderType === "local") {
+          const provider = new FileSystemStorageProvider(localStoragePath, bucketIds);
+          builder.withProvider(provider);
+        }
+
+        return builder.build();
       });
     }
 

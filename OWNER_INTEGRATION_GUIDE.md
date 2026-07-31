@@ -68,8 +68,29 @@ Configure media generation providers for images, voices, and music:
 
 Assets (images, audio files, and rendered videos) are persisted locally by default, managed by the local workspace `FileSystemStorageProvider`.
 
-1. Ensure the directory `./storage` exists in the workspace root.
-2. The system organizes assets into subfolders (`./storage/media/`, `./storage/cache/`, etc.).
+### Environment Configuration
+
+The local storage provider and bucket names are configured via the following environment variables:
+
+```env
+# Storage Provider (e.g., 'local')
+STORAGE_PROVIDER=local
+
+# Local File System path for storage
+LOCAL_STORAGE_PATH=./storage
+
+# Configured bucket subdirectory names
+STORAGE_BUCKET_IMAGES=images
+STORAGE_BUCKET_VIDEOS=videos
+STORAGE_BUCKET_AUDIO=audio
+STORAGE_BUCKET_EXPORTS=exports
+STORAGE_BUCKET_THUMBNAILS=thumbnails
+STORAGE_BUCKET_TEMP=temp
+STORAGE_BUCKET_CACHE=cache
+```
+
+1. Ensure the directory specified in `LOCAL_STORAGE_PATH` exists. It will be created automatically on application startup if it doesn't exist.
+2. The system automatically initializes and structures the configured bucket folders within this directory.
 3. If cloud buckets are needed, configure S3 compatibility parameters under the `STORAGE_PROVIDER` block in your `.env`.
 
 ---

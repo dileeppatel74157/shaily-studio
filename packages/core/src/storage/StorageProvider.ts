@@ -137,12 +137,27 @@ export class FileSystemStorageProvider implements StorageProvider {
   private readonly _rootDir: string;
   private readonly _buckets = new Map<string, StorageBucket>();
 
-  constructor(rootDir?: string) {
+  constructor(rootDir?: string, bucketIds?: string[]) {
     this._rootDir = rootDir || path.join(process.cwd(), "storage");
     if (!fs.existsSync(this._rootDir)) {
       fs.mkdirSync(this._rootDir, { recursive: true });
     }
     this._loadBuckets();
+
+    if (bucketIds) {
+      for (const bucketId of bucketIds) {
+        if (!this.hasBucket(bucketId)) {
+          const bucketPath = path.join(this._rootDir, bucketId);
+          if (!fs.existsSync(bucketPath)) {
+            fs.mkdirSync(bucketPath, { recursive: true });
+          }
+          const metaFile = path.join(bucketPath, ".bucket-metadata.json");
+          const bucket = { id: bucketId, name: bucketId, description: `Bucket for ${bucketId}`, created: new Date() };
+          fs.writeFileSync(metaFile, JSON.stringify(bucket, null, 2), "utf-8");
+          this._buckets.set(bucketId, bucket as any);
+        }
+      }
+    }
   }
 
   private _loadBuckets(): void {
@@ -162,7 +177,7 @@ export class FileSystemStorageProvider implements StorageProvider {
               description = meta.description || "";
             } catch (e) {}
           }
-          this._buckets.set(bucketId, { id: bucketId, name, description, created: new Date() });
+          this._buckets.set(bucketId, { id: bucketId, name, description, created: new Date() } as any);
         }
       }
     } catch (e) {}
@@ -226,7 +241,7 @@ export class FileSystemStorageProvider implements StorageProvider {
       bucketId: object.bucketId,
       metadata: object.metadata,
       sizeBytes: content.length,
-      mimeType: object.metadata.mimeType
+      mimeType: (object.metadata as any).mimeType || object.metadata.contentType
     };
     fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2), "utf-8");
   }

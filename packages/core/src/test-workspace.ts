@@ -1,3 +1,4 @@
+"use strict";
 import { WorkspaceBuilder } from "./workspace/WorkspaceBuilder";
 import { WorkspaceEngine } from "./workspace/WorkspaceEngine";
 import { WorkspaceState } from "./workspace/WorkspaceState";

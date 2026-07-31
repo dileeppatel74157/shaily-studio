@@ -16,6 +16,44 @@ export class ConfigurationValidator {
       issues.push({ key: "PORT", message: "PORT is missing.", severity: "error" });
     }
 
+    // Storage validations
+    const storageProvider = variables["STORAGE_PROVIDER"];
+    if (!storageProvider) {
+      issues.push({ key: "STORAGE_PROVIDER", message: "STORAGE_PROVIDER is required.", severity: "error" });
+    }
+
+    if (storageProvider === "local") {
+      const localPath = variables["LOCAL_STORAGE_PATH"];
+      if (!localPath) {
+        issues.push({ key: "LOCAL_STORAGE_PATH", message: "LOCAL_STORAGE_PATH is required when STORAGE_PROVIDER is 'local'.", severity: "error" });
+      }
+    }
+
+    const bucketKeys = [
+      "STORAGE_BUCKET_IMAGES",
+      "STORAGE_BUCKET_VIDEOS",
+      "STORAGE_BUCKET_AUDIO",
+      "STORAGE_BUCKET_EXPORTS",
+      "STORAGE_BUCKET_THUMBNAILS",
+      "STORAGE_BUCKET_TEMP",
+      "STORAGE_BUCKET_CACHE"
+    ];
+
+    const bucketIdRegex = /^[a-zA-Z0-9_.-]+$/;
+
+    for (const key of bucketKeys) {
+      const bucketName = variables[key];
+      if (bucketName === undefined || bucketName === null || bucketName.trim() === "") {
+        issues.push({ key, message: `Bucket name for ${key} cannot be empty.`, severity: "error" });
+      } else if (!bucketIdRegex.test(bucketName)) {
+        issues.push({
+          key,
+          message: `Bucket name "${bucketName}" for ${key} contains invalid characters. Only alphanumeric, dots, dashes, and underscores are allowed.`,
+          severity: "error"
+        });
+      }
+    }
+
     // 4-6. Runtime ports & host check
     const runtime = snapshot.runtime;
     if (runtime.port <= 0 || runtime.port > 65535) {

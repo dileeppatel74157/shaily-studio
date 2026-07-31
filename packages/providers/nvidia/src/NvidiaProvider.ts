@@ -56,13 +56,17 @@ export class NvidiaProvider extends Provider {
   protected async performExecute(request: ProviderRequest): Promise<ProviderResponse> {
     NvidiaValidator.validateRequest(request);
 
-    const body = {
+    const body: any = {
       model: request.model || "nvidia/llama-3.1-70b-instruct",
       messages: request.messages,
       temperature: request.temperature,
       max_tokens: request.maxTokens,
       stream: false,
     };
+
+    if (request.jsonMode) {
+      body.response_format = { type: "json_object" };
+    }
 
     const response = await this._transport.execute({
       id: `req-${Date.now()}`,
@@ -93,7 +97,7 @@ export class NvidiaProvider extends Provider {
   protected async *performStream(request: ProviderRequest): AsyncGenerator<ProviderResponseChunk> {
     NvidiaValidator.validateRequest(request);
 
-    const body = {
+    const body: any = {
       model: request.model || "nvidia/llama-3.1-70b-instruct",
       messages: request.messages,
       temperature: request.temperature,
@@ -101,12 +105,15 @@ export class NvidiaProvider extends Provider {
       stream: true,
     };
 
+    if (request.jsonMode) {
+      body.response_format = { type: "json_object" };
+    }
+
     const streamGenerator = this._transport.stream({
       id: `stream-${Date.now()}`,
       url: `${this._transport.baseUrl}/chat/completions`,
       method: "POST",
       body,
-      response_format: request.responseFormat,
     });
 
     for await (const chunk of streamGenerator) {

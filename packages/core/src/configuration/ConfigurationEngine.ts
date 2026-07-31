@@ -157,7 +157,13 @@ export class ConfigurationEngine implements
       "FALLBACK_PROVIDERS": process.env.FALLBACK_PROVIDERS || "nvidia,openai,ollama",
       "IMAGE_PRIMARY_PROVIDER": process.env.IMAGE_PRIMARY_PROVIDER || "gemini",
       "IMAGE_FALLBACK_PROVIDERS": process.env.IMAGE_FALLBACK_PROVIDERS || "nvidia,openai",
-      "IMAGE_PROVIDER_MODEL": process.env.IMAGE_PROVIDER_MODEL || "gemini-2.5-flash-image-preview"
+      "IMAGE_PROVIDER_MODEL": process.env.IMAGE_PROVIDER_MODEL || "gemini-2.5-flash-image-preview",
+      "VIDEO_PRIMARY_PROVIDER": process.env.VIDEO_PRIMARY_PROVIDER || "gemini",
+      "VIDEO_FALLBACK_PROVIDERS": process.env.VIDEO_FALLBACK_PROVIDERS || "",
+      "VIDEO_PROVIDER_MODEL": process.env.VIDEO_PROVIDER_MODEL || "veo-3",
+      "VIDEO_OUTPUT_FORMAT": process.env.VIDEO_OUTPUT_FORMAT || "mp4",
+      "VIDEO_DEFAULT_DURATION": process.env.VIDEO_DEFAULT_DURATION || "8",
+      "VIDEO_DEFAULT_ASPECT_RATIO": process.env.VIDEO_DEFAULT_ASPECT_RATIO || "16:9"
     };
 
     const sources: Record<string, ConfigurationSource> = {
@@ -177,7 +183,13 @@ export class ConfigurationEngine implements
       "FALLBACK_PROVIDERS": ConfigurationSource.ENV,
       "IMAGE_PRIMARY_PROVIDER": ConfigurationSource.ENV,
       "IMAGE_FALLBACK_PROVIDERS": ConfigurationSource.ENV,
-      "IMAGE_PROVIDER_MODEL": ConfigurationSource.ENV
+      "IMAGE_PROVIDER_MODEL": ConfigurationSource.ENV,
+      "VIDEO_PRIMARY_PROVIDER": ConfigurationSource.ENV,
+      "VIDEO_FALLBACK_PROVIDERS": ConfigurationSource.ENV,
+      "VIDEO_PROVIDER_MODEL": ConfigurationSource.ENV,
+      "VIDEO_OUTPUT_FORMAT": ConfigurationSource.ENV,
+      "VIDEO_DEFAULT_DURATION": ConfigurationSource.ENV,
+      "VIDEO_DEFAULT_ASPECT_RATIO": ConfigurationSource.ENV
     };
 
     // Find and parse .env

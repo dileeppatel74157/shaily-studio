@@ -61,7 +61,7 @@ class BuiltInAdapter implements IProviderAdapter {
 
   async connect(): Promise<void> {
     let apiKey = process.env[`${this.adapterType}_API_KEY`] || process.env[`${this.providerId.toUpperCase()}_API_KEY`];
-    if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE) {
+    if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE || this.adapterType === ProviderAdapterType.GEMINI_VIDEO) {
       apiKey = process.env.GEMINI_API_KEY || apiKey;
     }
     const isMockKey = !apiKey || apiKey.includes("-mock-key-value-12345") || apiKey.includes("your_") || apiKey.includes("sk-proj-");
@@ -82,6 +82,15 @@ class BuiltInAdapter implements IProviderAdapter {
           this._realProvider = new GeminiImageProvider(
             this.providerId,
             "Gemini Image Real Provider",
+            { env: "prod", namespace: "studio", storage },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.GEMINI_VIDEO) {
+          const { GeminiVideoProvider } = require("@shaily/provider-google");
+          const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+          this._realProvider = new GeminiVideoProvider(
+            this.providerId,
+            "Gemini Video Real Provider",
             { env: "prod", namespace: "studio", storage },
             { apiKey }
           );
@@ -173,6 +182,54 @@ class BuiltInAdapter implements IProviderAdapter {
               mimeType: response.mimeType,
               width: response.width,
               height: response.height,
+              metadata: response.metadata
+            }
+          ]
+        };
+      }
+
+      if (this.adapterType === ProviderAdapterType.GEMINI_VIDEO) {
+        const response = await this._realProvider.execute({
+          model: request.model,
+          prompt: request.prompt,
+          negativePrompt: request.videoParams?.negativePrompt,
+          duration: request.videoParams?.duration,
+          aspectRatio: request.videoParams?.aspectRatio,
+          resolution: request.videoParams?.resolution,
+          seed: request.videoParams?.seed,
+          fps: request.videoParams?.fps,
+          mimeType: request.videoParams?.mimeType,
+          requestId: request.requestId,
+        });
+        const latencyMs = Date.now() - start;
+        return {
+          requestId: request.requestId,
+          providerId: this.providerId,
+          model: response.model,
+          content: response.storedVideoPath || response.content,
+          text: response.storedVideoPath || response.text,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          costUsd: 0.10,
+          latencyMs,
+          finishReason: "stop",
+          metadata: {
+            storageBucket: response.storageBucket,
+            mimeType: response.mimeType,
+            duration: response.duration,
+            resolution: response.resolution,
+            operationId: response.operationId,
+            videoMetadata: response.metadata
+          },
+          assets: [
+            {
+              id: `asset-${Date.now()}`,
+              type: "VIDEO",
+              url: response.storedVideoPath,
+              mimeType: response.mimeType,
+              duration: response.duration,
+              resolution: response.resolution,
               metadata: response.metadata
             }
           ]
@@ -967,6 +1024,8 @@ export class GatewayEngine implements
     let fallbacks = ["nvidia", "openai", "ollama"];
     let imagePrimary = "gemini-image";
     let imageFallbacks = ["nvidia-image", "openai-image"];
+    let videoPrimary = "gemini-video";
+    let videoFallbacks = ["runway-video", "pika-video", "luma-video", "openai-video"];
 
     if (this._context) {
       try {
@@ -990,6 +1049,18 @@ export class GatewayEngine implements
               return cleaned.endsWith("-image") ? cleaned : `${cleaned}-image`;
             });
           }
+
+          const vidPrimaryStr = envMgr.resolveVariable("VIDEO_PRIMARY_PROVIDER");
+          if (vidPrimaryStr) {
+            videoPrimary = vidPrimaryStr.endsWith("-video") ? vidPrimaryStr : `${vidPrimaryStr}-video`;
+          }
+          const vidFallbackStr = envMgr.resolveVariable("VIDEO_FALLBACK_PROVIDERS");
+          if (vidFallbackStr) {
+            videoFallbacks = vidFallbackStr.split(",").map((s: string) => {
+              const cleaned = s.trim().toLowerCase();
+              return cleaned.endsWith("-video") ? cleaned : `${cleaned}-video`;
+            });
+          }
         }
       } catch (e) {
         primary = process.env.PRIMARY_PROVIDER || primary;
@@ -1006,6 +1077,18 @@ export class GatewayEngine implements
           imageFallbacks = imgFallbackStr.split(",").map((s: string) => {
             const cleaned = s.trim().toLowerCase();
             return cleaned.endsWith("-image") ? cleaned : `${cleaned}-image`;
+          });
+        }
+
+        const vidPrimaryStr = process.env.VIDEO_PRIMARY_PROVIDER;
+        if (vidPrimaryStr) {
+          videoPrimary = vidPrimaryStr.endsWith("-video") ? vidPrimaryStr : `${vidPrimaryStr}-video`;
+        }
+        const vidFallbackStr = process.env.VIDEO_FALLBACK_PROVIDERS;
+        if (vidFallbackStr) {
+          videoFallbacks = vidFallbackStr.split(",").map((s: string) => {
+            const cleaned = s.trim().toLowerCase();
+            return cleaned.endsWith("-video") ? cleaned : `${cleaned}-video`;
           });
         }
       }
@@ -1026,10 +1109,23 @@ export class GatewayEngine implements
           return cleaned.endsWith("-image") ? cleaned : `${cleaned}-image`;
         });
       }
+
+      const vidPrimaryStr = process.env.VIDEO_PRIMARY_PROVIDER;
+      if (vidPrimaryStr) {
+        videoPrimary = vidPrimaryStr.endsWith("-video") ? vidPrimaryStr : `${vidPrimaryStr}-video`;
+      }
+      const vidFallbackStr = process.env.VIDEO_FALLBACK_PROVIDERS;
+      if (vidFallbackStr) {
+        videoFallbacks = vidFallbackStr.split(",").map((s: string) => {
+          const cleaned = s.trim().toLowerCase();
+          return cleaned.endsWith("-video") ? cleaned : `${cleaned}-video`;
+        });
+      }
     }
 
     const priorityOrder = [primary, ...fallbacks];
     const imagePriorityOrder = [imagePrimary, ...imageFallbacks];
+    const videoPriorityOrder = [videoPrimary, ...videoFallbacks];
 
     const builtIns: Array<{ id: string; type: ProviderAdapterType; name: string; models: string[]; priority: number }> = [
       { id: "openai",      type: ProviderAdapterType.OPENAI,      name: "OpenAI",      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],         priority: 100 },
@@ -1045,7 +1141,12 @@ export class GatewayEngine implements
       { id: "facebook",    type: ProviderAdapterType.FACEBOOK,    name: "Facebook",    models: ["facebook-graph-v18"],                              priority: 20  },
       { id: "gemini-image", type: ProviderAdapterType.GEMINI_IMAGE, name: "Gemini Image", models: [process.env.IMAGE_PROVIDER_MODEL || "gemini-2.5-flash-image-preview"], priority: 95 },
       { id: "nvidia-image", type: ProviderAdapterType.NVIDIA_IMAGE, name: "Nvidia Image", models: ["nvidia-image-model"], priority: 85 },
-      { id: "openai-image", type: ProviderAdapterType.OPENAI_IMAGE, name: "OpenAI Image", models: ["dall-e-3"], priority: 80 }
+      { id: "openai-image", type: ProviderAdapterType.OPENAI_IMAGE, name: "OpenAI Image", models: ["dall-e-3"], priority: 80 },
+      { id: "gemini-video", type: ProviderAdapterType.GEMINI_VIDEO, name: "Gemini Video", models: [process.env.VIDEO_PROVIDER_MODEL || "veo-3"], priority: 95 },
+      { id: "runway-video", type: ProviderAdapterType.RUNWAY_VIDEO, name: "Runway Video", models: ["runway-video-model"], priority: 85 },
+      { id: "pika-video", type: ProviderAdapterType.PIKA_VIDEO, name: "Pika Video", models: ["pika-video-model"], priority: 80 },
+      { id: "luma-video", type: ProviderAdapterType.LUMA_VIDEO, name: "Luma Video", models: ["luma-video-model"], priority: 75 },
+      { id: "openai-video", type: ProviderAdapterType.OPENAI_VIDEO, name: "OpenAI Video", models: ["openai-video-model"], priority: 70 }
     ];
 
     for (const bi of builtIns) {
@@ -1056,6 +1157,11 @@ export class GatewayEngine implements
       let calculatedPriority = bi.priority;
       if (bi.id.endsWith("-image")) {
         const index = imagePriorityOrder.indexOf(bi.id);
+        if (index !== -1) {
+          calculatedPriority = 1000 - index * 100;
+        }
+      } else if (bi.id.endsWith("-video")) {
+        const index = videoPriorityOrder.indexOf(bi.id);
         if (index !== -1) {
           calculatedPriority = 1000 - index * 100;
         }
@@ -1071,17 +1177,17 @@ export class GatewayEngine implements
         adapterType: bi.type,
         displayName: bi.name,
         capabilities: {
-          supportsStreaming: !bi.id.endsWith("-image"),
+          supportsStreaming: !bi.id.endsWith("-image") && !bi.id.endsWith("-video"),
           supportsVision: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.NVIDIA,
           supportsTools: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.GROK,
           supportsJsonMode: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OPENROUTER || bi.type === ProviderAdapterType.GROK,
           maxContextTokens: bi.type === ProviderAdapterType.OLLAMA ? 32_768 : 128_000,
           availableModels: bi.models,
-          supportsChat: !bi.id.endsWith("-image"),
+          supportsChat: !bi.id.endsWith("-image") && !bi.id.endsWith("-video"),
           supportsImages: bi.id.endsWith("-image"),
-          supportsVideo: false,
+          supportsVideo: bi.id.endsWith("-video"),
           supportsVoice: false,
-          supportsEmbeddings: !bi.id.endsWith("-image") && (bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA)
+          supportsEmbeddings: !bi.id.endsWith("-image") && !bi.id.endsWith("-video") && (bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA)
         },
         priority: calculatedPriority,
         enabled: true,

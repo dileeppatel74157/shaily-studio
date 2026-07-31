@@ -93,6 +93,27 @@ IMAGE_FALLBACK_PROVIDERS=nvidia,openai
 IMAGE_PROVIDER_MODEL=gemini-2.5-flash-image-preview
 ```
 
+### Video Routing Configuration
+
+The system supports capability-based video generation routing and fallback, leveraging the main AI Gateway.
+
+*   `VIDEO_PRIMARY_PROVIDER`: The primary provider for video requests (e.g. `gemini`).
+*   `VIDEO_FALLBACK_PROVIDERS`: A comma-separated list of fallback providers (e.g. `runway,pika,luma,openai`).
+*   `VIDEO_PROVIDER_MODEL`: The model ID to use (e.g. `veo-3`).
+*   `VIDEO_OUTPUT_FORMAT`: The default output container format (e.g. `mp4`).
+*   `VIDEO_DEFAULT_DURATION`: The default duration in seconds (e.g. `8`).
+*   `VIDEO_DEFAULT_ASPECT_RATIO`: The default aspect ratio (e.g. `16:9`).
+
+Example `.env` configuration:
+```env
+VIDEO_PRIMARY_PROVIDER=gemini
+VIDEO_FALLBACK_PROVIDERS=
+VIDEO_PROVIDER_MODEL=veo-3
+VIDEO_OUTPUT_FORMAT=mp4
+VIDEO_DEFAULT_DURATION=8
+VIDEO_DEFAULT_ASPECT_RATIO=16:9
+```
+
 ---
 
 ## Step 5: Storage

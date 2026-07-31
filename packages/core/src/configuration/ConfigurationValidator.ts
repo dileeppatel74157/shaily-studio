@@ -97,6 +97,46 @@ export class ConfigurationValidator {
       }
     }
 
+    // Video Primary and Fallback provider checks (only if video generation is enabled/configured)
+    const videoPrimary = variables["VIDEO_PRIMARY_PROVIDER"];
+    if (videoPrimary !== undefined && videoPrimary !== null) {
+      if (videoPrimary.trim() === "") {
+        issues.push({ key: "VIDEO_PRIMARY_PROVIDER", message: "VIDEO_PRIMARY_PROVIDER cannot be empty.", severity: "error" });
+      }
+
+      const videoModel = variables["VIDEO_PROVIDER_MODEL"];
+      if (!videoModel || videoModel.trim() === "") {
+        issues.push({ key: "VIDEO_PROVIDER_MODEL", message: "VIDEO_PROVIDER_MODEL cannot be empty.", severity: "error" });
+      }
+
+      const videoFormat = variables["VIDEO_OUTPUT_FORMAT"];
+      if (!videoFormat || videoFormat.trim() === "") {
+        issues.push({ key: "VIDEO_OUTPUT_FORMAT", message: "VIDEO_OUTPUT_FORMAT cannot be empty.", severity: "error" });
+      }
+
+      const videoDuration = variables["VIDEO_DEFAULT_DURATION"];
+      if (videoDuration === undefined || videoDuration === null || isNaN(Number(videoDuration)) || Number(videoDuration) <= 0) {
+        issues.push({ key: "VIDEO_DEFAULT_DURATION", message: "VIDEO_DEFAULT_DURATION must be a positive number.", severity: "error" });
+      }
+
+      const videoAspectRatio = variables["VIDEO_DEFAULT_ASPECT_RATIO"];
+      if (!videoAspectRatio || videoAspectRatio.trim() === "") {
+        issues.push({ key: "VIDEO_DEFAULT_ASPECT_RATIO", message: "VIDEO_DEFAULT_ASPECT_RATIO cannot be empty.", severity: "error" });
+      }
+
+      const videoFallbacks = variables["VIDEO_FALLBACK_PROVIDERS"];
+      if (videoFallbacks !== undefined && videoFallbacks !== null) {
+        const fallbackRegex = /^[a-zA-Z0-9_.,-]*$/;
+        if (videoFallbacks.trim() !== "" && !fallbackRegex.test(videoFallbacks)) {
+          issues.push({
+            key: "VIDEO_FALLBACK_PROVIDERS",
+            message: `VIDEO_FALLBACK_PROVIDERS "${videoFallbacks}" contains invalid characters. Only comma-separated alphanumeric provider IDs are allowed.`,
+            severity: "error"
+          });
+        }
+      }
+    }
+
     // 4-6. Runtime ports & host check
     const runtime = snapshot.runtime;
     if (runtime.port <= 0 || runtime.port > 65535) {

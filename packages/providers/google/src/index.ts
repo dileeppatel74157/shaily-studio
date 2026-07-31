@@ -12,3 +12,10 @@ export * from "./GeminiImageModels";
 export * from "./GeminiImageValidator";
 export * from "./GeminiImageProvider";
 export * from "./GeminiImageBuilder";
+
+export * from "./GeminiVideoConfiguration";
+export * from "./GeminiVideoCapabilities";
+export * from "./GeminiVideoModels";
+export * from "./GeminiVideoValidator";
+export * from "./GeminiVideoProvider";
+export * from "./GeminiVideoBuilder";

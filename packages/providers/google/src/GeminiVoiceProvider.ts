@@ -67,44 +67,67 @@ export class GeminiVoiceProvider extends Provider {
     const apiKey = (this.configuration as GeminiVoiceConfiguration).apiKey;
     const isMockKey = !apiKey || apiKey.includes("-mock-key-value-12345") || apiKey.includes("your_") || apiKey.includes("sk-proj-");
 
-    if (mode === "tts") {
-      const languageCode = voiceParams.languageCode || "en-US";
-      const voiceId = voiceParams.voiceId || "en-US-Neural2-F";
-      const speed = voiceParams.speed || 1.0;
-      const pitch = voiceParams.pitch || 0.0;
-      const outputFormat = voiceParams.outputFormat || "mp3";
+    let apiModel = model;
+    if (apiModel === "gemini-tts-1") {
+      apiModel = "gemini-2.0-flash";
+    } else if (apiModel === "gemini-stt-1") {
+      apiModel = "gemini-1.5-flash";
+    }
 
+    if (mode === "tts") {
+      const outputFormat = voiceParams.outputFormat || "mp3";
       let audioBuffer: Buffer;
 
       if (isMockKey) {
         audioBuffer = Buffer.from(`mock-speech-audio-binary-data-${Date.now()}`);
       } else {
-        const ttsUrl = (this.configuration as GeminiVoiceConfiguration).ttsBaseUrl || "https://texttospeech.googleapis.com/v1";
+        let voiceName = "Puck"; // default prebuilt voice
+        if (voiceParams.voiceId) {
+          const idLower = voiceParams.voiceId.toLowerCase();
+          if (idLower.includes("aoede")) voiceName = "Aoede";
+          else if (idLower.includes("charon")) voiceName = "Charon";
+          else if (idLower.includes("fenrir")) voiceName = "Fenrir";
+          else if (idLower.includes("kore")) voiceName = "Kore";
+          else if (idLower.includes("puck")) voiceName = "Puck";
+          else if (idLower.includes("orus")) voiceName = "Orus";
+          else if (idLower.includes("autonoe")) voiceName = "Autonoe";
+        }
+
         const body = {
-          input: {
-            text: request.prompt || ""
-          },
-          voice: {
-            languageCode,
-            name: voiceId
-          },
-          audioConfig: {
-            audioEncoding: outputFormat.toUpperCase() === "WAV" ? "LINEAR16" : "MP3",
-            speakingRate: speed,
-            pitch
+          contents: [
+            {
+              parts: [
+                {
+                  text: request.prompt || ""
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: {
+                  voiceName
+                }
+              }
+            }
           }
         };
 
         const response = await this._transport.execute({
           id: `req-tts-${Date.now()}`,
-          url: `${ttsUrl}/text:synthesize`,
+          url: `${this._transport.baseUrl}/models/${apiModel}:generateContent`,
           method: "POST",
           body
         });
 
-        const audioContentStr = response.body.audioContent;
+        const candidate = response.body.candidates?.[0];
+        const partWithAudio = candidate?.content?.parts?.find((p: any) => p.inlineData && p.inlineData.data);
+        const audioContentStr = partWithAudio?.inlineData?.data;
+
         if (!audioContentStr) {
-          throw new Error("No audioContent returned from Google Cloud Text-to-Speech API.");
+          throw new Error(`No audio content returned from Gemini Generative AI API generateContent. Response body: ${JSON.stringify(response.body)}`);
         }
         audioBuffer = Buffer.from(audioContentStr, "base64");
       }
@@ -165,16 +188,22 @@ export class GeminiVoiceProvider extends Provider {
     } else {
       // mode === "stt"
       const audioUrl = voiceParams.audioUrl;
-      const languageCode = voiceParams.languageCode || "en-US";
-      const sampleRate = voiceParams.sampleRate || 16000;
-      const outputFormat = voiceParams.outputFormat || "mp3";
-
       let transcription = "";
 
       if (isMockKey) {
         transcription = "Mock transcription: The brown fox jumps over the lazy dog.";
       } else {
         let base64Audio = "";
+        let audioMimeType = "audio/mp3"; // default mimeType
+        
+        if (audioUrl.endsWith(".wav")) {
+          audioMimeType = "audio/wav";
+        } else if (audioUrl.endsWith(".ogg")) {
+          audioMimeType = "audio/ogg";
+        } else if (audioUrl.endsWith(".aac")) {
+          audioMimeType = "audio/aac";
+        }
+
         try {
           if (audioUrl.startsWith("file:///")) {
             const filePath = audioUrl.replace("file:///", "");
@@ -189,33 +218,46 @@ export class GeminiVoiceProvider extends Provider {
             const obj = await this._storage.getObject(bucket, objId);
             if (obj && obj.content) {
               base64Audio = obj.content.toString("base64");
+              if (obj.metadata && obj.metadata.contentType) {
+                audioMimeType = obj.metadata.contentType;
+              }
             }
           }
         } catch (err) {
-          // If we fail to read the file, fallback to a dummy base64 string under mock scenario
+          // If we fail to read the file, fallback to a dummy base64 string
           base64Audio = Buffer.from("mock-binary-audio").toString("base64");
         }
 
-        const sttUrl = (this.configuration as GeminiVoiceConfiguration).sttBaseUrl || "https://speech.googleapis.com/v1";
         const body = {
-          config: {
-            encoding: outputFormat.toUpperCase() === "WAV" ? "LINEAR16" : "MP3",
-            sampleRateHertz: sampleRate,
-            languageCode
-          },
-          audio: {
-            content: base64Audio
-          }
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    mimeType: audioMimeType,
+                    data: base64Audio
+                  }
+                },
+                {
+                  text: "Please transcribe this audio file exactly as spoken."
+                }
+              ]
+            }
+          ]
         };
 
         const response = await this._transport.execute({
           id: `req-stt-${Date.now()}`,
-          url: `${sttUrl}/speech:recognize`,
+          url: `${this._transport.baseUrl}/models/${apiModel}:generateContent`,
           method: "POST",
           body
         });
 
-        transcription = response.body.results?.[0]?.alternatives?.[0]?.transcript || "";
+        const candidate = response.body.candidates?.[0];
+        transcription = candidate?.content?.parts?.[0]?.text || "";
+        if (transcription) {
+          transcription = transcription.trim();
+        }
       }
 
       // Save subtitle/transcript srt file via Storage Provider if available

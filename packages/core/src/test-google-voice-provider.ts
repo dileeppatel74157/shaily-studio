@@ -12,23 +12,38 @@ class MockVoiceTransport implements IProviderTransport {
   public readonly baseUrl = "https://generativelanguage.googleapis.com";
   public lastRequest: any;
   public ttsResponseBody: any = {
-    audioContent: Buffer.from("mock-audio-generated-bytes").toString("base64")
+    candidates: [
+      {
+        content: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: "audio/mp3",
+                data: Buffer.from("mock-audio-generated-bytes").toString("base64")
+              }
+            }
+          ]
+        }
+      }
+    ]
   };
   public sttResponseBody: any = {
-    results: [
+    candidates: [
       {
-        alternatives: [
-          {
-            transcript: "Hello and welcome to Shaily Studio"
-          }
-        ]
+        content: {
+          parts: [
+            {
+              text: "Hello and welcome to Shaily Studio"
+            }
+          ]
+        }
       }
     ]
   };
 
   public async execute(request: any): Promise<any> {
     this.lastRequest = request;
-    if (request.url.includes("synthesize")) {
+    if (request.body?.generationConfig?.responseModalities?.includes("AUDIO")) {
       return {
         body: this.ttsResponseBody,
         latency: 150
@@ -102,9 +117,9 @@ async function runTests() {
   } as any);
 
   assert.ok(transport.lastRequest, "Transport execute should have been called for TTS");
-  assert.ok(transport.lastRequest.url.includes("synthesize"), "Should hit text:synthesize endpoint");
-  assert.strictEqual(transport.lastRequest.body.input.text, "Welcome to Shaily Studio voice AI.");
-  assert.strictEqual(transport.lastRequest.body.voice.name, "en-US-Neural2-F");
+  assert.ok(transport.lastRequest.url.includes("generateContent"), "Should hit generateContent endpoint");
+  assert.strictEqual(transport.lastRequest.body.contents[0].parts[0].text, "Welcome to Shaily Studio voice AI.");
+  assert.strictEqual(transport.lastRequest.body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName, "Puck");
   
   // Storage verify for TTS
   assert.strictEqual(ttsResponse.storageBucket, "audio");
@@ -126,7 +141,7 @@ async function runTests() {
     }
   } as any);
 
-  assert.ok(transport.lastRequest.url.includes("recognize"), "Should hit speech:recognize endpoint");
+  assert.ok(transport.lastRequest.url.includes("generateContent"), "Should hit generateContent endpoint");
   assert.strictEqual(sttResponse.content, "Hello and welcome to Shaily Studio");
   
   // Storage verify for STT

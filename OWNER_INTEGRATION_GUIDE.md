@@ -114,6 +114,39 @@ VIDEO_DEFAULT_DURATION=8
 VIDEO_DEFAULT_ASPECT_RATIO=16:9
 ```
 
+### Voice Routing Configuration
+
+The system supports capability-based voice routing and fallback, leveraging the main AI Gateway. It handles both Text-to-Speech (TTS) and Speech-to-Text (STT) requests.
+
+*   `VOICE_PRIMARY_PROVIDER`: The primary provider for voice requests (e.g. `gemini`).
+*   `VOICE_FALLBACK_PROVIDERS`: A comma-separated list of fallback providers (e.g. `elevenlabs,openai`).
+*   `VOICE_TTS_MODEL`: The default TTS model to use (e.g. `gemini-tts-1`).
+*   `VOICE_STT_MODEL`: The default STT model to use (e.g. `gemini-stt-1`).
+*   `VOICE_OUTPUT_FORMAT`: The default container format (e.g. `mp3`).
+*   `VOICE_LANGUAGE`: The default language code (e.g. `en-US`).
+*   `VOICE_SAMPLE_RATE`: The default sample rate (e.g. `16000`).
+
+Example `.env` configuration:
+```env
+VOICE_PRIMARY_PROVIDER=gemini
+VOICE_FALLBACK_PROVIDERS=elevenlabs,openai
+
+VOICE_TTS_MODEL=gemini-tts-1
+VOICE_STT_MODEL=gemini-stt-1
+VOICE_OUTPUT_FORMAT=mp3
+VOICE_LANGUAGE=en-US
+VOICE_SAMPLE_RATE=16000
+
+ELEVENLABS_API_KEY=your_elevenlabs_key_here
+ELEVENLABS_MODEL=eleven_monolingual_v1
+ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+
+OPENAI_TTS_MODEL=tts-1
+OPENAI_STT_MODEL=whisper-1
+OPENAI_VOICE=alloy
+```
+
+
 ---
 
 ## Step 5: Storage

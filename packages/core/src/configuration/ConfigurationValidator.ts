@@ -137,6 +137,26 @@ export class ConfigurationValidator {
       }
     }
 
+    // Voice Primary and Fallback provider checks (only if voice is configured)
+    const voicePrimary = variables["VOICE_PRIMARY_PROVIDER"];
+    if (voicePrimary !== undefined && voicePrimary !== null) {
+      if (voicePrimary.trim() === "") {
+        issues.push({ key: "VOICE_PRIMARY_PROVIDER", message: "VOICE_PRIMARY_PROVIDER cannot be empty.", severity: "error" });
+      }
+
+      const voiceFallbacks = variables["VOICE_FALLBACK_PROVIDERS"];
+      if (voiceFallbacks !== undefined && voiceFallbacks !== null) {
+        const fallbackRegex = /^[a-zA-Z0-9_.,-]*$/;
+        if (voiceFallbacks.trim() !== "" && !fallbackRegex.test(voiceFallbacks)) {
+          issues.push({
+            key: "VOICE_FALLBACK_PROVIDERS",
+            message: `VOICE_FALLBACK_PROVIDERS "${voiceFallbacks}" contains invalid characters. Only comma-separated alphanumeric provider IDs are allowed.`,
+            severity: "error"
+          });
+        }
+      }
+    }
+
     // 4-6. Runtime ports & host check
     const runtime = snapshot.runtime;
     if (runtime.port <= 0 || runtime.port > 65535) {

@@ -58,7 +58,7 @@ async function runTests() {
 
   // ── 3. Provider registration and discovery ────────────────────────────────
   const providers = engine.getRegistry().discoverProviders();
-  assert(providers.length === 19, `Expected 19 built-in providers, got ${providers.length}.`);
+  assert(providers.length === 22, `Expected 22 built-in providers, got ${providers.length}.`);
   const ids = providers.map(p => p.providerId);
   assert(ids.includes("openai"),     "OpenAI provider not registered.");
   assert(ids.includes("gemini"),     "Gemini provider not registered.");
@@ -67,6 +67,9 @@ async function runTests() {
   assert(ids.includes("tavily"),     "Tavily provider not registered.");
   assert(ids.includes("gemini-image"), "Gemini Image provider not registered.");
   assert(ids.includes("gemini-video"), "Gemini Video provider not registered.");
+  assert(ids.includes("gemini-voice"), "Gemini Voice provider not registered.");
+  assert(ids.includes("elevenlabs-voice"), "ElevenLabs Voice provider not registered.");
+  assert(ids.includes("openai-voice"), "OpenAI Voice provider not registered.");
   console.log("3. Provider registration and discovery... ✓");
 
   // ── 4. Provider health status ─────────────────────────────────────────────

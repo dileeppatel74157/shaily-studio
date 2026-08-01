@@ -44,8 +44,8 @@ export class GatewayValidator {
   }
 
   validateRequest(requestId: string, prompt: string, model: string, requestType?: string, embeddingInput?: any): void {
-    // 7. Request must include a non-empty prompt (or embeddingInput)
-    const hasInput = (prompt && prompt.trim() !== "") || (embeddingInput !== undefined && embeddingInput !== null);
+    // 7. Request must include a non-empty prompt (or embeddingInput, or be a voice request)
+    const hasInput = (prompt && prompt.trim() !== "") || (embeddingInput !== undefined && embeddingInput !== null) || (requestType === "voice");
     if (!hasInput) {
       throw new GatewayValidationException(`Request "${requestId}" must include a non-empty prompt or embeddingInput.`);
     }

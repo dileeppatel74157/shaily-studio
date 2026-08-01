@@ -63,7 +63,7 @@ async function runTests() {
 
   // 3. Secret Loading
   const secrets = engine.getSecretsManager().getSecrets();
-  assert(secrets.length === 5, "Expected 5 loaded secrets.");
+  assert(secrets.length === 6, "Expected 6 loaded secrets.");
   assert(secrets.some(s => s.key === "OPENAI_API_KEY"), "OpenAI API key missing.");
   console.log("3. Secret Loading... ✓");
 

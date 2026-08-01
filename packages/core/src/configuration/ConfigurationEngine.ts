@@ -163,7 +163,19 @@ export class ConfigurationEngine implements
       "VIDEO_PROVIDER_MODEL": process.env.VIDEO_PROVIDER_MODEL || "veo-3",
       "VIDEO_OUTPUT_FORMAT": process.env.VIDEO_OUTPUT_FORMAT || "mp4",
       "VIDEO_DEFAULT_DURATION": process.env.VIDEO_DEFAULT_DURATION || "8",
-      "VIDEO_DEFAULT_ASPECT_RATIO": process.env.VIDEO_DEFAULT_ASPECT_RATIO || "16:9"
+      "VIDEO_DEFAULT_ASPECT_RATIO": process.env.VIDEO_DEFAULT_ASPECT_RATIO || "16:9",
+      "VOICE_PRIMARY_PROVIDER": process.env.VOICE_PRIMARY_PROVIDER || "gemini",
+      "VOICE_FALLBACK_PROVIDERS": process.env.VOICE_FALLBACK_PROVIDERS || "elevenlabs,openai",
+      "VOICE_TTS_MODEL": process.env.VOICE_TTS_MODEL || "gemini-tts-1",
+      "VOICE_STT_MODEL": process.env.VOICE_STT_MODEL || "gemini-stt-1",
+      "VOICE_OUTPUT_FORMAT": process.env.VOICE_OUTPUT_FORMAT || "mp3",
+      "VOICE_LANGUAGE": process.env.VOICE_LANGUAGE || "en-US",
+      "VOICE_SAMPLE_RATE": process.env.VOICE_SAMPLE_RATE || "16000",
+      "ELEVENLABS_MODEL": process.env.ELEVENLABS_MODEL || "eleven_monolingual_v1",
+      "ELEVENLABS_VOICE_ID": process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM",
+      "OPENAI_TTS_MODEL": process.env.OPENAI_TTS_MODEL || "tts-1",
+      "OPENAI_STT_MODEL": process.env.OPENAI_STT_MODEL || "whisper-1",
+      "OPENAI_VOICE": process.env.OPENAI_VOICE || "alloy"
     };
 
     const sources: Record<string, ConfigurationSource> = {
@@ -189,7 +201,19 @@ export class ConfigurationEngine implements
       "VIDEO_PROVIDER_MODEL": ConfigurationSource.ENV,
       "VIDEO_OUTPUT_FORMAT": ConfigurationSource.ENV,
       "VIDEO_DEFAULT_DURATION": ConfigurationSource.ENV,
-      "VIDEO_DEFAULT_ASPECT_RATIO": ConfigurationSource.ENV
+      "VIDEO_DEFAULT_ASPECT_RATIO": ConfigurationSource.ENV,
+      "VOICE_PRIMARY_PROVIDER": ConfigurationSource.ENV,
+      "VOICE_FALLBACK_PROVIDERS": ConfigurationSource.ENV,
+      "VOICE_TTS_MODEL": ConfigurationSource.ENV,
+      "VOICE_STT_MODEL": ConfigurationSource.ENV,
+      "VOICE_OUTPUT_FORMAT": ConfigurationSource.ENV,
+      "VOICE_LANGUAGE": ConfigurationSource.ENV,
+      "VOICE_SAMPLE_RATE": ConfigurationSource.ENV,
+      "ELEVENLABS_MODEL": ConfigurationSource.ENV,
+      "ELEVENLABS_VOICE_ID": ConfigurationSource.ENV,
+      "OPENAI_TTS_MODEL": ConfigurationSource.ENV,
+      "OPENAI_STT_MODEL": ConfigurationSource.ENV,
+      "OPENAI_VOICE": ConfigurationSource.ENV
     };
 
     // Find and parse .env
@@ -253,7 +277,8 @@ export class ConfigurationEngine implements
       { key: "GEMINI_API_KEY", type: SecretType.API_KEY, id: "sec-gemini", fallback: "AIzaSy-gemini-key-value-12345" },
       { key: "NVIDIA_API_KEY", type: SecretType.API_KEY, id: "sec-nvidia", fallback: "nvapi-mock-key-value-12345" },
       { key: "GROK_API_KEY", type: SecretType.API_KEY, id: "sec-grok", fallback: "grok-mock-key-value-12345" },
-      { key: "YOUTUBE_API_KEY", type: SecretType.API_KEY, id: "sec-youtube", fallback: "yt-mock-key-value-12345" }
+      { key: "YOUTUBE_API_KEY", type: SecretType.API_KEY, id: "sec-youtube", fallback: "yt-mock-key-value-12345" },
+      { key: "ELEVENLABS_API_KEY", type: SecretType.API_KEY, id: "sec-elevenlabs", fallback: "eleven-labs-key-value-12345" }
     ];
 
     this._secrets = [];

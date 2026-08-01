@@ -61,8 +61,8 @@ class BuiltInAdapter implements IProviderAdapter {
 
   async connect(): Promise<void> {
     let apiKey = process.env[`${this.adapterType}_API_KEY`] || process.env[`${this.providerId.toUpperCase()}_API_KEY`];
-    if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE || this.adapterType === ProviderAdapterType.GEMINI_VIDEO) {
-      apiKey = process.env.GEMINI_API_KEY || apiKey;
+    if (this.adapterType === ProviderAdapterType.GEMINI_IMAGE || this.adapterType === ProviderAdapterType.GEMINI_VIDEO || this.adapterType === ProviderAdapterType.GEMINI_VOICE) {
+      apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || apiKey;
     }
     const isMockKey = !apiKey || apiKey.includes("-mock-key-value-12345") || apiKey.includes("your_") || apiKey.includes("sk-proj-");
 
@@ -91,6 +91,15 @@ class BuiltInAdapter implements IProviderAdapter {
           this._realProvider = new GeminiVideoProvider(
             this.providerId,
             "Gemini Video Real Provider",
+            { env: "prod", namespace: "studio", storage },
+            { apiKey }
+          );
+        } else if (this.adapterType === ProviderAdapterType.GEMINI_VOICE) {
+          const { GeminiVoiceProvider } = require("@shaily/provider-google");
+          const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+          this._realProvider = new GeminiVoiceProvider(
+            this.providerId,
+            "Gemini Voice Real Provider",
             { env: "prod", namespace: "studio", storage },
             { apiKey }
           );
@@ -236,6 +245,172 @@ class BuiltInAdapter implements IProviderAdapter {
         };
       }
 
+      if (this.adapterType === ProviderAdapterType.GEMINI_VOICE ||
+          this.adapterType === ProviderAdapterType.ELEVENLABS_VOICE ||
+          this.adapterType === ProviderAdapterType.OPENAI_VOICE) {
+        
+        const voiceMode = request.voiceParams?.mode || (request.voiceParams?.audioUrl ? "stt" : "tts");
+
+        if (this._realProvider) {
+          const response = await this._realProvider.execute({
+            model: request.model,
+            prompt: request.prompt,
+            requestId: request.requestId,
+            voiceParams: request.voiceParams
+          });
+          const latencyMs = Date.now() - start;
+          
+          return {
+            requestId: request.requestId,
+            providerId: this.providerId,
+            model: response.model,
+            content: response.content || response.text || "",
+            text: response.text || response.content || "",
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            costUsd: voiceMode === "stt" ? 0.015 : 0.005,
+            latencyMs,
+            finishReason: "stop",
+            metadata: response.metadata || {},
+            assets: response.assets || [
+              {
+                id: `asset-${Date.now()}`,
+                type: voiceMode === "stt" ? "SUBTITLE" : "VOICE",
+                url: voiceMode === "stt" ? response.storedSubtitlePath : response.storedVoicePath,
+                mimeType: voiceMode === "stt" ? "text/plain" : `audio/${request.voiceParams?.outputFormat || "mp3"}`,
+                metadata: response.metadata
+              }
+            ]
+          };
+        }
+
+        const fs = require("fs");
+        const path = require("path");
+        const latencyMs = Date.now() - start + 50;
+
+        if (voiceMode === "stt") {
+          const transcription = `[${this.providerId.toUpperCase()} STT] Mock transcription: The quick brown fox jumps over the lazy dog.`;
+          const bucketId = process.env.STORAGE_BUCKET_AUDIO || "audio";
+          const transcriptId = `transcript-${Date.now()}-${Math.floor(Math.random() * 10000)}.srt`;
+          const storedSubtitlePath = `${bucketId}/${transcriptId}`;
+          const subtitleContent = `1\n00:00:00,000 --> 00:00:05,000\n${transcription}`;
+          const subtitleBuffer = Buffer.from(subtitleContent);
+
+          const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+          if (storage) {
+            if (typeof storage.hasBucket === "function" && !storage.hasBucket(bucketId)) {
+              await storage.createBucket({
+                id: bucketId,
+                name: bucketId,
+                description: "Audio Bucket",
+                created: new Date()
+              });
+            }
+            await storage.putObject(bucketId, {
+              id: transcriptId,
+              bucketId,
+              content: subtitleBuffer,
+              metadata: { contentType: "text/srt", size: subtitleBuffer.length, created: new Date(), updated: new Date() }
+            });
+          } else {
+            const storageDir = path.join(process.cwd(), "storage", "media");
+            if (!fs.existsSync(storageDir)) {
+              fs.mkdirSync(storageDir, { recursive: true });
+            }
+            fs.writeFileSync(path.join(storageDir, transcriptId), subtitleBuffer);
+          }
+
+          return {
+            requestId: request.requestId,
+            providerId: this.providerId,
+            model: request.model,
+            content: transcription,
+            text: transcription,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            costUsd: 0.015,
+            latencyMs,
+            finishReason: "stop",
+            metadata: {
+              storedSubtitlePath,
+              subtitleUrl: storedSubtitlePath,
+              storageBucket: bucketId,
+              mimeType: "text/plain"
+            },
+            assets: [
+              {
+                id: `asset-${Date.now()}`,
+                type: "SUBTITLE",
+                url: `file:///${path.join(process.cwd(), "storage", "media", transcriptId).replace(/\\/g, "/")}`,
+                mimeType: "text/plain"
+              }
+            ]
+          };
+
+        } else {
+          const extension = request.voiceParams?.outputFormat || "mp3";
+          const audioBuffer = Buffer.from(`mock-speech-audio-binary-data-for-${this.providerId}-${Date.now()}`);
+          const bucketId = process.env.STORAGE_BUCKET_AUDIO || "audio";
+          const audioId = `speech-${Date.now()}-${Math.floor(Math.random() * 10000)}.${extension}`;
+          const storedVoicePath = `${bucketId}/${audioId}`;
+
+          const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+          if (storage) {
+            if (typeof storage.hasBucket === "function" && !storage.hasBucket(bucketId)) {
+              await storage.createBucket({
+                id: bucketId,
+                name: bucketId,
+                description: "Audio Bucket",
+                created: new Date()
+              });
+            }
+            await storage.putObject(bucketId, {
+              id: audioId,
+              bucketId,
+              content: audioBuffer,
+              metadata: { contentType: `audio/${extension}`, size: audioBuffer.length, created: new Date(), updated: new Date() }
+            });
+          } else {
+            const storageDir = path.join(process.cwd(), "storage", "media");
+            if (!fs.existsSync(storageDir)) {
+              fs.mkdirSync(storageDir, { recursive: true });
+            }
+            fs.writeFileSync(path.join(storageDir, audioId), audioBuffer);
+          }
+
+          return {
+            requestId: request.requestId,
+            providerId: this.providerId,
+            model: request.model,
+            content: storedVoicePath,
+            text: storedVoicePath,
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            costUsd: 0.005,
+            latencyMs,
+            finishReason: "stop",
+            metadata: {
+              storedVoicePath,
+              storageBucket: bucketId,
+              mimeType: `audio/${extension}`,
+              durationSeconds: Math.ceil((request.prompt || "").length / 15),
+              charCount: (request.prompt || "").length
+            },
+            assets: [
+              {
+                id: `asset-${Date.now()}`,
+                type: "VOICE",
+                url: `file:///${path.join(process.cwd(), "storage", "media", audioId).replace(/\\/g, "/")}`,
+                mimeType: `audio/${extension}`
+              }
+            ]
+          };
+        }
+      }
+
       const response = await this._realProvider.execute({
         model: request.model,
         messages: [{ role: "user", content: request.prompt }],
@@ -258,6 +433,138 @@ class BuiltInAdapter implements IProviderAdapter {
     }
 
     const start = Date.now();
+
+    if (this.adapterType === ProviderAdapterType.GEMINI_VOICE ||
+        this.adapterType === ProviderAdapterType.ELEVENLABS_VOICE ||
+        this.adapterType === ProviderAdapterType.OPENAI_VOICE) {
+      
+      const fs = require("fs");
+      const path = require("path");
+      const voiceMode = request.voiceParams?.mode || (request.voiceParams?.audioUrl ? "stt" : "tts");
+      const latencyMs = Date.now() - start + 50;
+
+      if (voiceMode === "stt") {
+        const transcription = `[${this.providerId.toUpperCase()} STT] Mock transcription: The quick brown fox jumps over the lazy dog.`;
+        const bucketId = process.env.STORAGE_BUCKET_AUDIO || "audio";
+        const transcriptId = `transcript-${Date.now()}-${Math.floor(Math.random() * 10000)}.srt`;
+        const storedSubtitlePath = `${bucketId}/${transcriptId}`;
+        const subtitleContent = `1\n00:00:00,000 --> 00:00:05,000\n${transcription}`;
+        const subtitleBuffer = Buffer.from(subtitleContent);
+
+        const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+        if (storage) {
+          if (typeof storage.hasBucket === "function" && !storage.hasBucket(bucketId)) {
+            await storage.createBucket({
+              id: bucketId,
+              name: bucketId,
+              description: "Audio Bucket",
+              created: new Date()
+            });
+          }
+          await storage.putObject(bucketId, {
+            id: transcriptId,
+            bucketId,
+            content: subtitleBuffer,
+            metadata: { contentType: "text/srt", size: subtitleBuffer.length, created: new Date(), updated: new Date() }
+          });
+        } else {
+          const storageDir = path.join(process.cwd(), "storage", "media");
+          if (!fs.existsSync(storageDir)) {
+            fs.mkdirSync(storageDir, { recursive: true });
+          }
+          fs.writeFileSync(path.join(storageDir, transcriptId), subtitleBuffer);
+        }
+
+        return {
+          requestId: request.requestId,
+          providerId: this.providerId,
+          model: request.model,
+          content: transcription,
+          text: transcription,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          costUsd: 0.015,
+          latencyMs,
+          finishReason: "stop",
+          metadata: {
+            storedSubtitlePath,
+            subtitleUrl: storedSubtitlePath,
+            storageBucket: bucketId,
+            mimeType: "text/plain"
+          },
+          assets: [
+            {
+              id: `asset-${Date.now()}`,
+              type: "SUBTITLE",
+              url: `file:///${path.join(process.cwd(), "storage", "media", transcriptId).replace(/\\/g, "/")}`,
+              mimeType: "text/plain"
+            }
+          ]
+        };
+
+      } else {
+        const extension = request.voiceParams?.outputFormat || "mp3";
+        const audioBuffer = Buffer.from(`mock-speech-audio-binary-data-for-${this.providerId}-${Date.now()}`);
+        const bucketId = process.env.STORAGE_BUCKET_AUDIO || "audio";
+        const audioId = `speech-${Date.now()}-${Math.floor(Math.random() * 10000)}.${extension}`;
+        const storedVoicePath = `${bucketId}/${audioId}`;
+
+        const storage = typeof this._context?.resolve === "function" ? this._context.resolve("IStorage") : undefined;
+        if (storage) {
+          if (typeof storage.hasBucket === "function" && !storage.hasBucket(bucketId)) {
+            await storage.createBucket({
+              id: bucketId,
+              name: bucketId,
+              description: "Audio Bucket",
+              created: new Date()
+            });
+          }
+          await storage.putObject(bucketId, {
+            id: audioId,
+            bucketId,
+            content: audioBuffer,
+            metadata: { contentType: `audio/${extension}`, size: audioBuffer.length, created: new Date(), updated: new Date() }
+          });
+        } else {
+          const storageDir = path.join(process.cwd(), "storage", "media");
+          if (!fs.existsSync(storageDir)) {
+            fs.mkdirSync(storageDir, { recursive: true });
+          }
+          fs.writeFileSync(path.join(storageDir, audioId), audioBuffer);
+        }
+
+        return {
+          requestId: request.requestId,
+          providerId: this.providerId,
+          model: request.model,
+          content: storedVoicePath,
+          text: storedVoicePath,
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          costUsd: 0.005,
+          latencyMs,
+          finishReason: "stop",
+          metadata: {
+            storedVoicePath,
+            storageBucket: bucketId,
+            mimeType: `audio/${extension}`,
+            durationSeconds: Math.ceil((request.prompt || "").length / 15),
+            charCount: (request.prompt || "").length
+          },
+          assets: [
+            {
+              id: `asset-${Date.now()}`,
+              type: "VOICE",
+              url: `file:///${path.join(process.cwd(), "storage", "media", audioId).replace(/\\/g, "/")}`,
+              mimeType: `audio/${extension}`
+            }
+          ]
+        };
+      }
+    }
+
     const promptTokens = Math.ceil(request.prompt.length / 4);
     const completionTokens = Math.floor(promptTokens * 0.6);
     return {
@@ -1026,6 +1333,8 @@ export class GatewayEngine implements
     let imageFallbacks = ["nvidia-image", "openai-image"];
     let videoPrimary = "gemini-video";
     let videoFallbacks = ["runway-video", "pika-video", "luma-video", "openai-video"];
+    let voicePrimary = "gemini-voice";
+    let voiceFallbacks = ["elevenlabs-voice", "openai-voice"];
 
     if (this._context) {
       try {
@@ -1061,6 +1370,18 @@ export class GatewayEngine implements
               return cleaned.endsWith("-video") ? cleaned : `${cleaned}-video`;
             });
           }
+
+          const voicePrimaryStr = envMgr.resolveVariable("VOICE_PRIMARY_PROVIDER");
+          if (voicePrimaryStr) {
+            voicePrimary = voicePrimaryStr.endsWith("-voice") ? voicePrimaryStr : `${voicePrimaryStr}-voice`;
+          }
+          const voiceFallbackStr = envMgr.resolveVariable("VOICE_FALLBACK_PROVIDERS");
+          if (voiceFallbackStr) {
+            voiceFallbacks = voiceFallbackStr.split(",").map((s: string) => {
+              const cleaned = s.trim().toLowerCase();
+              return cleaned.endsWith("-voice") ? cleaned : `${cleaned}-voice`;
+            });
+          }
         }
       } catch (e) {
         primary = process.env.PRIMARY_PROVIDER || primary;
@@ -1089,6 +1410,18 @@ export class GatewayEngine implements
           videoFallbacks = vidFallbackStr.split(",").map((s: string) => {
             const cleaned = s.trim().toLowerCase();
             return cleaned.endsWith("-video") ? cleaned : `${cleaned}-video`;
+          });
+        }
+
+        const voicePrimaryStr = process.env.VOICE_PRIMARY_PROVIDER;
+        if (voicePrimaryStr) {
+          voicePrimary = voicePrimaryStr.endsWith("-voice") ? voicePrimaryStr : `${voicePrimaryStr}-voice`;
+        }
+        const voiceFallbackStr = process.env.VOICE_FALLBACK_PROVIDERS;
+        if (voiceFallbackStr) {
+          voiceFallbacks = voiceFallbackStr.split(",").map((s: string) => {
+            const cleaned = s.trim().toLowerCase();
+            return cleaned.endsWith("-voice") ? cleaned : `${cleaned}-voice`;
           });
         }
       }
@@ -1121,11 +1454,24 @@ export class GatewayEngine implements
           return cleaned.endsWith("-video") ? cleaned : `${cleaned}-video`;
         });
       }
+
+      const voicePrimaryStr = process.env.VOICE_PRIMARY_PROVIDER;
+      if (voicePrimaryStr) {
+        voicePrimary = voicePrimaryStr.endsWith("-voice") ? voicePrimaryStr : `${voicePrimaryStr}-voice`;
+      }
+      const voiceFallbackStr = process.env.VOICE_FALLBACK_PROVIDERS;
+      if (voiceFallbackStr) {
+        voiceFallbacks = voiceFallbackStr.split(",").map((s: string) => {
+          const cleaned = s.trim().toLowerCase();
+          return cleaned.endsWith("-voice") ? cleaned : `${cleaned}-voice`;
+        });
+      }
     }
 
     const priorityOrder = [primary, ...fallbacks];
     const imagePriorityOrder = [imagePrimary, ...imageFallbacks];
     const videoPriorityOrder = [videoPrimary, ...videoFallbacks];
+    const voicePriorityOrder = [voicePrimary, ...voiceFallbacks];
 
     const builtIns: Array<{ id: string; type: ProviderAdapterType; name: string; models: string[]; priority: number }> = [
       { id: "openai",      type: ProviderAdapterType.OPENAI,      name: "OpenAI",      models: ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"],         priority: 100 },
@@ -1146,7 +1492,10 @@ export class GatewayEngine implements
       { id: "runway-video", type: ProviderAdapterType.RUNWAY_VIDEO, name: "Runway Video", models: ["runway-video-model"], priority: 85 },
       { id: "pika-video", type: ProviderAdapterType.PIKA_VIDEO, name: "Pika Video", models: ["pika-video-model"], priority: 80 },
       { id: "luma-video", type: ProviderAdapterType.LUMA_VIDEO, name: "Luma Video", models: ["luma-video-model"], priority: 75 },
-      { id: "openai-video", type: ProviderAdapterType.OPENAI_VIDEO, name: "OpenAI Video", models: ["openai-video-model"], priority: 70 }
+      { id: "openai-video", type: ProviderAdapterType.OPENAI_VIDEO, name: "OpenAI Video", models: ["openai-video-model"], priority: 70 },
+      { id: "gemini-voice", type: ProviderAdapterType.GEMINI_VOICE, name: "Gemini Voice", models: [process.env.VOICE_TTS_MODEL || "gemini-tts-1", process.env.VOICE_STT_MODEL || "gemini-stt-1"], priority: 95 },
+      { id: "elevenlabs-voice", type: ProviderAdapterType.ELEVENLABS_VOICE, name: "ElevenLabs Voice", models: [process.env.ELEVENLABS_MODEL || "eleven_monolingual_v1"], priority: 85 },
+      { id: "openai-voice", type: ProviderAdapterType.OPENAI_VOICE, name: "OpenAI Voice", models: [process.env.OPENAI_TTS_MODEL || "tts-1", process.env.OPENAI_STT_MODEL || "whisper-1"], priority: 80 }
     ];
 
     for (const bi of builtIns) {
@@ -1165,6 +1514,11 @@ export class GatewayEngine implements
         if (index !== -1) {
           calculatedPriority = 1000 - index * 100;
         }
+      } else if (bi.id.endsWith("-voice")) {
+        const index = voicePriorityOrder.indexOf(bi.id);
+        if (index !== -1) {
+          calculatedPriority = 1000 - index * 100;
+        }
       } else {
         const index = priorityOrder.indexOf(bi.id);
         if (index !== -1) {
@@ -1177,17 +1531,17 @@ export class GatewayEngine implements
         adapterType: bi.type,
         displayName: bi.name,
         capabilities: {
-          supportsStreaming: !bi.id.endsWith("-image") && !bi.id.endsWith("-video"),
+          supportsStreaming: !bi.id.endsWith("-image") && !bi.id.endsWith("-video") && !bi.id.endsWith("-voice"),
           supportsVision: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.NVIDIA,
           supportsTools: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.GROK,
           supportsJsonMode: bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OPENROUTER || bi.type === ProviderAdapterType.GROK,
           maxContextTokens: bi.type === ProviderAdapterType.OLLAMA ? 32_768 : 128_000,
           availableModels: bi.models,
-          supportsChat: !bi.id.endsWith("-image") && !bi.id.endsWith("-video"),
+          supportsChat: !bi.id.endsWith("-image") && !bi.id.endsWith("-video") && !bi.id.endsWith("-voice"),
           supportsImages: bi.id.endsWith("-image"),
           supportsVideo: bi.id.endsWith("-video"),
-          supportsVoice: false,
-          supportsEmbeddings: !bi.id.endsWith("-image") && !bi.id.endsWith("-video") && (bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA)
+          supportsVoice: bi.id.endsWith("-voice"),
+          supportsEmbeddings: !bi.id.endsWith("-image") && !bi.id.endsWith("-video") && !bi.id.endsWith("-voice") && (bi.type === ProviderAdapterType.GEMINI || bi.type === ProviderAdapterType.OPENAI || bi.type === ProviderAdapterType.OLLAMA)
         },
         priority: calculatedPriority,
         enabled: true,

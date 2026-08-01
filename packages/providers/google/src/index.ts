@@ -19,3 +19,11 @@ export * from "./GeminiVideoModels";
 export * from "./GeminiVideoValidator";
 export * from "./GeminiVideoProvider";
 export * from "./GeminiVideoBuilder";
+
+export * from "./GeminiVoiceConfiguration";
+export * from "./GeminiVoiceCapabilities";
+export * from "./GeminiVoiceModels";
+export * from "./GeminiVoiceValidator";
+export * from "./GeminiVoiceProvider";
+export * from "./GeminiVoiceBuilder";
+

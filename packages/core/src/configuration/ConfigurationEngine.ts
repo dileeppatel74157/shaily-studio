@@ -176,7 +176,7 @@ export class ConfigurationEngine implements
       "OPENAI_TTS_MODEL": process.env.OPENAI_TTS_MODEL || "tts-1",
       "OPENAI_STT_MODEL": process.env.OPENAI_STT_MODEL || "whisper-1",
       "OPENAI_VOICE": process.env.OPENAI_VOICE || "alloy",
-      "YOUTUBE_OAUTH_REDIRECT_URL": process.env.YOUTUBE_OAUTH_REDIRECT_URL || "http://localhost:3000/api/auth/youtube/callback"
+      "YOUTUBE_OAUTH_REDIRECT_URL": process.env.YOUTUBE_OAUTH_REDIRECT_URL || "http://localhost:3000/channels/oauth-callback"
     };
 
     const sources: Record<string, ConfigurationSource> = {

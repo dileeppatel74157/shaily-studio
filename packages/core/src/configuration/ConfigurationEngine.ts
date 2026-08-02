@@ -175,7 +175,8 @@ export class ConfigurationEngine implements
       "ELEVENLABS_VOICE_ID": process.env.ELEVENLABS_VOICE_ID || "21m00Tcm4TlvDq8ikWAM",
       "OPENAI_TTS_MODEL": process.env.OPENAI_TTS_MODEL || "tts-1",
       "OPENAI_STT_MODEL": process.env.OPENAI_STT_MODEL || "whisper-1",
-      "OPENAI_VOICE": process.env.OPENAI_VOICE || "alloy"
+      "OPENAI_VOICE": process.env.OPENAI_VOICE || "alloy",
+      "YOUTUBE_OAUTH_REDIRECT_URL": process.env.YOUTUBE_OAUTH_REDIRECT_URL || "http://localhost:3000/api/auth/youtube/callback"
     };
 
     const sources: Record<string, ConfigurationSource> = {
@@ -213,7 +214,8 @@ export class ConfigurationEngine implements
       "ELEVENLABS_VOICE_ID": ConfigurationSource.ENV,
       "OPENAI_TTS_MODEL": ConfigurationSource.ENV,
       "OPENAI_STT_MODEL": ConfigurationSource.ENV,
-      "OPENAI_VOICE": ConfigurationSource.ENV
+      "OPENAI_VOICE": ConfigurationSource.ENV,
+      "YOUTUBE_OAUTH_REDIRECT_URL": ConfigurationSource.ENV
     };
 
     // Find and parse .env
@@ -278,7 +280,9 @@ export class ConfigurationEngine implements
       { key: "NVIDIA_API_KEY", type: SecretType.API_KEY, id: "sec-nvidia", fallback: "nvapi-mock-key-value-12345" },
       { key: "GROK_API_KEY", type: SecretType.API_KEY, id: "sec-grok", fallback: "grok-mock-key-value-12345" },
       { key: "YOUTUBE_API_KEY", type: SecretType.API_KEY, id: "sec-youtube", fallback: "yt-mock-key-value-12345" },
-      { key: "ELEVENLABS_API_KEY", type: SecretType.API_KEY, id: "sec-elevenlabs", fallback: "eleven-labs-key-value-12345" }
+      { key: "ELEVENLABS_API_KEY", type: SecretType.API_KEY, id: "sec-elevenlabs", fallback: "eleven-labs-key-value-12345" },
+      { key: "YOUTUBE_OAUTH_CLIENT_ID", type: SecretType.API_KEY, id: "sec-youtube-client-id", fallback: "" },
+      { key: "YOUTUBE_OAUTH_CLIENT_SECRET", type: SecretType.API_KEY, id: "sec-youtube-client-secret", fallback: "" }
     ];
 
     this._secrets = [];

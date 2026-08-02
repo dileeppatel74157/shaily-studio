@@ -54,6 +54,9 @@ import {
   QueueConflictException,
   deepFreeze,
 } from "./types";
+import { decrypt, encrypt } from "../security/encryption";
+import { google } from "googleapis";
+import { YouTubeChannelProvider } from "./providers/YouTubeChannelProvider";
 
 // ─── Default Channel Provider (Base) ─────────────────────────────────────────
 
@@ -274,6 +277,38 @@ class DefaultOAuthManager implements IOAuthManager {
   public async refreshToken(channelId: string, refresh: RefreshToken): Promise<OAuthToken> {
     if (!refresh.token) throw new OAuthException(channelId, "Refresh token is missing.");
     const now      = new Date();
+
+    if (refresh.provider === PlatformProvider.YOUTUBE) {
+      try {
+        const client = new google.auth.OAuth2(
+          process.env.YOUTUBE_OAUTH_CLIENT_ID,
+          process.env.YOUTUBE_OAUTH_CLIENT_SECRET,
+          process.env.YOUTUBE_OAUTH_REDIRECT_URL
+        );
+        const decryptedRefresh = decrypt(refresh.token);
+        client.setCredentials({ refresh_token: decryptedRefresh });
+        const res = await client.refreshAccessToken();
+        const credentials = res.credentials;
+        const expiry = credentials.expiry_date ? new Date(credentials.expiry_date) : new Date(Date.now() + 3600 * 1000);
+        const expiresInSeconds = Math.max(0, Math.floor((expiry.getTime() - Date.now()) / 1000));
+        
+        const newToken: OAuthToken = {
+          accessToken:      encrypt(credentials.access_token || ""),
+          refreshToken:     refresh.token, // Keep the same encrypted refresh token
+          tokenType:        credentials.token_type || "Bearer",
+          expiresAt:        expiry,
+          scopes:           credentials.scope ? credentials.scope.split(" ") : ["read", "write", "upload"],
+          issuedAt:         now,
+          isExpired:        false,
+          expiresInSeconds,
+        };
+        this._tokens.set(channelId, newToken);
+        return newToken;
+      } catch (err: any) {
+        throw new OAuthException(channelId, `Failed to refresh Google OAuth token: ${err.message}`);
+      }
+    }
+
     const newToken: OAuthToken = {
       accessToken:      `refreshed-access-token-${Date.now()}`,
       refreshToken:     refresh.token,
@@ -588,9 +623,12 @@ export class ChannelManagerEngine implements IChannelManager {
     this._monitor        = monitor        || new DefaultChannelMonitor();
     this._historyManager = historyManager || new DefaultHistoryManager();
 
-    const builtIn: IChannelProvider[] = Object.values(PlatformProvider).map(
-      p => new BaseChannelProvider(p, PROVIDER_CAPS[p])
-    );
+    const builtIn: IChannelProvider[] = Object.values(PlatformProvider).map(p => {
+      if (p === PlatformProvider.YOUTUBE) {
+        return new YouTubeChannelProvider();
+      }
+      return new BaseChannelProvider(p, PROVIDER_CAPS[p]);
+    });
     this._providerRegistry = new ProviderRegistry([...builtIn, ...(extraProviders ?? [])]);
   }
 

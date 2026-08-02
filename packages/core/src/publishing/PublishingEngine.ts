@@ -360,7 +360,52 @@ class BasePlatformProvider implements IPlatformProvider {
   }
 }
 
-class YouTubeProvider   extends BasePlatformProvider { constructor() { super(PublishingPlatform.YOUTUBE); } }
+class YouTubeProvider extends BasePlatformProvider {
+  constructor(private readonly _engine?: any) {
+    super(PublishingPlatform.YOUTUBE);
+  }
+
+  public async upload(
+    job: PublishingJob,
+    assets: {
+      videoPath: string;
+      thumbnailPath?: string;
+      subtitlePath?: string;
+      metadata: PublishingMetadata;
+    }
+  ): Promise<PublishingJob> {
+    const ytEngine = this._engine || (job as any).context?.youtubeIntegrationEngine || (this as any).context?.youtubeIntegrationEngine;
+    if (ytEngine) {
+      try {
+        const response = await ytEngine.uploadVideo({
+          id: job.id,
+          title: assets.metadata.title,
+          description: assets.metadata.description,
+          videoFileUrl: assets.videoPath,
+          thumbnailUrl: assets.thumbnailPath,
+          captionsSrtUrl: assets.subtitlePath,
+          privacy: job.target.schedule.mode === "now" ? "PUBLIC" : "PRIVATE",
+          category: assets.metadata.category || "Gaming",
+          tags: assets.metadata.tags || [],
+          playlistId: assets.metadata.playlist,
+          scheduleTime: job.target.schedule.publishAt
+        });
+        
+        job.platformVideoId = response.videoId;
+        job.publishedUrl = response.videoUrl;
+        job.status = PublishingStatus.SUCCESS;
+        job.state = PublishingState.PUBLISHED;
+        job.publishedAt = new Date();
+        return job;
+      } catch (err: any) {
+        job.status = PublishingStatus.FAILED;
+        job.state = PublishingState.FAILED;
+        throw new PublishingPlatformException(PublishingPlatform.YOUTUBE, `YouTube upload failed: ${err.message}`);
+      }
+    }
+    return super.upload(job, assets);
+  }
+}
 class InstagramProvider extends BasePlatformProvider { constructor() { super(PublishingPlatform.INSTAGRAM); } }
 class TikTokProvider    extends BasePlatformProvider { constructor() { super(PublishingPlatform.TIKTOK); } }
 class FacebookProvider  extends BasePlatformProvider { constructor() { super(PublishingPlatform.FACEBOOK); } }
@@ -433,7 +478,7 @@ export class PublishingEngine implements IPublishingEngine {
 
     // Register all built-in platform providers
     const builtInProviders: IPlatformProvider[] = [
-      new YouTubeProvider(),
+      new YouTubeProvider(this.context?.youtubeIntegrationEngine),
       new InstagramProvider(),
       new TikTokProvider(),
       new FacebookProvider(),

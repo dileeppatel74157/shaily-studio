@@ -16,6 +16,7 @@ import { LLMProviderBuilder } from "../../llm-provider/LLMProviderBuilder";
 import { MediaProviderBuilder } from "../../media-provider/MediaProviderBuilder";
 import { ContentPipelineBuilder } from "../../content-pipeline/ContentPipelineBuilder";
 import { YouTubeIntegrationBuilder } from "../../youtube-integration/YouTubeIntegrationBuilder";
+import { PublishingBuilder } from "../../publishing/PublishingBuilder";
 import { SocialPlatformBuilder } from "../../social-platform/SocialPlatformBuilder";
 import { AnalyticsBuilder } from "../../analytics/AnalyticsBuilder";
 import { AutonomousImprovementBuilder } from "../../autonomous-improvement/AutonomousImprovementBuilder";
@@ -194,6 +195,21 @@ export class RuntimeEngine implements IRuntimeEngine {
         "ConfigurationEngine",
         "DatabaseEngine",
         "ObservabilityEngine"
+      ],
+      priority: StartupPriority.HIGH
+    });
+
+    const publishingEngine = new PublishingBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "PublishingEngine",
+      engine: publishingEngine,
+      dependencies: [
+        "ConfigurationEngine",
+        "DatabaseEngine",
+        "ObservabilityEngine",
+        "YouTubeIntegrationEngine"
       ],
       priority: StartupPriority.HIGH
     });

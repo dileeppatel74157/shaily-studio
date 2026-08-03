@@ -8,7 +8,7 @@ import { IToolRegistry } from "../tools/IToolRegistry";
 import { IConversationManager } from "../conversation/IConversationManager";
 import { IAgentRegistry } from "../agents/IAgentRegistry";
 import { IScheduler } from "../scheduler/IScheduler";
-import { IStorage } from "../storage/IStorage";
+import { IStorage } from "../storage";
 import { IObservability } from "../observability/IObservability";
 import { IResearchEngine } from "../research/interfaces";
 import { IStrategyEngine } from "../strategy/interfaces";

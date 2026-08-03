@@ -8,7 +8,7 @@ import { IKernel } from "../kernel/IKernel";
 import { IConfiguration } from "../configuration/IConfiguration";
 import { ISecurity } from "../security/ISecurity";
 import { IObservability } from "../observability/IObservability";
-import { IStorage } from "../storage/IStorage";
+import { IStorage } from "../storage";
 import { IScheduler } from "../scheduler/IScheduler";
 import { IGateway } from "../gateway/IGateway";
 import { IMCPServer } from "../mcp/IMCPServer";

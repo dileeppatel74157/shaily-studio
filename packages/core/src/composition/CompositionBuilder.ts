@@ -6,7 +6,7 @@ import { CompositionValidationException } from "./types";
 // Import interfaces
 import { IConfiguration } from "../configuration/IConfiguration";
 import { ISecurity } from "../security/ISecurity";
-import { IStorage } from "../storage/IStorage";
+import { IStorage, StorageBuilder, FileSystemStorageProvider } from "../storage";
 import { IScheduler } from "../scheduler/IScheduler";
 import { IObservability } from "../observability/IObservability";
 import { IGateway } from "../gateway/IGateway";
@@ -26,8 +26,6 @@ import { IPluginRegistry } from "../plugins/IPluginRegistry";
 // Import builders/concrete classes
 import { ConfigurationBuilder } from "../configuration/ConfigurationBuilder";
 import { SecurityBuilder } from "../security/SecurityBuilder";
-import { StorageBuilder } from "../storage/StorageBuilder";
-import { FileSystemStorageProvider } from "../storage/StorageProvider";
 import { SchedulerBuilder } from "../scheduler/SchedulerBuilder";
 import { ObservabilityBuilder } from "../observability/ObservabilityBuilder";
 import { MessageBusBuilder } from "../messagebus/MessageBusBuilder";

@@ -12,7 +12,7 @@ import { IToolRegistry } from "../../tools/IToolRegistry";
 import { IWorkflowEngine } from "../../workflow/IWorkflowEngine";
 import { IObservability } from "../../observability/IObservability";
 import { IScheduler } from "../../scheduler/IScheduler";
-import { IStorage } from "../../storage/IStorage";
+import { IStorage } from "../../storage";
 import { IResearchEngine } from "../../research/interfaces";
 import { IStrategyEngine } from "../../strategy/interfaces";
 import { IChannelEngine } from "../../channel/interfaces";

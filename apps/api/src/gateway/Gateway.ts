@@ -1,13 +1,9 @@
 import {
   IGateway,
-  ChannelManagerEngine,
-  DatabaseBuilder,
-  DatabaseProvider,
   PlatformProvider,
   ChannelManagerState,
-  encrypt,
-  decrypt
-} from "@shaily/core";
+  encrypt
+} from "@shaily/core/api-gateway";
 import { GatewayServer } from "./GatewayServer";
 import { RouteDefinition } from "./RouteDefinition";
 import { GatewayRequest } from "./GatewayRequest";

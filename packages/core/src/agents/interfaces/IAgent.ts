@@ -6,7 +6,7 @@ import { AgentCapability } from "../types/AgentCapability";
 import { AgentGoal } from "../models/AgentGoal";
 import { AgentProfile } from "../models/AgentProfile";
 import { AgentConfiguration } from "../types/AgentConfiguration";
-import { ISkill } from "../skills/ISkill";
+import { ISkill } from "../../skills/ISkill";
 
 export interface IAgent extends IBaseAgent {
   readonly version: string;

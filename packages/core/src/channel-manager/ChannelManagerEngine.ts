@@ -851,7 +851,7 @@ export class ChannelManagerEngine implements IChannelManager {
         };
         ChannelManagerValidator.validateScheduledPost(post);
         if (this._scheduler.hasConflict(post.channelId, post.scheduledAt)) {
-          throw new (await import("./types")).ScheduleConflictException(
+          throw new (await import("./types.js")).ScheduleConflictException(
             post.channelId, post.scheduledAt.toISOString()
           );
         }

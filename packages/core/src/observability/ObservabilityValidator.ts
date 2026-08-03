@@ -65,4 +65,28 @@ export class ObservabilityValidator {
       throw new ObservabilityValidationException(`Invalid observability state transition: ${current} -> ${next}`);
     }
   }
+
+  public static validateMetric(metric: any): void {
+    if (!metric) {
+      throw new ObservabilityValidationException("Metric is required.");
+    }
+  }
+
+  public static validateContext(context: any): void {
+    if (!context) {
+      throw new ObservabilityValidationException("ObservabilityContext is required.");
+    }
+  }
+
+  public static validateHealthReport(report: any): void {
+    if (!report) {
+      throw new ObservabilityValidationException("Health report is required.");
+    }
+  }
+
+  public static validateSpanHierarchy(spans: any): void {
+    if (!spans) {
+      throw new ObservabilityValidationException("Span hierarchy is required.");
+    }
+  }
 }

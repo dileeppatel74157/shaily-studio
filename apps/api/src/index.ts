@@ -10,7 +10,7 @@ import {
   ServiceRegistry,
   ConfigBuilder,
   DatabaseEngine
-} from "@shaily/core";
+} from "@shaily/core/api-gateway";
 import { GatewayBuilder } from "./gateway/GatewayBuilder";
 import { GatewayContext } from "./gateway/GatewayContext";
 

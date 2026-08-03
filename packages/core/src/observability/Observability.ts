@@ -8,10 +8,10 @@ import { ObservabilityContext } from "./ObservabilityContext";
 import { HealthMonitor } from "./HealthMonitor";
 import { MetricsCollector } from "./MetricsCollector";
 import { ObservabilityValidator } from "./ObservabilityValidator";
+import { ObservabilityState } from "./ObservabilityState";
 import {
-  ObservabilityState,
-  InvalidLifecycleTransitionException,
   ObservabilityValidationException,
+  InvalidObservabilityStateException,
   deepFreeze,
 } from "./types";
 
@@ -52,10 +52,10 @@ export class Observability implements IObservability {
 
   public async initialize(): Promise<void> {
     if (this._state !== ObservabilityState.CREATED) {
-      throw new InvalidLifecycleTransitionException("initialize", this._state);
+      throw new InvalidObservabilityStateException("initialize", this._state);
     }
     try {
-      this._state = ObservabilityState.READY;
+      this._state = ObservabilityState.INITIALIZING;
     } catch (err) {
       this._state = ObservabilityState.FAILED;
       throw err;
@@ -63,8 +63,8 @@ export class Observability implements IObservability {
   }
 
   public async start(): Promise<void> {
-    if (this._state !== ObservabilityState.READY) {
-      throw new InvalidLifecycleTransitionException("start", this._state);
+    if (this._state !== ObservabilityState.INITIALIZING) {
+      throw new InvalidObservabilityStateException("start", this._state);
     }
     try {
       this._state = ObservabilityState.RUNNING;
@@ -76,7 +76,7 @@ export class Observability implements IObservability {
 
   public async stop(): Promise<void> {
     if (this._state !== ObservabilityState.RUNNING) {
-      throw new InvalidLifecycleTransitionException("stop", this._state);
+      throw new InvalidObservabilityStateException("stop", this._state);
     }
     try {
       this._state = ObservabilityState.STOPPED;
@@ -88,7 +88,7 @@ export class Observability implements IObservability {
 
   public recordMetric(metric: Metric): void {
     if (this._state !== ObservabilityState.RUNNING) {
-      throw new InvalidLifecycleTransitionException("recordMetric", this._state);
+      throw new InvalidObservabilityStateException("recordMetric", this._state);
     }
     this._metricsCollector.record(metric);
   }
@@ -100,7 +100,7 @@ export class Observability implements IObservability {
     tags?: Record<string, string>
   ): Span {
     if (this._state !== ObservabilityState.RUNNING) {
-      throw new InvalidLifecycleTransitionException("startSpan", this._state);
+      throw new InvalidObservabilityStateException("startSpan", this._state);
     }
 
     if (!name || name.trim() === "") {
@@ -156,7 +156,7 @@ export class Observability implements IObservability {
 
   public endSpan(spanId: string): void {
     if (this._state !== ObservabilityState.RUNNING) {
-      throw new InvalidLifecycleTransitionException("endSpan", this._state);
+      throw new InvalidObservabilityStateException("endSpan", this._state);
     }
 
     const record = this._spans.get(spanId);
@@ -180,11 +180,11 @@ export class Observability implements IObservability {
 
   public health(): DiagnosticReport {
     if (
-      this._state !== ObservabilityState.READY &&
+      this._state !== ObservabilityState.INITIALIZING &&
       this._state !== ObservabilityState.RUNNING &&
       this._state !== ObservabilityState.STOPPED
     ) {
-      throw new InvalidLifecycleTransitionException("health", this._state);
+      throw new InvalidObservabilityStateException("health", this._state);
     }
 
     const report = this._healthMonitor.generateReport();
@@ -194,7 +194,7 @@ export class Observability implements IObservability {
 
   public snapshot(): ObservabilitySnapshot {
     if (this._state !== ObservabilityState.RUNNING && this._state !== ObservabilityState.STOPPED) {
-      throw new InvalidLifecycleTransitionException("snapshot", this._state);
+      throw new InvalidObservabilityStateException("snapshot", this._state);
     }
 
     const healthReport = this.health();

@@ -671,7 +671,7 @@ class ResourceManagerImpl implements IResourceManager {
 
 // --- Statistics Manager Implementation ---
 
-class StatisticsManagerImpl implements IResourceManager {
+class StatisticsManagerImpl implements IStatisticsManager {
   constructor(private readonly engine: PerformanceEngine) {}
 
   public getStats(): PerformanceStatistics {

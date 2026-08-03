@@ -5,5 +5,5 @@ export { ConfigSource } from "./types/ConfigSource";
 export { EnvironmentSource } from "./engine/EnvironmentSource";
 export { IConfig } from "./interfaces/IConfig";
 export { MemorySource } from "./engine/MemorySource";
-export { ConfigValidator, DefaultConfigValidator } from "./validation/ConfigValidator";
+// export { ConfigValidator, DefaultConfigValidator } from "./validation/ConfigValidator";
 export { ConfigSnapshot, ImmutableConfigSnapshot } from "./models/ConfigSnapshot";

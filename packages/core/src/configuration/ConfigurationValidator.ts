@@ -225,4 +225,44 @@ export class ConfigurationValidator {
       throw new ConfigurationValidationException(`Invalid configuration state transition: ${current} -> ${next}`);
     }
   }
+
+  public static validateValueType(key: string, value: any, schemaItem: any): void {
+    const expectedType = schemaItem.type;
+    const actualType = typeof value;
+    if (expectedType && actualType !== expectedType) {
+      throw new ConfigurationValidationException(`Value type mismatch for key "${key}": expected ${expectedType}, got ${actualType}.`);
+    }
+  }
+
+  public static validateRequiredValues(schema: any, values: any): void {
+    for (const key of Object.keys(schema)) {
+      if (schema[key].required && (values[key] === undefined || values[key] === null)) {
+        throw new ConfigurationValidationException(`Required configuration key "${key}" is missing.`);
+      }
+    }
+  }
+
+  public static validateProvider(provider: any, providers: any[]): void {
+    if (!provider) {
+      throw new ConfigurationValidationException("Provider is required.");
+    }
+  }
+
+  public static validateContext(context: any): void {
+    if (!context) {
+      throw new ConfigurationValidationException("Context is required.");
+    }
+  }
+
+  public static validateSchema(schema: any): void {
+    if (!schema) {
+      throw new ConfigurationValidationException("Schema is required.");
+    }
+  }
+
+  public static validateIdentifier(key: string, description: string): void {
+    if (!key || key.trim() === "") {
+      throw new ConfigurationValidationException(`${description} cannot be empty.`);
+    }
+  }
 }

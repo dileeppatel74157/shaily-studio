@@ -56,7 +56,8 @@ export class DailyAutomationEngine implements IDailyAutomationEngine {
     successRate: 100.0,
     totalExecutions: 0,
     failedExecutions: 0,
-    uptimeSeconds: 0
+    uptimeSeconds: 0,
+    averageExecutionDurationMs: 0
   };
 
   private readonly _routineMgr: IRoutineManager;

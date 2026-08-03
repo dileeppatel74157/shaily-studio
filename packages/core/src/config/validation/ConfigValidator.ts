@@ -1,4 +1,4 @@
-import { ConfigSchema } from "./ConfigSchema";
+import { ConfigSchema } from "../models/ConfigSchema";
 
 export interface ConfigValidator {
   validate(data: Record<string, unknown>, schema: ConfigSchema): void;
@@ -6,7 +6,7 @@ export interface ConfigValidator {
 
 export class DefaultConfigValidator implements ConfigValidator {
   public validate(data: Record<string, unknown>, schema: ConfigSchema): void {
-    for (const [key, property] of Object.entries(schema)) {
+    for (const [key, property] of Object.entries(schema) as [string, any][]) {
       let value = data[key];
 
       if (value === undefined && property.default !== undefined) {

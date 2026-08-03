@@ -373,7 +373,7 @@ export class DashboardEngine implements IDashboardEngine {
     });
   }
 
-  private _startTimer(): void {
+  public _startTimer(): void {
     this._stopTimer();
     this._refreshTimer = setInterval(() => {
       this._refreshMgr.refreshAll().catch(err => {

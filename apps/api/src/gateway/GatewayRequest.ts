@@ -1,1 +1,1 @@
-export { GatewayRequest } from "@shaily/core";
+export { GatewayRequest } from "@shaily/core/api-gateway";

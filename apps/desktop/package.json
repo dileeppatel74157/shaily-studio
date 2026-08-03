@@ -5,7 +5,7 @@
   "main": "./dist/main/main.js",
   "scripts": {
     "dev": "node scripts/run-dev.js",
-    "build": "tsc -p tsconfig.main.json && vite build",
+    "build": "tsc -p tsconfig.main.json && pnpm exec vite build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

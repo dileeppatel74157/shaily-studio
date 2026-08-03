@@ -1,1 +1,1 @@
-export { GatewayContext } from "@shaily/core";
+export { GatewayContext } from "@shaily/core/api-gateway";

@@ -1,5 +1,5 @@
-import { ILogger } from "../logger/ILogger";
-import { IEventBus } from "../events/IEventBus";
+import { ILogger } from "../../logger/ILogger";
+import { IEventBus } from "../../events/IEventBus";
 
 export interface JobContext {
   readonly jobId: string;

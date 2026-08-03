@@ -12,7 +12,7 @@ import { AgentConfiguration } from "../types/AgentConfiguration";
 import { AgentExecution } from "../models/AgentExecution";
 import { AgentValidator } from "../validation/AgentValidator";
 import { InvalidAgentStateException, deepFreeze } from "../types/types";
-import { ISkill } from "../skills/ISkill";
+import { ISkill } from "../../skills/ISkill";
 
 export class Agent implements IAgent {
   private _state: AgentState = AgentState.CREATED;

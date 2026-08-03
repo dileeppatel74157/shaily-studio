@@ -21,7 +21,6 @@ export type {
   MentionCollection,
   PublishHistory,
   PublishProgress,
-  ScheduleRequest,
   PlatformStatistics,
   AnalyticsSeed,
   RetryAttempt,

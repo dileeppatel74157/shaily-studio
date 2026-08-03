@@ -48,7 +48,7 @@ export class Configuration implements IConfiguration {
       throw new InvalidConfigurationStateException("initialize", this._state);
     }
     try {
-      this._state = ConfigurationState.READY;
+      this._state = ConfigurationState.LOADING;
     } catch (err) {
       this._state = ConfigurationState.FAILED;
       throw err;
@@ -56,12 +56,12 @@ export class Configuration implements IConfiguration {
   }
 
   public async start(): Promise<void> {
-    if (this._state !== ConfigurationState.READY) {
+    if (this._state !== ConfigurationState.LOADING) {
       throw new InvalidConfigurationStateException("start", this._state);
     }
     try {
       await this.evaluate();
-      this._state = ConfigurationState.RUNNING;
+      this._state = ConfigurationState.READY;
     } catch (err) {
       this._state = ConfigurationState.FAILED;
       throw err;
@@ -69,11 +69,11 @@ export class Configuration implements IConfiguration {
   }
 
   public async stop(): Promise<void> {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("stop", this._state);
     }
     try {
-      this._state = ConfigurationState.STOPPED;
+      this._state = ConfigurationState.CREATED;
     } catch (err) {
       this._state = ConfigurationState.FAILED;
       throw err;
@@ -81,7 +81,7 @@ export class Configuration implements IConfiguration {
   }
 
   public get<T>(key: string): T {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("get", this._state);
     }
 
@@ -98,7 +98,7 @@ export class Configuration implements IConfiguration {
   }
 
   public async set(key: string, value: unknown): Promise<void> {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("set", this._state);
     }
 
@@ -114,14 +114,14 @@ export class Configuration implements IConfiguration {
   }
 
   public has(key: string): boolean {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("has", this._state);
     }
     return key in this._values || (this._schema[key]?.default !== undefined);
   }
 
   public async remove(key: string): Promise<void> {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("remove", this._state);
     }
     this._runtimeProvider.remove(key);
@@ -129,7 +129,7 @@ export class Configuration implements IConfiguration {
   }
 
   public async registerProvider(provider: ConfigurationProvider): Promise<void> {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("registerProvider", this._state);
     }
 
@@ -139,7 +139,7 @@ export class Configuration implements IConfiguration {
   }
 
   public async unregisterProvider(name: string): Promise<void> {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("unregisterProvider", this._state);
     }
 
@@ -157,28 +157,28 @@ export class Configuration implements IConfiguration {
   }
 
   public async reload(): Promise<void> {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("reload", this._state);
     }
     await this.evaluate();
   }
 
   public watch(callback: ConfigurationWatcherCallback): string {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("watch", this._state);
     }
     return this._watcher.watch(callback);
   }
 
   public unwatch(watcherId: string): boolean {
-    if (this._state !== ConfigurationState.RUNNING) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("unwatch", this._state);
     }
     return this._watcher.unwatch(watcherId);
   }
 
   public snapshot(): ConfigurationSnapshot {
-    if (this._state !== ConfigurationState.RUNNING && this._state !== ConfigurationState.STOPPED) {
+    if (this._state !== ConfigurationState.READY) {
       throw new InvalidConfigurationStateException("snapshot", this._state);
     }
 

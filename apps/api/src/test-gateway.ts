@@ -27,7 +27,7 @@ import {
   IPluginRegistry,
   IMCPServer,
   IAgent,
-} from "@shaily/core";
+} from "@shaily/core/api-gateway";
 
 function assert(condition: boolean, message: string): void {
   if (!condition) {

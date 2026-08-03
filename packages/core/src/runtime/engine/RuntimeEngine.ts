@@ -467,79 +467,86 @@ export class RuntimeEngine implements IRuntimeEngine {
     this.registerEngine({
       id: "AgentRegistry",
       engine: agentRegistry,
-      dependencies: [],
-      priority: StartupPriority.HIGH
-    });
-
-    const workflowEngine = new WorkflowEngine(_context);
-    this.registerEngine({
-      id: "WorkflowEngine",
-      engine: workflowEngine,
-      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
-      priority: StartupPriority.HIGH
-    });
-
-    const toolRegistry = new ToolRegistry();
-    this.registerEngine({
-      id: "ToolRegistry",
-      engine: toolRegistry,
-      dependencies: [],
-      priority: StartupPriority.HIGH
-    });
-
-    const promptRegistry = new PromptRegistry();
-    this.registerEngine({
-      id: "PromptRegistry",
-      engine: promptRegistry,
-      dependencies: [],
-      priority: StartupPriority.HIGH
-    });
-
-    const pluginRegistry = new PluginRegistry();
-    this.registerEngine({
-      id: "PluginRegistry",
-      engine: pluginRegistry,
-      dependencies: [],
-      priority: StartupPriority.HIGH
-    });
-
-    const mcpServer = new MCPServer(_context);
-    this.registerEngine({
-      id: "MCPServer",
-      engine: mcpServer,
-      dependencies: [],
-      priority: StartupPriority.HIGH
-    });
-
-    const memoryEngine = new MemoryBuilder()
-      .withContext(_context)
-      .build();
-    this.registerEngine({
-      id: "MemoryEngine",
-      engine: memoryEngine,
-      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
-      priority: StartupPriority.HIGH
-    });
-
-    const knowledgeBaseEngine = new KnowledgeBaseBuilder()
-      .withContext(_context)
-      .build();
-    this.registerEngine({
-      id: "KnowledgeBaseEngine",
-      engine: knowledgeBaseEngine,
-      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine", "MemoryEngine"],
-      priority: StartupPriority.HIGH
-    });
-
-    const ragEngine = new RAGBuilder()
-      .withContext(_context)
-      .build();
-    this.registerEngine({
-      id: "RAGEngine",
-      engine: ragEngine,
-      dependencies: ["MemoryEngine", "KnowledgeBaseEngine"],
-      priority: StartupPriority.HIGH
-    });
+       dependencies: [],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const workflowEngine = new WorkflowEngine();
+     this.registerEngine({
+       id: "WorkflowEngine",
+       engine: workflowEngine,
+       dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const toolRegistry = new ToolRegistry();
+     this.registerEngine({
+       id: "ToolRegistry",
+       engine: toolRegistry,
+       dependencies: [],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const promptRegistry = new PromptRegistry();
+     this.registerEngine({
+       id: "PromptRegistry",
+       engine: promptRegistry,
+       dependencies: [],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const pluginRegistry = new PluginRegistry();
+     this.registerEngine({
+       id: "PluginRegistry",
+       engine: pluginRegistry,
+       dependencies: [],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const stubTransport: any = {
+       type: "IN_MEMORY",
+       send: async () => {},
+       receive: async () => ({ id: "1", method: "stub", jsonrpc: "2.0" }),
+       close: async () => {}
+     };
+     const mcpServer = new MCPServer(_context, stubTransport);
+     this.registerEngine({
+       id: "MCPServer",
+       engine: mcpServer,
+       dependencies: [],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const memoryEngine = new MemoryBuilder()
+       .withContext(_context)
+       .build();
+     this.registerEngine({
+       id: "MemoryEngine",
+       engine: memoryEngine,
+       dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const knowledgeBaseEngine = new KnowledgeBaseBuilder()
+       .withContext(_context)
+       .build();
+     this.registerEngine({
+       id: "KnowledgeBaseEngine",
+       engine: knowledgeBaseEngine,
+       dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine", "MemoryEngine"],
+       priority: StartupPriority.HIGH
+     });
+ 
+     const ragEngine = new RAGBuilder()
+       .withKnowledgeBase(knowledgeBaseEngine as any)
+       .withPromptRegistry(promptRegistry)
+       .build();
+     this.registerEngine({
+       id: "RAGEngine",
+       engine: ragEngine,
+       dependencies: ["MemoryEngine", "KnowledgeBaseEngine"],
+       priority: StartupPriority.HIGH
+     });
 
     const qdrantEngine = new DatabaseBuilder()
       .withContext(_context)

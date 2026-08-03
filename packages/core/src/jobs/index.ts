@@ -9,5 +9,5 @@ export { JobExecutor } from "./executor/JobExecutor";
 export { JobScheduler } from "./scheduler/JobScheduler";
 export { IJobEngine } from "./interfaces/IJobEngine";
 export { JobEngine } from "./engine/JobEngine";
-export { JobException, InvalidJobStateException, JobEngineNotRunningException } from "./types/types";
+export { JobEngineException, InvalidJobStateException, JobEngineNotRunningException } from "./types/types";
 export * from "./types/types";

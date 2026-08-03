@@ -26,7 +26,7 @@ import {
   WorkflowEngine,
   KernelBuilder,
   Version,
-} from "@shaily/core";
+} from "@shaily/core/api-gateway";
 
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {

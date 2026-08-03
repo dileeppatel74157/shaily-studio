@@ -1,4 +1,5 @@
 import { FounderAIState } from "./FounderAIState";
+import { AutomationTrigger } from "../daily-automation/AutomationTrigger";
 import { FounderMode } from "./FounderMode";
 import { FounderGoalType } from "./FounderGoalType";
 import { DecisionPriority } from "./DecisionPriority";

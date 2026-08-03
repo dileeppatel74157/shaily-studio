@@ -1,4 +1,4 @@
-import { ILogger } from "../logger/ILogger";
+import { ILogger } from "../../logger/ILogger";
 import { Event } from "../models/Event";
 import { EventHandler } from "../types/EventHandler";
 import { EventPriority } from "../types/EventPriority";

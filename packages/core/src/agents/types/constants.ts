@@ -26,3 +26,6 @@ export const DEFAULT_AGENTS: AgentMetadata[] = [
     capabilities: ["timeline-generation", "asset-indexing"],
   },
 ];
+
+export const AGENT_METADATA_VERSION = "1.0.0";
+export const AGENT_SNAPSHOT_VERSION = "1.0.0";

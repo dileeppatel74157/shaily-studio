@@ -384,11 +384,11 @@ class YouTubeProvider extends BasePlatformProvider {
           videoFileUrl: assets.videoPath,
           thumbnailUrl: assets.thumbnailPath,
           captionsSrtUrl: assets.subtitlePath,
-          privacy: job.target.schedule.mode === "now" ? "PUBLIC" : "PRIVATE",
+          privacy: job.target.privacy || "PUBLIC",
           category: assets.metadata.category || "Gaming",
           tags: assets.metadata.tags || [],
           playlistId: assets.metadata.playlist,
-          scheduleTime: job.target.schedule.publishAt
+          scheduleTime: job.scheduledAt
         });
         
         job.platformVideoId = response.videoId;

@@ -1,1 +1,1 @@
-export { GatewaySnapshot, GatewayRouteSnapshot } from "@shaily/core";
+export { GatewaySnapshot, GatewayRouteSnapshot } from "@shaily/core/api-gateway";

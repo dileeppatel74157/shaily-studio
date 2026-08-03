@@ -1,1 +1,1 @@
-export { GatewayState } from "@shaily/core";
+export { GatewayState } from "@shaily/core/api-gateway";

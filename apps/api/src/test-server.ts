@@ -15,7 +15,7 @@ import {
   ConsoleTransport,
   JsonFormatter,
   ConfigBuilder,
-} from "@shaily/core";
+} from "@shaily/core/api-gateway";
 import * as http from "http";
 
 function assert(condition: boolean, message: string): void {

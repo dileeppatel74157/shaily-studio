@@ -1,1 +1,1 @@
-export { RouteDefinition, RouteHandler } from "@shaily/core";
+export { RouteDefinition, RouteHandler } from "@shaily/core/api-gateway";

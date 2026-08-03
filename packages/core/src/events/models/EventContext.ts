@@ -1,4 +1,4 @@
-import { ILogger } from "../logger/ILogger";
+import { ILogger } from "../../logger/ILogger";
 import { IEventBus } from "../interfaces/IEventBus";
 
 export interface EventContext {

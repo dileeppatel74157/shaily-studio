@@ -774,7 +774,7 @@ export class DatabaseEngine implements IDatabaseEngine {
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
-    if (this._state === DatabaseState.READY || this._state === DatabaseState.DISCONNECTED) {
+    if (this._state === DatabaseState.READY) {
       return;
     }
     if (this._state === DatabaseState.INITIALIZING || this._state === DatabaseState.MIGRATING) {

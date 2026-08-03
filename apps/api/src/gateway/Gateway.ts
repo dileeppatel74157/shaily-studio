@@ -17,43 +17,33 @@ import { GatewayContext } from "./GatewayContext";
 import { GatewayState } from "./GatewayState";
 import { GatewayMiddleware } from "./GatewayMiddleware";
 import { google } from "googleapis";
+import { createClient } from "redis";
+import { AuthMiddleware } from "./AuthMiddleware";
+import { JWT } from "./JWT";
 
+export class Gateway implements IGateway {
   private readonly _server: GatewayServer;
   private _channelManager?: any;
   private _databaseEngine?: any;
+  private _redisClient: any = null;
+
+  private async getRedisClient(): Promise<any> {
+    if (!this._redisClient) {
+      const url = process.env.REDIS_URL || "redis://localhost:6379/0";
+      const client = createClient({ url });
+      client.on("error", (err: any) => console.error("Redis Client Error", err));
+      await client.connect();
+      this._redisClient = client;
+    }
+    return this._redisClient;
+  }
 
   private async getDatabaseEngine(): Promise<any> {
-    if (!this._databaseEngine) {
-      const db = new DatabaseBuilder()
-        .withContext(this.context)
-        .withProvider(DatabaseProvider.POSTGRESQL)
-        .withHost(process.env.POSTGRES_HOST || "localhost")
-        .withPort(parseInt(process.env.POSTGRES_PORT || "5432", 10))
-        .withDatabase(process.env.POSTGRES_DB || "shaily_studio_dev")
-        .withUsername(process.env.POSTGRES_USER || "shaily_admin")
-        .withPassword(process.env.POSTGRES_PASSWORD || "shaily_secure_password_123")
-        .build();
-      await db.initialize();
-      await db.connect();
-      this._databaseEngine = db;
-    }
-    return this._databaseEngine;
+    return (this.context as any).databaseEngine;
   }
 
   private async getChannelManager(): Promise<any> {
-    if (!this._channelManager) {
-      const db = await this.getDatabaseEngine();
-      const ctx = {
-        ...this.context,
-        databaseEngine: db,
-        eventBus: (this.context as any).eventBus
-      };
-      const cm = new ChannelManagerEngine(ctx);
-      await cm.initialize();
-      await cm.start();
-      this._channelManager = cm;
-    }
-    return this._channelManager;
+    return (this.context as any).channelManager;
   }
 
   constructor(
@@ -62,6 +52,7 @@ import { google } from "googleapis";
     public readonly port: number
   ) {
     this._server = new GatewayServer(context, host, port);
+    this.registerMiddleware(new AuthMiddleware());
     this.registerBuiltInRoutes();
   }
 
@@ -116,11 +107,26 @@ import { google } from "googleapis";
       method: "GET",
       path: "/health",
       metadata: { builtIn: true },
-      handler: async (req: any) => ({
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-        body: { status: "ok", timestamp: new Date().toISOString() },
-      }),
+      handler: async (req: any) => {
+        const db = await this.getDatabaseEngine();
+        const dbState = db ? db.getState() : "UNKNOWN";
+        const obs = (this.context as any).observabilityEngine;
+        const obsSnapshot = obs ? obs.snapshot() : null;
+
+        return {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: {
+            status: "healthy",
+            timestamp: new Date().toISOString(),
+            database: {
+              provider: db ? db.getProviderManager().getActiveProvider() : "NONE",
+              state: dbState
+            },
+            observability: obsSnapshot
+          }
+        };
+      },
     });
 
     // 2. GET /snapshot
@@ -546,6 +552,234 @@ import { google } from "googleapis";
             body: { success: false, error: err.message }
           };
         }
+      }
+    });
+
+    // --- GET /api/tasks ---
+    this.registerRoute({
+      method: "GET",
+      path: "/api/tasks",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        try {
+          const db = await this.getDatabaseEngine();
+          const result = await db.getQueryManager().execute({
+            id: `db-tasks-get-${Date.now()}`,
+            sql: "SELECT id, status, prompt, agent_id, error, created_at, updated_at FROM tasks ORDER BY created_at DESC"
+          });
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: result.rows || []
+          };
+        } catch (err: any) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: err.message }
+          };
+        }
+      }
+    });
+
+    // --- POST /api/tasks ---
+    this.registerRoute({
+      method: "POST",
+      path: "/api/tasks",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        const { agent_id, prompt, task_type } = req.body || {};
+        if (!prompt) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Missing required parameter: prompt" }
+          };
+        }
+        try {
+          const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          const db = await this.getDatabaseEngine();
+          
+          // Insert task in DB
+          await db.getQueryManager().execute({
+            id: `db-task-insert-${Date.now()}`,
+            sql: "INSERT INTO tasks (id, status, prompt, agent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+            parameters: [taskId, "pending", prompt, agent_id || "default", new Date().toISOString(), new Date().toISOString()]
+          });
+
+          // Publish task to Redis
+          const redisClient = await this.getRedisClient();
+          const taskPayload = {
+            id: taskId,
+            agent_id: agent_id || "default",
+            prompt,
+            task_type: task_type || "heavy_ai"
+          };
+          await redisClient.lPush("shaily:tasks", JSON.stringify(taskPayload));
+
+          return {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+            body: { success: true, taskId, status: "pending" }
+          };
+        } catch (err: any) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: err.message }
+          };
+        }
+      }
+    });
+
+    // --- GET /api/memory ---
+    this.registerRoute({
+      method: "GET",
+      path: "/api/memory",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        try {
+          const memoryEngine = (this.context as any).memoryEngine;
+          if (!memoryEngine) {
+            return {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+              body: { success: false, error: "MemoryEngine not registered on context" }
+            };
+          }
+          const criteria = {
+            query: req.query.query,
+            agentId: req.query.agentId,
+            conversationId: req.query.conversationId
+          };
+          const results = await memoryEngine.search(criteria);
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: results || []
+          };
+        } catch (err: any) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: err.message }
+          };
+        }
+      }
+    });
+
+    // --- POST /api/memory ---
+    this.registerRoute({
+      method: "POST",
+      path: "/api/memory",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        const { key, content, type, scope, importance, tags, agentId } = req.body || {};
+        if (!key || !content) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Missing required parameters: key and content" }
+          };
+        }
+        try {
+          const memoryEngine = (this.context as any).memoryEngine;
+          if (!memoryEngine) {
+            return {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+              body: { success: false, error: "MemoryEngine not registered on context" }
+            };
+          }
+          const entry = await memoryEngine.store({
+            key,
+            content,
+            type: type || "EPHEMERAL",
+            scope: scope || "AGENT",
+            importance: importance || "MEDIUM",
+            tags: tags || [],
+            agentId: agentId || "default",
+            metadata: {}
+          });
+          return {
+            status: 201,
+            headers: { "Content-Type": "application/json" },
+            body: entry
+          };
+        } catch (err: any) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: err.message }
+          };
+        }
+      }
+    });
+
+    // --- DELETE /api/memory/:id ---
+    this.registerRoute({
+      method: "DELETE",
+      path: "/api/memory/:id",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        const memoryId = req.params.id;
+        if (!memoryId) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Missing memory id" }
+          };
+        }
+        try {
+          const memoryEngine = (this.context as any).memoryEngine;
+          if (!memoryEngine) {
+            return {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+              body: { success: false, error: "MemoryEngine not registered on context" }
+            };
+          }
+          const deleted = await memoryEngine.delete(memoryId);
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { success: deleted }
+          };
+        } catch (err: any) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: err.message }
+          };
+        }
+      }
+    });
+
+    // --- POST /api/auth/login ---
+    this.registerRoute({
+      method: "POST",
+      path: "/api/auth/login",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        const { username, password } = req.body || {};
+        const expectedUser = process.env.AUTH_USER || "shaily_admin";
+        const expectedPass = process.env.AUTH_PASSWORD || "shaily_secure_password_123";
+
+        if (username === expectedUser && password === expectedPass) {
+          const secret = process.env.JWT_SECRET || "shaily-studio-default-jwt-secret-key-12345";
+          const token = JWT.sign({ username, role: "admin" }, secret, 86400); // 24 hours
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { success: true, token }
+          };
+        }
+
+        return {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+          body: { success: false, error: "Invalid username or password" }
+        };
       }
     });
 

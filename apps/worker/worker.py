@@ -2,7 +2,9 @@ import asyncio
 import logging
 import os
 import sys
-from arq.connections import RedisSettings
+import json
+import redis
+import psycopg
 
 # Ensure packages can be imported dynamically in dev environment
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../packages")))
@@ -11,36 +13,86 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../p
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("shaily.worker")
 
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-async def startup(ctx: dict) -> None:
+# Connect to Redis
+r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
+def update_task_in_db(task_id: str, status: str, error: str = None):
+    if not DATABASE_URL:
+        logger.warning("DATABASE_URL not set, skipping DB update for task %s", task_id)
+        return
+    try:
+        conn_str = DATABASE_URL
+        if conn_str.startswith("postgresql+psycopg://"):
+            conn_str = conn_str.replace("postgresql+psycopg://", "postgresql://")
+        
+        with psycopg.connect(conn_str) as conn:
+            with conn.cursor() as cur:
+                if error:
+                    cur.execute(
+                        "UPDATE tasks SET status = %s, error = %s, updated_at = NOW() WHERE id = %s",
+                        (status, error, task_id)
+                    )
+                else:
+                    cur.execute(
+                        "UPDATE tasks SET status = %s, updated_at = NOW() WHERE id = %s",
+                        (status, task_id)
+                    )
+                conn.commit()
+        logger.info("Updated task %s to status %s in database", task_id, status)
+    except Exception as e:
+        logger.error("Failed to update database for task %s: %s", task_id, str(e))
+
+async def execute_heavy_job(task_id: str, agent_id: str, prompt: str, task_type: str):
+    logger.info("Starting execution of %s (Task ID: %s, Agent: %s)", task_type, task_id, agent_id)
+    update_task_in_db(task_id, "running")
+    
+    try:
+        # Simulate pipeline execution: rendering, video, voice, image generation, heavy AI
+        await asyncio.sleep(3.0)
+        
+        # Real task routing
+        if task_type == "video_generation":
+            logger.info("Generating video for prompt: %s", prompt)
+        elif task_type == "image_generation":
+            logger.info("Generating image for prompt: %s", prompt)
+        elif task_type == "voice_generation":
+            logger.info("Generating voice for prompt: %s", prompt)
+        elif task_type == "rendering":
+            logger.info("Rendering video frames...")
+        else:
+            logger.info("Executing general AI agent job: %s", prompt)
+            
+        update_task_in_db(task_id, "completed")
+    except Exception as e:
+        logger.error("Error executing task %s: %s", task_id, str(e))
+        update_task_in_db(task_id, "failed", error=str(e))
+
+async def main():
     logger.info("Shaily Studio Worker starting up...")
-    ctx["session"] = "worker_active"
+    logger.info("Listening to queue 'shaily:tasks'...")
+    while True:
+        try:
+            # BLPOP blocks until a task is available
+            res = r.blpop("shaily:tasks", timeout=5)
+            if res:
+                _, item_str = res
+                task_data = json.loads(item_str)
+                task_id = task_data.get("id")
+                agent_id = task_data.get("agent_id")
+                prompt = task_data.get("prompt", "")
+                task_type = task_data.get("task_type", "heavy_ai")
+                
+                await execute_heavy_job(task_id, agent_id, prompt, task_type)
+        except Exception as e:
+            logger.error("Worker loop error: %s", str(e))
+            await asyncio.sleep(1)
 
-
-async def shutdown(ctx: dict) -> None:
-    logger.info("Shaily Studio Worker shutting down...")
-
-
-async def execute_agent_job(ctx: dict, agent_id: str, prompt: str, task_id: str) -> dict:
-    """Worker task to simulate running an AI agent process.
-
-    Prepares the modular agent environment and executes the job.
-    """
-    logger.info("Worker received job: Task %s with Agent %s", task_id, agent_id)
-    await asyncio.sleep(2.0)  # Simulate agent processing time
-    logger.info("Worker completed job: Task %s", task_id)
-    return {
-        "success": True,
-        "task_id": task_id,
-        "agent_id": agent_id,
-        "result": f"Simulated output from agent {agent_id} for prompt: {prompt}",
-    }
-
-
-class WorkerSettings:
-    functions = [execute_agent_job]
-    redis_settings = RedisSettings(
-        host=os.getenv("REDIS_HOST", "localhost"), port=int(os.getenv("REDIS_PORT", 6379))
-    )
-    on_startup = startup
-    on_shutdown = shutdown
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Shaily Studio Worker shutting down...")

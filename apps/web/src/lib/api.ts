@@ -73,92 +73,81 @@ export interface MemoryItem {
   value: string;
 }
 
-// In-memory mocks for demo compatibility
-let mockMissions: Mission[] = [
-  {
-    id: "miss-1",
-    name: "Jabalpur History Video",
-    agent: "Ideator / Researcher",
-    status: "running",
-    progress: 65,
-    logs: [
-      "Initialized search for Jabalpur heritage sites...",
-      "Extracted historical notes on Madan Mahal Fort.",
-      "Generating narration transcript in Hindi..."
-    ],
-    timestamp: new Date(Date.now() - 1000 * 60 * 15).toISOString()
-  },
-  {
-    id: "miss-2",
-    name: "Ancient India Documentary",
-    agent: "Publisher Agent",
-    status: "completed",
-    progress: 100,
-    logs: [
-      "Completed visual compilation.",
-      "Uploaded draft to YouTube.",
-      "Successfully published and indexed video."
-    ],
-    timestamp: new Date(Date.now() - 1000 * 3600 * 3).toISOString()
-  },
-  {
-    id: "miss-3",
-    name: "AI News Channel Weekly",
-    agent: "Scriptwriter / Editor",
-    status: "pending",
-    progress: 0,
-    logs: [
-      "Enqueued for processing. Waiting for voice segment generation..."
-    ],
-    timestamp: new Date().toISOString()
-  }
-];
-
-let mockMemories: Record<string, MemoryItem[]> = {
-  user: [
-    { id: "u-1", key: "Language", value: "Hindi" },
-    { id: "u-2", key: "Style", value: "Documentary" },
-    { id: "u-3", key: "Voice Accent", value: "Deep Male" }
-  ],
-  channel: [
-    { id: "c-1", key: "Target Audience", value: "History & culture enthusiasts" },
-    { id: "c-2", key: "Preferred Topics", value: "Indian historical events, forts, legends" }
-  ],
-  project: [
-    { id: "p-1", key: "Rendering Resolution", value: "1080p Cinematic" },
-    { id: "p-2", key: "Background Soundtrack", value: "Classical Indian Orchestral" }
-  ]
-};
-
 export async function getMissions(): Promise<Mission[]> {
-  return new Promise((resolve) => setTimeout(() => resolve(mockMissions), 150));
+  try {
+    const tasks = await apiFetch<any[]>("/api/tasks");
+    return tasks.map(t => ({
+      id: t.id,
+      name: t.prompt,
+      agent: t.agent_id,
+      status: t.status,
+      progress: t.status === "completed" ? 100 : (t.status === "running" ? 50 : 0),
+      logs: t.error ? [t.error] : [`Task state: ${t.status}`],
+      timestamp: t.created_at || new Date().toISOString()
+    }));
+  } catch (err) {
+    console.error("Failed to load real missions", err);
+    return [];
+  }
 }
 
 export async function addMission(mission: Omit<Mission, "id" | "timestamp">): Promise<Mission> {
-  const newMission: Mission = {
-    ...mission,
-    id: `miss-${Math.random().toString(36).substr(2, 9)}`,
+  const res = await apiFetch<any>("/api/tasks", {
+    method: "POST",
+    body: JSON.stringify({
+      agent_id: mission.agent,
+      prompt: mission.name,
+      task_type: "heavy_ai"
+    })
+  });
+  return {
+    id: res.taskId,
+    name: mission.name,
+    agent: mission.agent,
+    status: res.status || "pending",
+    progress: 0,
+    logs: ["Enqueued task via Node Gateway"],
     timestamp: new Date().toISOString()
   };
-  mockMissions = [newMission, ...mockMissions];
-  return newMission;
 }
 
 export async function getMemories(category: "user" | "channel" | "project"): Promise<MemoryItem[]> {
-  return new Promise((resolve) => setTimeout(() => resolve(mockMemories[category] || []), 150));
+  try {
+    const memories = await apiFetch<any[]>(`/api/memory?query=${category}`);
+    return memories.map(m => ({
+      id: m.id || m.key,
+      key: m.key,
+      value: m.content
+    }));
+  } catch (err) {
+    console.error("Failed to load memories", err);
+    return [];
+  }
 }
 
 export async function saveMemory(category: "user" | "channel" | "project", key: string, value: string): Promise<MemoryItem> {
-  const newItem = {
-    id: `${category[0]}-${Math.random().toString(36).substr(2, 9)}`,
-    key,
-    value
+  const res = await apiFetch<any>("/api/memory", {
+    method: "POST",
+    body: JSON.stringify({
+      key,
+      content: value,
+      type: "EPHEMERAL",
+      scope: "AGENT",
+      importance: "MEDIUM",
+      tags: [category],
+      agentId: "default"
+    })
+  });
+  return {
+    id: res.id || res.key,
+    key: res.key,
+    value: res.content
   };
-  mockMemories[category] = [...mockMemories[category], newItem];
-  return newItem;
 }
 
 export async function deleteMemory(category: "user" | "channel" | "project", id: string): Promise<boolean> {
-  mockMemories[category] = mockMemories[category].filter(item => item.id !== id);
-  return true;
+  const res = await apiFetch<{ success: boolean }>(`/api/memory/${id}`, {
+    method: "DELETE"
+  });
+  return res.success;
 }

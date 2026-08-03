@@ -26,6 +26,19 @@ import { DailyAutomationBuilder } from "../../daily-automation/DailyAutomationBu
 import { FounderAIBuilder } from "../../founder-ai/FounderAIBuilder";
 import { GatewayBuilder } from "../../ai-gateway/GatewayBuilder";
 import { ProviderExecutionBuilder } from "../../provider-execution/ProviderExecutionBuilder";
+import { OrchestratorBuilder } from "../../orchestrator/OrchestratorBuilder";
+import { AgentRegistry } from "../../agents/registry/AgentRegistry";
+import { WorkflowEngine } from "../../workflow/engine/WorkflowEngine";
+import { ToolRegistry } from "../../tools/ToolRegistry";
+import { PromptRegistry } from "../../prompts/PromptRegistry";
+import { PluginRegistry } from "../../plugins/PluginRegistry";
+import { MCPServer } from "../../mcp/MCPServer";
+import { MemoryBuilder } from "../../memory/builder/MemoryBuilder";
+import { KnowledgeBaseBuilder } from "../../knowledge-base/builder/KnowledgeBaseBuilder";
+import { RAGBuilder } from "../../rag/RAGBuilder";
+import { DatabaseProvider } from "../../database/DatabaseProvider";
+import { ChannelManagerBuilder } from "../../channel-manager/ChannelManagerBuilder";
+import { RouterBuilder } from "../../router/RouterBuilder";
 import { RuntimeSession } from "../models/RuntimeSession";
 import { RuntimeSessionDescriptor } from "../models/RuntimeSessionDescriptor";
 import { HealthStatus } from "../models/HealthStatus";
@@ -125,8 +138,14 @@ export class RuntimeEngine implements IRuntimeEngine {
       priority: StartupPriority.CRITICAL
     });
 
+    const dbProvider = (_context.config?.database?.provider) ||
+      ((process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith("postgres://") || process.env.DATABASE_URL.startsWith("postgresql://")))
+        ? DatabaseProvider.POSTGRESQL
+        : DatabaseProvider.SQLITE);
+
     const databaseEngine = new DatabaseBuilder()
       .withContext(_context)
+      .withProvider(dbProvider)
       .withFilePath(_context.config?.database?.filePath ?? ":memory:")
       .build();
     this.registerEngine({
@@ -431,6 +450,127 @@ export class RuntimeEngine implements IRuntimeEngine {
       engine: schedulerEngine,
       dependencies: [],
       priority: StartupPriority.HIGH
+    });
+
+    // Register all other engines (Phase 9 & Phase 11)
+    const orchestratorEngine = new OrchestratorBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "OrchestratorEngine",
+      engine: orchestratorEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+      priority: StartupPriority.HIGH
+    });
+
+    const agentRegistry = new AgentRegistry();
+    this.registerEngine({
+      id: "AgentRegistry",
+      engine: agentRegistry,
+      dependencies: [],
+      priority: StartupPriority.HIGH
+    });
+
+    const workflowEngine = new WorkflowEngine(_context);
+    this.registerEngine({
+      id: "WorkflowEngine",
+      engine: workflowEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+      priority: StartupPriority.HIGH
+    });
+
+    const toolRegistry = new ToolRegistry();
+    this.registerEngine({
+      id: "ToolRegistry",
+      engine: toolRegistry,
+      dependencies: [],
+      priority: StartupPriority.HIGH
+    });
+
+    const promptRegistry = new PromptRegistry();
+    this.registerEngine({
+      id: "PromptRegistry",
+      engine: promptRegistry,
+      dependencies: [],
+      priority: StartupPriority.HIGH
+    });
+
+    const pluginRegistry = new PluginRegistry();
+    this.registerEngine({
+      id: "PluginRegistry",
+      engine: pluginRegistry,
+      dependencies: [],
+      priority: StartupPriority.HIGH
+    });
+
+    const mcpServer = new MCPServer(_context);
+    this.registerEngine({
+      id: "MCPServer",
+      engine: mcpServer,
+      dependencies: [],
+      priority: StartupPriority.HIGH
+    });
+
+    const memoryEngine = new MemoryBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "MemoryEngine",
+      engine: memoryEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+      priority: StartupPriority.HIGH
+    });
+
+    const knowledgeBaseEngine = new KnowledgeBaseBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "KnowledgeBaseEngine",
+      engine: knowledgeBaseEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine", "MemoryEngine"],
+      priority: StartupPriority.HIGH
+    });
+
+    const ragEngine = new RAGBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "RAGEngine",
+      engine: ragEngine,
+      dependencies: ["MemoryEngine", "KnowledgeBaseEngine"],
+      priority: StartupPriority.HIGH
+    });
+
+    const qdrantEngine = new DatabaseBuilder()
+      .withContext(_context)
+      .withProvider(DatabaseProvider.QDRANT)
+      .withUrl(process.env.QDRANT_URL || "http://localhost:6333")
+      .build();
+    this.registerEngine({
+      id: "QdrantEngine",
+      engine: qdrantEngine,
+      dependencies: ["ConfigurationEngine"],
+      priority: StartupPriority.CRITICAL
+    });
+
+    const channelManagerEngine = new ChannelManagerBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "ChannelManagerEngine",
+      engine: channelManagerEngine,
+      dependencies: ["ConfigurationEngine", "DatabaseEngine", "ObservabilityEngine"],
+      priority: StartupPriority.HIGH
+    });
+
+    const routerEngine = new RouterBuilder()
+      .withContext(_context)
+      .build();
+    this.registerEngine({
+      id: "RouterEngine",
+      engine: routerEngine,
+      dependencies: ["ConfigurationEngine"],
+      priority: StartupPriority.CRITICAL
     });
   }
 

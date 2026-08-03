@@ -774,6 +774,12 @@ export class DatabaseEngine implements IDatabaseEngine {
   // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
   async initialize(): Promise<void> {
+    if (this._state === DatabaseState.READY || this._state === DatabaseState.DISCONNECTED) {
+      return;
+    }
+    if (this._state === DatabaseState.INITIALIZING || this._state === DatabaseState.MIGRATING) {
+      return;
+    }
     if (this._state === DatabaseState.DISCONNECTED) {
       this._state = DatabaseState.CREATED;
     }
@@ -793,6 +799,9 @@ export class DatabaseEngine implements IDatabaseEngine {
   }
 
   async connect(): Promise<void> {
+    if (this._state === DatabaseState.READY) {
+      return;
+    }
     if (this._state !== DatabaseState.DISCONNECTED && this._state !== DatabaseState.INITIALIZING) {
       throw new InvalidDatabaseStateException("connect", this._state);
     }

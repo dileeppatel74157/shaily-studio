@@ -6,11 +6,8 @@
     "noEmitOnError": false
   },
   "include": [
-  "src/client/**/*",
-  "src/constants/**/*",
-  "src/logger/**/*",
-  "src/agents/types/constants.ts"
-],
+    "src/**/*"
+  ],
   "exclude": [
     "node_modules",
     "dist",

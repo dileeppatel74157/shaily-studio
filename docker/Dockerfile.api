@@ -1,55 +1,33 @@
 # syntax=docker/dockerfile:1
 
 # ─── Stage 1: Base Runtime ────────────────────────────────────────────────────
-FROM python:3.12-slim AS base
+FROM node:22-alpine AS base
+
+# Install curl/wget for healthchecks
+RUN apk add --no-cache curl wget
 
 WORKDIR /app
 
-# Setup non-root user
-RUN groupadd --system --gid 10001 appgroup && \
-    useradd --system --uid 10001 --gid appgroup appuser
-
-# Put virtual environment on PATH
-ENV PATH="/opt/venv/bin:$PATH" \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
-
-# Install minimal runtime library dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
+# Install pnpm globally
+RUN npm install -g pnpm@11.9.0
 
 # ─── Stage 2: Builder ─────────────────────────────────────────────────────────
-FROM python:3.12-slim AS builder
+FROM base AS builder
 
 WORKDIR /app
 
-# Install system build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Copy root configurations and workspace files
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY packages/config ./packages/config
+COPY packages/shared ./packages/shared
+COPY packages/core ./packages/core
+COPY apps/api ./apps/api
 
-# Create virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Copy requirements first to leverage cache
-COPY packages/agents/requirements.txt /app/packages/agents/requirements.txt
-COPY apps/api/requirements.txt /app/apps/api/requirements.txt
-
-# Install pip requirements using BuildKit cache mounts
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --upgrade pip && \
-    pip install -r /app/packages/agents/requirements.txt && \
-    pip install -r /app/apps/api/requirements.txt
-
-# Copy source code of agents package and api app
-COPY packages/agents /app/packages/agents
-COPY apps/api /app/apps/api
-
-# Install agents package
-RUN pip install /app/packages/agents
+# Install dependencies and build
+RUN pnpm install --frozen-lockfile
+RUN pnpm --filter @shaily/shared build
+RUN pnpm --filter @shaily/core build
+RUN pnpm --filter api build
 
 # ─── Stage 3: Development Target ──────────────────────────────────────────────
 FROM builder AS development
@@ -57,23 +35,17 @@ FROM builder AS development
 WORKDIR /app/apps/api
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["pnpm", "dev"]
 
 # ─── Stage 4: Production Target ───────────────────────────────────────────────
 FROM base AS production
 
-# Copy venv from builder stage
-COPY --from=builder /opt/venv /opt/venv
+WORKDIR /app
 
-# Copy application source
+# Copy built code from builder
 COPY --from=builder /app /app
 
 WORKDIR /app/apps/api
 
-# Ensure non-root ownership
-RUN chown -R appuser:appgroup /app
-
-USER appuser
-
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["node", "dist/index.js"]

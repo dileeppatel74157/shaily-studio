@@ -35,8 +35,7 @@ env
 
 # Local state, database data and storage
 postgres_data
-storage
-**/storage
+/storage
 infrastructure/qdrant/storage
 infrastructure/qdrant/
 infrastructure/postgres/

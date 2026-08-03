@@ -4,11 +4,11 @@ export * from "./models/MemorySerializer";
 export * from "./validation/MemoryValidator";
 export * from "./builder/MemoryBuilder";
 export * from "./builder/MemoryEntryBuilder";
-export * from "./storage/MemoryNamespace";
+export * from "./MemoryNamespace";
 export * from "./models/MemoryCollection";
 export * from "./models/MemorySnapshot";
 export * from "./interfaces/IMemoryStore";
-export * from "./storage/MemoryStore";
+export * from "./MemoryStore";
 
 export * from "./models/MemoryType";
 export * from "./models/MemoryScope";

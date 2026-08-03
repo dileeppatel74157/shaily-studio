@@ -1,4 +1,4 @@
-import { MemoryNamespace } from "../storage/MemoryNamespace";
+import { MemoryNamespace } from "../MemoryNamespace";
 import { MemoryEntry } from "./MemoryEntry";
 
 export class MemoryCollection {

@@ -45,7 +45,7 @@ export { EventBus } from "../events/EventBus";
 export { JobEngine } from "../jobs/JobEngine";
 
 // Memory Store implementation
-export { MemoryStore } from "../memory/MemoryStore";
+export { MemoryStore } from "../memory";
 
 // Database implementation
 export { DatabaseEngine } from "../database/DatabaseEngine";

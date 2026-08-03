@@ -9,10 +9,7 @@ import {
   MemoryStore,
   ServiceRegistry,
   ConfigBuilder,
-  DatabaseEngine,
-  DatabaseBuilder,
-  DatabaseProvider,
-  StartupPriority
+  DatabaseEngine
 } from "@shaily/core";
 import { GatewayBuilder } from "./gateway/GatewayBuilder";
 import { GatewayContext } from "./gateway/GatewayContext";
@@ -38,7 +35,7 @@ try {
       }
     }
   }
-} catch (_) {}
+} catch (_) { }
 
 async function bootstrap() {
   console.log("[Bootstrap] Starting Shaily Studio API Gateway...");

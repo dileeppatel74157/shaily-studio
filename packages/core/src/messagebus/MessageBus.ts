@@ -42,7 +42,7 @@ export class MessageBus implements IMessageBus {
     public readonly retryPolicy: MessageRetryPolicy
   ) {
     this._dispatcher = new MessageDispatcher(retryPolicy, this._dlq);
-    deepFreeze(this.context);
+    Object.freeze(this.context);
     deepFreeze(this.retryPolicy);
   }
 

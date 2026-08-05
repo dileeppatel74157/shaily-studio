@@ -21,7 +21,7 @@ export class MCPServer implements IMCPServer {
     public readonly transport: MCPTransport
   ) {
     this._validator.validateTransport(transport);
-    deepFreeze(this.context);
+    Object.freeze(this.context);
   }
 
   public get state(): MCPServerState {

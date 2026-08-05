@@ -607,8 +607,14 @@ export class RuntimeEngine implements IRuntimeEngine {
       for (const engineId of order) {
         const reg = this._engines.get(engineId)!;
         this._engineStates.set(engineId, EngineState.STARTING);
-        if (typeof reg.engine.initialize === "function") {
-          await reg.engine.initialize();
+        console.log(`[Bootstrap] Initializing engine: ${engineId}`);
+        try {
+          if (typeof reg.engine.initialize === "function") {
+            await reg.engine.initialize();
+          }
+        } catch (err: any) {
+          console.error(`[Bootstrap] Engine ${engineId} failed to initialize:`, err);
+          throw err;
         }
         this._engineStates.set(engineId, EngineState.INITIALIZED);
       }

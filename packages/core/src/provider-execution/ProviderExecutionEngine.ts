@@ -135,13 +135,27 @@ export class ProviderExecutionEngine implements
     this._state = next;
   }
 
+  private async _publishEvent(type: ExecutionEventType, payload: any): Promise<void> {
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: `evt-${Math.random().toString(36).substr(2, 9)}`,
+        name: type.toString(),
+        timestamp: new Date(),
+        correlationId: "cor-execution-06",
+        source: "ProviderExecutionEngine",
+        payload,
+        metadata: {}
+      });
+    }
+  }
+
   async initialize(): Promise<void> {
     this.transitionState(ExecutionState.INITIALIZING);
     this._validator.validate(this.getSnapshot());
     this._initBenchmarks();
     this._startedAt = new Date();
     this.transitionState(ExecutionState.RUNNING);
-    await this._context.eventBus?.publish({ type: ExecutionEventType.REQUEST_STARTED, payload: { status: "initialized" } });
+    await this._publishEvent(ExecutionEventType.REQUEST_STARTED, { status: "initialized" });
   }
 
   async start(): Promise<void> {
@@ -180,15 +194,15 @@ export class ProviderExecutionEngine implements
     if (this._config.enableSmartCache) {
       const cached = this.get(cacheKey, CacheType.RESPONSE);
       if (cached) {
-        await this._context.eventBus?.publish({ type: ExecutionEventType.CACHE_HIT, payload: { requestId: request.requestId } });
+        await this._publishEvent(ExecutionEventType.CACHE_HIT, { requestId: request.requestId });
         return { ...(cached.value as ExecutionResponse), requestId: request.requestId, cacheHit: true };
       }
-      await this._context.eventBus?.publish({ type: ExecutionEventType.CACHE_MISS, payload: { requestId: request.requestId } });
+      await this._publishEvent(ExecutionEventType.CACHE_MISS, { requestId: request.requestId });
     }
 
     // Provider selection
     const selection = this.selectBest(request);
-    await this._context.eventBus?.publish({ type: ExecutionEventType.PROVIDER_SELECTED, payload: selection });
+    await this._publishEvent(ExecutionEventType.PROVIDER_SELECTED, selection);
 
     // Budget check
     const costEstimate = this.estimateCost(request.requestId, request.prompt, selection.selectedProviderId, selection.selectedModel);
@@ -213,7 +227,7 @@ export class ProviderExecutionEngine implements
     if (this._config.enableQualityEvaluation) {
       const qs = this.score(response);
       qualityScore = qs.overallScore;
-      await this._context.eventBus?.publish({ type: ExecutionEventType.QUALITY_SCORED, payload: qs });
+      await this._publishEvent(ExecutionEventType.QUALITY_SCORED, qs);
     }
 
     const finalResponse: ExecutionResponse = { ...response, latencyMs, cacheHit: false, qualityScore };
@@ -229,7 +243,7 @@ export class ProviderExecutionEngine implements
     }
 
     this.completeTracking(request.requestId, finalResponse);
-    await this._context.eventBus?.publish({ type: ExecutionEventType.REQUEST_COMPLETED, payload: finalResponse });
+    await this._publishEvent(ExecutionEventType.REQUEST_COMPLETED, finalResponse);
 
     return finalResponse;
   }
@@ -628,7 +642,7 @@ export class ProviderExecutionEngine implements
   triggerEmergencyStop(reason: string): void {
     this._emergencyStopActive  = true;
     this._emergencyStopReason  = reason;
-    this._context.eventBus?.publish({ type: ExecutionEventType.BUDGET_ALERT, payload: { level: BudgetAlert.EMERGENCY_STOP, reason } });
+    this._publishEvent(ExecutionEventType.BUDGET_ALERT, { level: BudgetAlert.EMERGENCY_STOP, reason }).catch(() => {});
   }
 
   resetEmergencyStop(): void {

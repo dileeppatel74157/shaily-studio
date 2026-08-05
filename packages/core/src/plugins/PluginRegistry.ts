@@ -32,17 +32,26 @@ export class PluginRegistry implements IPluginRegistry {
     return this._plugins.has(pluginId);
   }
 
-  public async initialize(pluginId: string): Promise<void> {
+  public async initialize(pluginId?: string): Promise<void> {
+    if (pluginId === undefined) {
+      return;
+    }
     const plugin = this.getOrThrow(pluginId);
     await plugin.initialize();
   }
 
-  public async start(pluginId: string): Promise<void> {
+  public async start(pluginId?: string): Promise<void> {
+    if (pluginId === undefined) {
+      return;
+    }
     const plugin = this.getOrThrow(pluginId);
     await plugin.start();
   }
 
-  public async stop(pluginId: string): Promise<void> {
+  public async stop(pluginId?: string): Promise<void> {
+    if (pluginId === undefined) {
+      return;
+    }
     const plugin = this.getOrThrow(pluginId);
     await plugin.stop();
   }

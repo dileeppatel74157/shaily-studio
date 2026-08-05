@@ -57,24 +57,25 @@ services:
       - REDIS_PORT=6379
       - NODE_ENV=development
       - JWT_SECRET=shaily-studio-default-jwt-secret-key-12345
+      - CI=true
     volumes:
       - .:/app
-      - /app/node_modules
-      - /app/apps/api/node_modules
-      - /app/packages/core/node_modules
-      - /app/packages/shared/node_modules
-      - /app/packages/config/node_modules
+      - api_node_modules:/app/node_modules
+      - api_apps_node_modules:/app/apps/api/node_modules
+      - api_core_node_modules:/app/packages/core/node_modules
+      - api_shared_node_modules:/app/packages/shared/node_modules
+      - api_config_node_modules:/app/packages/config/node_modules
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
-      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 5s
+      retries: 5
+      start_period: 180s
 
   worker:
     build:
@@ -114,12 +115,12 @@ services:
       - NODE_ENV=development
     volumes:
       - .:/app
-      - /app/node_modules
-      - /app/apps/web/node_modules
-      - /app/packages/core/node_modules
-      - /app/packages/shared/node_modules
-      - /app/packages/ui/node_modules
-      - /app/packages/config/node_modules
+      - web_node_modules:/app/node_modules
+      - web_apps_node_modules:/app/apps/web/node_modules
+      - web_core_node_modules:/app/packages/core/node_modules
+      - web_shared_node_modules:/app/packages/shared/node_modules
+      - web_ui_node_modules:/app/packages/ui/node_modules
+      - web_config_node_modules:/app/packages/config/node_modules
     depends_on:
       api:
         condition: service_healthy
@@ -127,8 +128,19 @@ services:
       test: [ "CMD", "node", "-e", "const http = require('http'); const req = http.request({ host: 'localhost', port: 3000, path: '/', timeout: 2000 }, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();" ]
       interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 5s
+      retries: 5
+      start_period: 180s
 
 volumes:
   postgres_data:
+  api_node_modules:
+  api_apps_node_modules:
+  api_core_node_modules:
+  api_shared_node_modules:
+  api_config_node_modules:
+  web_node_modules:
+  web_apps_node_modules:
+  web_core_node_modules:
+  web_shared_node_modules:
+  web_ui_node_modules:
+  web_config_node_modules:

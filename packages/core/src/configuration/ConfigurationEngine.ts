@@ -93,6 +93,8 @@ export class ConfigurationEngine implements
       await this.distributeConfiguration();
       await this.checkHealth();
     } catch (err: any) {
+      this._context.logger?.error("ConfigurationEngine initialization failed", err);
+      console.error("ConfigurationEngine initialization failed:", err);
       this.transitionState(ConfigurationState.FAILED);
       throw new ConfigurationException("ConfigurationEngine initialization failed.", err);
     }
@@ -243,9 +245,13 @@ export class ConfigurationEngine implements
           if (index > 0) {
             const key = trimmed.substring(0, index).trim();
             const val = trimmed.substring(index + 1).trim().replace(/^['"]|['"]$/g, "");
-            variables[key] = val;
-            sources[key] = ConfigurationSource.ENV;
-            process.env[key] = val;
+            if (process.env[key] === undefined) {
+              variables[key] = val;
+              sources[key] = ConfigurationSource.ENV;
+              process.env[key] = val;
+            } else {
+              variables[key] = process.env[key]!;
+            }
           }
         }
       } catch (err) {

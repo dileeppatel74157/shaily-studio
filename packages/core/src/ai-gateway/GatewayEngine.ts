@@ -721,6 +721,20 @@ export class GatewayEngine implements
     this._state = next;
   }
 
+  private async _publishEvent(type: GatewayEventType, payload: any): Promise<void> {
+    if (this._context.eventBus) {
+      await this._context.eventBus.publish({
+        id: `evt-${Math.random().toString(36).substr(2, 9)}`,
+        name: type.toString(),
+        timestamp: new Date(),
+        correlationId: "cor-gateway-05",
+        source: "GatewayEngine",
+        payload,
+        metadata: {}
+      });
+    }
+  }
+
   async initialize(): Promise<void> {
     this.transitionState(GatewayState.INITIALIZING);
     this._validator.validate(this.getSnapshot());
@@ -730,7 +744,7 @@ export class GatewayEngine implements
     }
     this._startedAt = new Date();
     this.transitionState(GatewayState.RUNNING);
-    await this._context.eventBus?.publish({ type: GatewayEventType.REQUEST_ROUTED, payload: { status: "initialized" } });
+    await this._publishEvent(GatewayEventType.REQUEST_ROUTED, { status: "initialized" });
   }
 
   async start(): Promise<void> {
@@ -816,7 +830,7 @@ export class GatewayEngine implements
 
         this.collectUsage(response);
         this.countRequest(providerId);
-        await this._context.eventBus?.publish({ type: GatewayEventType.RESPONSE_RECEIVED, payload: response });
+        await this._publishEvent(GatewayEventType.RESPONSE_RECEIVED, response);
 
         return response;
       } catch (err: any) {
@@ -830,16 +844,11 @@ export class GatewayEngine implements
         this._context.logger?.warn(`Provider "${providerId}" failed with recoverable error: ${err.message}. Retrying on fallback provider...`);
         
         // Push fallback event
-        if (this._context.eventBus) {
-          await this._context.eventBus.publish({
-            type: GatewayEventType.REQUEST_ROUTED,
-            payload: {
-              status: "fallback",
-              fromProvider: providerId,
-              error: err.message
-            }
-          });
-        }
+        await this._publishEvent(GatewayEventType.REQUEST_ROUTED, {
+          status: "fallback",
+          fromProvider: providerId,
+          error: err.message
+        });
       }
     }
 

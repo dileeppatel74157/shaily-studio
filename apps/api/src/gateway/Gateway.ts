@@ -107,7 +107,7 @@ export class Gateway implements IGateway {
         const db = await this.getDatabaseEngine();
         const dbState = db ? db.getState() : "UNKNOWN";
         const obs = (this.context as any).observabilityEngine;
-        const obsSnapshot = obs ? obs.snapshot() : null;
+        const obsSnapshot = obs ? (typeof obs.snapshot === "function" ? obs.snapshot() : (typeof obs.getSnapshot === "function" ? obs.getSnapshot() : null)) : null;
 
         return {
           status: 200,

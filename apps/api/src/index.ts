@@ -13,7 +13,8 @@ import {
 } from "@shaily/core/api-gateway";
 import { GatewayBuilder } from "./gateway/GatewayBuilder";
 import { GatewayContext } from "./gateway/GatewayContext";
-
+console.log("[Diagnostic] STARTUP: process.env.PORT =", process.env.PORT);
+const originalPort = process.env.PORT;
 // Native .env file loader for Node 22 or fallback
 try {
   if (typeof (process as any).loadEnvFile === "function") {
@@ -36,6 +37,14 @@ try {
     }
   }
 } catch (_) { }
+
+console.log("[Diagnostic] AFTER LOAD: process.env.PORT =", process.env.PORT);
+
+if (originalPort !== undefined) {
+  process.env.PORT = originalPort;
+}
+
+console.log("[Diagnostic] RESTORED: process.env.PORT =", process.env.PORT);
 
 async function bootstrap() {
   console.log("[Bootstrap] Starting Shaily Studio API Gateway...");

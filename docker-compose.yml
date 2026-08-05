@@ -36,11 +36,6 @@ services:
     volumes:
       - ./infrastructure/qdrant:/qdrant/storage
     restart: unless-stopped
-    healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:6333/" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   api:
     build:
@@ -51,6 +46,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - PORT=8000
       - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-shaily_admin}:${POSTGRES_PASSWORD:-shaily_secure_password_123}@postgres:5432/${POSTGRES_DB:-shaily_studio_dev}
       - REDIS_URL=redis://redis:6379/0
       - REDIS_HOST=redis
@@ -144,3 +140,4 @@ volumes:
   web_shared_node_modules:
   web_ui_node_modules:
   web_config_node_modules:
+  

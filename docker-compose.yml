@@ -52,7 +52,10 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_ENV=development
-      - JWT_SECRET=shaily-studio-default-jwt-secret-key-12345
+      - JWT_SECRET=${JWT_SECRET:-43add5b5337044034b60740c365fb8d39449ac07c4a4f869f89eb6d579c0f6200503f47f248c599720e83cc7ebc2148567a04c86493c07d36f00fdb289947259}
+      - AUTH_USER=${AUTH_USER:-shailyadmin}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-Shaily@8085706233}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-AQ.Ab8RN6Ko5JF50Zekf4ql8NWpvXXYOp2of9zeqt_ADZ_Vt2PMvQ}
       - CI=true
     volumes:
       - .:/app

@@ -109,7 +109,7 @@ export default function SettingsPanel() {
             style={{ borderRadius: "var(--radius-sm)", opacity: 0.5, cursor: "not-allowed" }}
           />
           <span style={{ fontSize: "10px", color: "var(--text-secondary)" }}>
-            Local-only communication. Automatically polls and reconnects to FastAPI backend (Port 8000).
+            Local-only communication. Automatically polls and reconnects to API Gateway (Port 8000).
           </span>
         </div>
 

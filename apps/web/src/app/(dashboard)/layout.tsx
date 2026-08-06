@@ -49,7 +49,7 @@ export default function DashboardLayout({
           <div className="flex items-center space-x-4 text-xs text-zinc-400">
             <span className="flex items-center space-x-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              <span>FastAPI Gateway: Active</span>
+              <span>API Gateway: Active</span>
             </span>
           </div>
         </header>

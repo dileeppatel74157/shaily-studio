@@ -138,16 +138,97 @@ export class RuntimeEngine implements IRuntimeEngine {
       priority: StartupPriority.CRITICAL
     });
 
-    const dbProvider = (_context.config?.database?.provider) ||
-      ((process.env.DATABASE_URL && (process.env.DATABASE_URL.startsWith("postgres://") || process.env.DATABASE_URL.startsWith("postgresql://")))
-        ? DatabaseProvider.POSTGRESQL
-        : DatabaseProvider.SQLITE);
+    const getConfVal = (key: string): string | undefined => {
+      try {
+        if (_context.config && typeof _context.config.has === "function" && _context.config.has(key)) {
+          return _context.config.get(key);
+        }
+      } catch (_) {}
+      try {
+        if (configurationEngine && typeof (configurationEngine as any).resolveVariable === "function") {
+          return (configurationEngine as any).resolveVariable(key);
+        }
+      } catch (_) {}
+      return process.env[key];
+    };
 
-    const databaseEngine = new DatabaseBuilder()
+    const dbUrl = _context.config?.database?.url || getConfVal("DATABASE_URL") || getConfVal("DB_URL");
+    const dbHost = _context.config?.database?.host || getConfVal("POSTGRES_HOST") || getConfVal("DB_HOST") || getConfVal("DATABASE_HOST");
+    const dbPortStr = _context.config?.database?.port || getConfVal("POSTGRES_PORT") || getConfVal("DB_PORT") || getConfVal("DATABASE_PORT");
+    const dbPort = dbPortStr ? parseInt(String(dbPortStr), 10) : undefined;
+    const dbName = _context.config?.database?.database || getConfVal("POSTGRES_DB") || getConfVal("DB_NAME") || getConfVal("DATABASE_NAME");
+    const dbUser = _context.config?.database?.username || getConfVal("POSTGRES_USER") || getConfVal("DB_USER") || getConfVal("DATABASE_USER");
+    const dbPassword = _context.config?.database?.password || getConfVal("POSTGRES_PASSWORD") || getConfVal("DB_PASSWORD") || getConfVal("DATABASE_PASSWORD");
+
+    let parsedHost = dbHost;
+    let parsedPort = dbPort;
+    let parsedUser = dbUser;
+    let parsedPass = dbPassword;
+    let parsedDbName = dbName;
+
+    if (dbUrl && (dbUrl.startsWith("postgres://") || dbUrl.startsWith("postgresql://"))) {
+      try {
+        const cleanUrl = dbUrl.replace("postgresql+psycopg://", "postgresql://");
+        const urlObj = new URL(cleanUrl);
+        if (!parsedHost) parsedHost = urlObj.hostname;
+        if (parsedPort === undefined && urlObj.port) parsedPort = parseInt(urlObj.port, 10);
+        if (!parsedUser && urlObj.username) parsedUser = decodeURIComponent(urlObj.username);
+        if (!parsedPass && urlObj.password) parsedPass = decodeURIComponent(urlObj.password);
+        if (!parsedDbName && urlObj.pathname) {
+          const name = urlObj.pathname.substring(1);
+          if (name) parsedDbName = name;
+        }
+      } catch (err) {
+        // Ignore URL parsing errors
+      }
+    }
+
+    const dbProviderStr = getConfVal("DATABASE_PROVIDER") || _context.config?.database?.provider;
+    let dbProvider: DatabaseProvider;
+    if (dbProviderStr === "postgresql" || dbProviderStr === "POSTGRESQL" || dbProviderStr === DatabaseProvider.POSTGRESQL) {
+      dbProvider = DatabaseProvider.POSTGRESQL;
+    } else if (dbProviderStr === "sqlite" || dbProviderStr === "SQLITE" || dbProviderStr === DatabaseProvider.SQLITE) {
+      dbProvider = DatabaseProvider.SQLITE;
+    } else {
+      dbProvider = (dbUrl && (dbUrl.startsWith("postgres://") || dbUrl.startsWith("postgresql://")))
+        ? DatabaseProvider.POSTGRESQL
+        : DatabaseProvider.SQLITE;
+    }
+
+    const dbBuilder = new DatabaseBuilder()
       .withContext(_context)
       .withProvider(dbProvider)
-      .withFilePath(_context.config?.database?.filePath ?? ":memory:")
-      .build();
+      .withFilePath(_context.config?.database?.filePath ?? ":memory:");
+
+    if (dbUrl) {
+      dbBuilder.withUrl(dbUrl);
+    }
+    if (parsedHost) {
+      dbBuilder.withHost(parsedHost);
+    }
+    if (parsedPort !== undefined && !isNaN(parsedPort)) {
+      dbBuilder.withPort(parsedPort);
+    }
+    if (parsedDbName) {
+      dbBuilder.withDatabase(parsedDbName);
+    }
+    if (parsedUser || parsedPass) {
+      dbBuilder.withCredentials(parsedUser || "", parsedPass || "");
+    }
+
+    const dbPoolSizeStr = _context.config?.database?.poolSize || getConfVal("DATABASE_POOL_SIZE") || getConfVal("DB_POOL_SIZE");
+    const dbPoolSize = dbPoolSizeStr ? parseInt(String(dbPoolSizeStr), 10) : undefined;
+    if (dbPoolSize !== undefined && !isNaN(dbPoolSize)) {
+      dbBuilder.withPoolSize(dbPoolSize);
+    }
+
+    const dbMaxConnectionsStr = _context.config?.database?.maxConnections || getConfVal("DATABASE_MAX_CONNECTIONS") || getConfVal("DB_MAX_CONNECTIONS");
+    const dbMaxConnections = dbMaxConnectionsStr ? parseInt(String(dbMaxConnectionsStr), 10) : undefined;
+    if (dbMaxConnections !== undefined && !isNaN(dbMaxConnections)) {
+      dbBuilder.withMaxConnections(dbMaxConnections);
+    }
+
+    const databaseEngine = dbBuilder.build();
     this.registerEngine({
       id: "DatabaseEngine",
       engine: databaseEngine,

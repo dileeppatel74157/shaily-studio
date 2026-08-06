@@ -186,7 +186,7 @@ function checkBackendHealth() {
         const health = JSON.parse(data);
         if (health.status === "healthy" && !backendConnected) {
           backendConnected = true;
-          logToSystem(`Successfully connected to external FastAPI Backend (Port 8000). Mode: LIVE.`, "success", "Runtime");
+          logToSystem(`Successfully connected to external API Gateway (Port 8000). Mode: LIVE.`, "success", "Runtime");
           if (mainWindow) mainWindow.webContents.send("reconnect-status", { connected: true, live: true });
         }
       } catch (err) {
@@ -208,7 +208,7 @@ function checkBackendHealth() {
 function fallbackToSandbox() {
   if (backendConnected || logHistory.length <= 2) {
     backendConnected = false;
-    logToSystem("Local FastAPI Backend (Port 8000) not found or offline. Switching to embedded Sandbox Engine Mode.", "warn", "Runtime");
+    logToSystem("Local API Gateway (Port 8000) not found or offline. Switching to embedded Sandbox Engine Mode.", "warn", "Runtime");
     if (mainWindow) mainWindow.webContents.send("reconnect-status", { connected: true, live: false });
   }
 }

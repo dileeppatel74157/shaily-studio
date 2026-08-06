@@ -10,12 +10,12 @@ The system is configured as a modular monorepo to isolate frontend representatio
 
 ```mermaid
 graph TD
-    Client[Next.js 15 Web App] <-->|HTTP/JSON| API[FastAPI Backend]
-    API <-->|SQLAlchemy| DB[(PostgreSQL Database)]
-    API --->|Push Jobs| Queue[arq Redis Queue]
+    Client[Next.js 15 Web App] <-->|HTTP/JSON| API[Node.js API Gateway]
+    API <-->|DatabaseEngine| DB[(PostgreSQL Database)]
+    API --->|Push Jobs| Queue[Redis Queue]
     Worker[arq Python Worker] <-->|Fetch Jobs| Queue
     Worker <-->|Executes Agents| Agents[agents python package]
-    Worker <-->|SQLAlchemy| DB
+    Worker <-->|psycopg SQL| DB
 ```
 
 ---
@@ -26,7 +26,7 @@ graph TD
 shaily-studio/
 ├── apps/
 │   ├── web/               # Next.js 15 App (Zustand, React Query, Tailwind v4)
-│   ├── api/               # FastAPI Backend Service (Python 3.12, SQLAlchemy, Alembic)
+│   ├── api/               # Node.js API Gateway Service (Node 22, TypeScript, Express-like HTTP)
 │   └── worker/            # Background Worker Queue processor (arq + Redis)
 ├── packages/
 │   ├── core/              # Shared TS utilities, constants, agent configs

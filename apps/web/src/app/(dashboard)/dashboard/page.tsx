@@ -28,7 +28,7 @@ export default function OverviewDashboard() {
   const [logs, setLogs] = useState<
     Array<{ time: string; msg: string; type: "info" | "success" | "error" }>
   >([
-    { time: new Date().toLocaleTimeString(), msg: "FastAPI gateway connection established.", type: "info" },
+    { time: new Date().toLocaleTimeString(), msg: "API gateway connection established.", type: "info" },
     { time: new Date().toLocaleTimeString(), msg: "Core memory engines active.", type: "info" },
     { time: new Date().toLocaleTimeString(), msg: "Autonomous agent execution queue listening...", type: "info" },
   ]);
@@ -140,7 +140,7 @@ export default function OverviewDashboard() {
             <CardContent className="p-4 flex items-center justify-between">
               <div className="flex items-center space-x-3">
                 <Server className="text-zinc-400" size={18} />
-                <span className="text-sm font-medium">FastAPI Server</span>
+                <span className="text-sm font-medium">API Gateway</span>
               </div>
               <span className="text-2xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded">
                 Live (Port 8000)

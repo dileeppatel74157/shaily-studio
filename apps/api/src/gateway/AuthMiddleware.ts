@@ -9,9 +9,9 @@ export class AuthMiddleware implements GatewayMiddleware {
 
   public async execute(request: GatewayRequest, next: NextFunction): Promise<GatewayResponse> {
     const path = request.path;
-    // Exclude health, login, callback, and static paths from authentication
     if (
       path === "/health" ||
+      path === "/api/health" ||
       path === "/snapshot" ||
       path === "/api/auth/login" ||
       path === "/api/channels/oauth/callback" ||

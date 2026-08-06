@@ -99,7 +99,7 @@ export default function SystemSettings() {
           </CardHeader>
           <CardContent className="p-6 space-y-4 text-xs">
             <div className="space-y-1">
-              <span className="text-[10px] text-zinc-550 uppercase font-bold tracking-wider">FastAPI Host URL</span>
+              <span className="text-[10px] text-zinc-550 uppercase font-bold tracking-wider">API Gateway Host URL</span>
               <div className="p-2 bg-zinc-950 border border-zinc-900 rounded font-mono text-3xs text-zinc-300 truncate">
                 http://localhost:8000
               </div>

@@ -99,30 +99,39 @@ export class Gateway implements IGateway {
 
   private registerBuiltInRoutes(): void {
     // 1. GET /health
+    const healthHandler = async (req: any) => {
+      const db = await this.getDatabaseEngine();
+      const dbState = db ? db.getState() : "UNKNOWN";
+      const obs = (this.context as any).observabilityEngine;
+      const obsSnapshot = obs ? (typeof obs.snapshot === "function" ? obs.snapshot() : (typeof obs.getSnapshot === "function" ? obs.getSnapshot() : null)) : null;
+
+      return {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+        body: {
+          status: "healthy",
+          timestamp: new Date().toISOString(),
+          database: {
+            provider: db ? db.getProviderManager().getActiveProvider() : "NONE",
+            state: dbState
+          },
+          observability: obsSnapshot
+        }
+      };
+    };
+
     this.registerRoute({
       method: "GET",
       path: "/health",
       metadata: { builtIn: true },
-      handler: async (req: any) => {
-        const db = await this.getDatabaseEngine();
-        const dbState = db ? db.getState() : "UNKNOWN";
-        const obs = (this.context as any).observabilityEngine;
-        const obsSnapshot = obs ? (typeof obs.snapshot === "function" ? obs.snapshot() : (typeof obs.getSnapshot === "function" ? obs.getSnapshot() : null)) : null;
+      handler: healthHandler,
+    });
 
-        return {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-          body: {
-            status: "healthy",
-            timestamp: new Date().toISOString(),
-            database: {
-              provider: db ? db.getProviderManager().getActiveProvider() : "NONE",
-              state: dbState
-            },
-            observability: obsSnapshot
-          }
-        };
-      },
+    this.registerRoute({
+      method: "GET",
+      path: "/api/health",
+      metadata: { builtIn: true },
+      handler: healthHandler,
     });
 
     // 2. GET /snapshot

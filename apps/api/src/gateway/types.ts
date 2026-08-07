@@ -22,20 +22,24 @@ export class InvalidGatewayStateException extends GatewayException {
   }
 }
 
-export function deepFreeze<T>(obj: any): T {
+export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
+
   Object.freeze(obj);
-  Object.getOwnPropertyNames(obj).forEach((prop) => {
+
+  for (const prop of Object.getOwnPropertyNames(obj)) {
+    const value = (obj as any)[prop];
+
     if (
-      obj.hasOwnProperty(prop) &&
-      obj[prop] !== null &&
-      (typeof obj[prop] === "object" || typeof obj[prop] === "function") &&
-      !Object.isFrozen(obj[prop])
+      value !== null &&
+      (typeof value === "object" || typeof value === "function") &&
+      !Object.isFrozen(value)
     ) {
-      deepFreeze(obj[prop]);
+      deepFreeze(value);
     }
-  });
+  }
+
   return obj;
 }

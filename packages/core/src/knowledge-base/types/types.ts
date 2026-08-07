@@ -54,16 +54,25 @@ export class InvalidKnowledgeBaseStateException extends KnowledgeBaseException {
 
 // ─── Utility ────────────────────────────────────────────────────────────────
 
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T>(obj: T): T {
-  if (obj === null || obj === undefined) return obj;
-  if (typeof obj !== "object" && typeof obj !== "function") return obj;
-  Object.freeze(obj);
-  for (const name of Object.getOwnPropertyNames(obj)) {
-    const val = (obj as any)[name];
-    if (val && (typeof val === "object" || typeof val === "function") && !Object.isFrozen(val)) {
-      deepFreeze(val);
-    }
+  if (obj === null || typeof obj !== "object") {
+    return obj;
   }
+
+  Object.freeze(obj);
+
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  });
   return obj;
 }
 

@@ -22,21 +22,23 @@ export class InvalidReadinessStateException extends ReadinessException {
  * Recursively deep-freezes a given object, enforcing immutability.
  * Uses type constraints and avoids 'any' to conform to strict TypeScript.
  */
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
+
   Object.freeze(obj);
-  
-  const typedObj = obj as unknown as Record<string, unknown>;
-  Object.getOwnPropertyNames(typedObj).forEach((prop) => {
-    if (
-      Object.prototype.hasOwnProperty.call(typedObj, prop) &&
-      typedObj[prop] !== null &&
-      (typeof typedObj[prop] === "object" || typeof typedObj[prop] === "function") &&
-      !Object.isFrozen(typedObj[prop])
-    ) {
-      deepFreeze(typedObj[prop]);
+
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
+      deepFreeze(value);
     }
   });
   return obj;

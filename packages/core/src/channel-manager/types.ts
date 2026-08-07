@@ -74,19 +74,23 @@ export class InvalidChannelStateException extends ChannelManagerException {
 
 // ─── Deep Freeze Utility ──────────────────────────────────────────────────────
 
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T>(obj: T): T {
-  if (obj === null || typeof obj !== "object") return obj;
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+
   Object.freeze(obj);
-  const typed = obj as unknown as Record<string, unknown>;
-  Object.getOwnPropertyNames(typed).forEach((prop) => {
-    if (prop === "context") return;
-    if (
-      Object.prototype.hasOwnProperty.call(typed, prop) &&
-      typed[prop] !== null &&
-      (typeof typed[prop] === "object" || typeof typed[prop] === "function") &&
-      !Object.isFrozen(typed[prop])
-    ) {
-      deepFreeze(typed[prop]);
+
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
+      deepFreeze(value);
     }
   });
   return obj;

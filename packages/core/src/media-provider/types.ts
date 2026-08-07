@@ -47,29 +47,24 @@ export class InvalidMediaStateException extends MediaProviderException {
 /**
  * Deep freezes an object recursively to ensure immutability.
  */
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T>(obj: T): T {
-  if (obj === null || obj === undefined) {
-    return obj;
-  }
-
-  if (typeof obj !== "object" && typeof obj !== "function") {
+  if (obj === null || typeof obj !== "object") {
     return obj;
   }
 
   Object.freeze(obj);
 
-  const propNames = Object.getOwnPropertyNames(obj);
-  for (const name of propNames) {
-    const value = (obj as any)[name];
-    if (
-      value !== null &&
-      value !== undefined &&
-      (typeof value === "object" || typeof value === "function") &&
-      !Object.isFrozen(value)
-    ) {
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
       deepFreeze(value);
     }
-  }
-
+  });
   return obj;
 }

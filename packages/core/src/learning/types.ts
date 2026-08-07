@@ -42,11 +42,24 @@ export class LearningValidationException extends LearningException {
 
 // ─── Deep Freeze Utility ──────────────────────────────────────────────────────
 
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T>(obj: T): Readonly<T> {
-  if (obj === null || typeof obj !== "object") return obj;
-  Object.getOwnPropertyNames(obj).forEach(name => {
-    const val = (obj as Record<string, unknown>)[name];
-    if (val && typeof val === "object") deepFreeze(val);
+  if (obj === null || typeof obj !== "object") {
+    return obj;
+  }
+
+  Object.freeze(obj);
+
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
   });
-  return Object.freeze(obj);
+  return obj;
 }

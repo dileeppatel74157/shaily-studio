@@ -24,19 +24,24 @@ export class InvalidSettingsStateException extends SettingsException {
   }
 }
 
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T>(obj: T): T {
   if (obj === null || typeof obj !== "object") {
     return obj;
   }
-  
+
   Object.freeze(obj);
-  
+
   Object.getOwnPropertyNames(obj).forEach((prop) => {
     const value = (obj as any)[prop];
-    if (value !== null && (typeof value === "object" || typeof value === "function") && !Object.isFrozen(value)) {
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
       deepFreeze(value);
     }
   });
-  
   return obj;
 }

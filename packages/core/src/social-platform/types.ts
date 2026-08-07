@@ -45,16 +45,24 @@ export class ValidationException extends SocialPlatformException {
 /**
  * Deep freezes an object.
  */
+function isPlainObjectOrArray(value: unknown): boolean {
+  if (Array.isArray(value)) return true;
+  if (value === null || typeof value !== "object") return false;
+  const proto = Object.getPrototypeOf(value);
+  return proto === Object.prototype || proto === null;
+}
 export function deepFreeze<T extends object>(obj: T): Readonly<T> {
-  const propNames = Reflect.ownKeys(obj);
-
-  for (const name of propNames) {
-    const value = (obj as any)[name];
-
-    if (value && typeof value === "object") {
-      deepFreeze(value);
-    }
+  if (obj === null || typeof obj !== "object") {
+    return obj;
   }
 
-  return Object.freeze(obj);
+  Object.freeze(obj);
+
+  Object.getOwnPropertyNames(obj).forEach((prop) => {
+    const value = (obj as any)[prop];
+    if (isPlainObjectOrArray(value) && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  });
+  return obj;
 }

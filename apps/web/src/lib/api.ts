@@ -1,4 +1,7 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+let API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+if (typeof window !== "undefined" && API_URL.includes("://api:")) {
+  API_URL = API_URL.replace("://api:", "://localhost:");
+}
 
 export interface ChannelConnection {
   id: string;
@@ -11,13 +14,32 @@ export interface ChannelConnection {
 
 export async function apiFetch<T = any>(path: string, options?: RequestInit): Promise<T> {
   const url = `${API_URL}${path}`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("shaily_auth_token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
   const res = await fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...headers,
       ...(options?.headers || {})
     }
   });
+
+  if (res.status === 401) {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("shaily_auth_token");
+      window.location.href = "/login";
+    }
+  }
 
   if (!res.ok) {
     const errorText = await res.text();

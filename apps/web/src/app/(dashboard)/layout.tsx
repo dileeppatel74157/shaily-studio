@@ -1,8 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "@/components/sidebar";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 export default function DashboardLayout({
   children,
@@ -10,6 +10,28 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem("shaily_auth_token");
+    if (!token) {
+      router.push("/login");
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [router]);
+
+  if (isAuthenticated === null) {
+    return (
+      <div className="flex h-screen bg-black items-center justify-center text-zinc-400 font-sans">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-6 h-6 border-2 border-t-transparent border-violet-500 rounded-full animate-spin"></div>
+          <span className="text-xs tracking-wider uppercase font-semibold text-zinc-500 animate-pulse">Checking credentials...</span>
+        </div>
+      </div>
+    );
+  }
 
   const getPageTitle = () => {
     switch (pathname) {

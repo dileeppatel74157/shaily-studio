@@ -348,6 +348,36 @@ class VideoManagerImpl implements IVideoManager {
   }
 }
 
+// Helper function to convert raw PCM to WAV format
+function pcmToWav(
+  pcmBuffer: Buffer,
+  sampleRate = 24000,
+  numChannels = 1,
+  bitsPerSample = 16
+): Buffer {
+  const header = Buffer.alloc(44);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const byteRate = sampleRate * blockAlign;
+  const subChunk2Size = pcmBuffer.length;
+  const chunkSize = 36 + subChunk2Size;
+
+  header.write("RIFF", 0, "ascii");
+  header.writeUInt32LE(chunkSize, 4);
+  header.write("WAVE", 8, "ascii");
+  header.write("fmt ", 12, "ascii");
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write("data", 36, "ascii");
+  header.writeUInt32LE(subChunk2Size, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
 // ─── 4. VoiceManagerImpl ─────────────────────────────────────────────────────
 class VoiceManagerImpl implements IVoiceManager {
   constructor(private readonly _engine: MediaProviderEngine) {}
@@ -363,6 +393,87 @@ class VoiceManagerImpl implements IVoiceManager {
     const start = Date.now();
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: GenerationMode.TEXT_TO_SPEECH });
 
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey && apiKey.trim() !== "") {
+      let timeoutId: any;
+      try {
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${apiKey}`;
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: request.text }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
+              }
+            }
+          }),
+          signal: controller.signal
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const responseData = (await response.json()) as any;
+        const base64Data = responseData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Data) {
+          throw new Error("Invalid response format: inlineData data not found");
+        }
+
+        const pcmBuffer = Buffer.from(base64Data, "base64");
+        const wavBuffer = pcmToWav(pcmBuffer);
+
+        const sampleRate = 24000;
+        const numChannels = 1;
+        const bitsPerSample = 16;
+        const duration = pcmBuffer.length / (sampleRate * numChannels * (bitsPerSample / 8));
+
+        const assetId = `speech-${Date.now()}`;
+        const asset = await this._engine.processAndPersistMedia(
+          assetId,
+          MediaType.VOICE,
+          "wav",
+          "audio/wav",
+          undefined,
+          undefined,
+          duration,
+          wavBuffer
+        );
+
+        const cost = request.text.length * 0.0001; // mock voice cost
+
+        this._engine.getUsageManager().recordUsage(provider, MediaType.VOICE, duration, cost);
+        this._engine.getUsageManager().recordRequest(provider, Date.now() - start, true, 1, cost);
+        this._engine.getEventManager().emit(MediaEventType.REQUEST_COMPLETED, { requestId: request.id, provider });
+
+        return {
+          id: `speech-resp-${Date.now()}`,
+          requestId: request.id,
+          provider,
+          audioUrl: asset.url,
+          durationSeconds: duration,
+          charCount: request.text.length
+        };
+      } catch (err: any) {
+        console.error("Gemini TTS API call failed, falling back to mock behavior:", err);
+      } finally {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+      }
+    } else {
+      console.warn("GEMINI_API_KEY is missing or empty. Falling back to mock behavior.");
+    }
+
+    // --- Fallback Mock Behavior ---
     const duration = Math.ceil(request.text.length / 15); // mock speech rate
     const assetId = `speech-${Date.now()}`;
     const asset = await this._engine.processAndPersistMedia(
@@ -762,7 +873,8 @@ export class MediaProviderEngine implements IMediaProviderEngine {
     mimeType: string,
     width?: number,
     height?: number,
-    durationSeconds?: number
+    durationSeconds?: number,
+    realContent?: Buffer
   ): Promise<MediaAsset> {
     const filename = `${id}.${extension}`;
     const storageDir = path.join(process.cwd(), "storage", "media");
@@ -770,15 +882,15 @@ export class MediaProviderEngine implements IMediaProviderEngine {
       fs.mkdirSync(storageDir, { recursive: true });
     }
     const fullPath = path.join(storageDir, filename);
-    const mockContent = Buffer.from(`mock-binary-data-for-${type}-${id}`);
-    fs.writeFileSync(fullPath, mockContent);
+    const contentToWrite = realContent || Buffer.from(`mock-binary-data-for-${type}-${id}`);
+    fs.writeFileSync(fullPath, contentToWrite);
     const localUrl = `file:///${fullPath.replace(/\\/g, "/")}`;
 
     const asset: MediaAsset = {
       id,
       type,
       url: localUrl,
-      sizeBytes: mockContent.length,
+      sizeBytes: contentToWrite.length,
       mimeType,
       width,
       height,
@@ -817,7 +929,7 @@ export class MediaProviderEngine implements IMediaProviderEngine {
             id,
             type,
             localUrl,
-            mockContent.length,
+            contentToWrite.length,
             mimeType,
             durationSeconds || null,
             JSON.stringify({ width, height })

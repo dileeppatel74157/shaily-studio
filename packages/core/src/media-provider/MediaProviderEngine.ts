@@ -115,14 +115,57 @@ class ImageManagerImpl implements IImageManager {
     const start = Date.now();
     this._engine.getEventManager().emit(MediaEventType.REQUEST_STARTED, { requestId: request.id, provider, mode: request.mode });
 
+    let width = 1024;
+    let height = 1024;
+    if (request.size) {
+      const parts = request.size.split("x");
+      if (parts.length === 2) {
+        const w = parseInt(parts[0], 10);
+        const h = parseInt(parts[1], 10);
+        if (!isNaN(w) && !isNaN(h)) {
+          width = w;
+          height = h;
+        }
+      }
+    }
+
     const assetId = `img-${Date.now()}`;
+    let realContent: Buffer | undefined = undefined;
+    let timeoutId: any;
+
+    try {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), 30000);
+
+      const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(request.prompt)}?width=${width}&height=${height}&nologo=true`;
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      realContent = Buffer.from(arrayBuffer);
+    } catch (err: any) {
+      console.error("Pollinations image generation failed, falling back to mock behavior:", err);
+    } finally {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    }
+
     const asset = await this._engine.processAndPersistMedia(
       assetId,
       MediaType.IMAGE,
       "png",
       "image/png",
-      1024,
-      1024
+      width,
+      height,
+      undefined,
+      realContent
     );
 
     const durationMs = Date.now() - start;

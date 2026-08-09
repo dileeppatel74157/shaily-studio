@@ -27,7 +27,7 @@ export interface IContentPipelineEngine {
   pause(): Promise<void>;
   resume(): Promise<void>;
 
-  execute(scriptId: string, projectId: string): Promise<PublishingPackage>;
+  execute(scriptId: string, projectId: string, topicPrompt?: string): Promise<PublishingPackage>;
   getSnapshot(): ExecutionSnapshot;
   getStatistics(): ContentPipelineStatistics;
 
@@ -49,7 +49,7 @@ export interface IContentPipelineEngine {
 }
 
 export interface IStoryboardManager {
-  generateStoryboard(scriptId: string, projectId: string): Promise<Storyboard>;
+  generateStoryboard(scriptId: string, projectId: string, topicPrompt?: string): Promise<Storyboard>;
   getStoryboard(storyboardId: string): Storyboard | undefined;
 }
 

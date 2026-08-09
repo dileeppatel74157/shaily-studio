@@ -836,7 +836,7 @@ export class Gateway implements IGateway {
             (engine as any)._state = "EXECUTING";
 
             this.context.logger.info(`Starting pipeline run for task ${taskId}...`);
-            const pack = await engine.execute(taskId, taskId);
+            const pack = await engine.execute(taskId, taskId, prompt);
             this.context.logger.info(`Pipeline execution succeeded for task ${taskId}`);
 
             const db = await this.getDatabaseEngine();

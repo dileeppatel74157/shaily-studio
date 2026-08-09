@@ -142,7 +142,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
 
   // ─── Execution Orchestrator ─────────────────────────────────────────────────
 
-  public async execute(scriptId: string, projectId: string): Promise<PublishingPackage> {
+  public async execute(scriptId: string, projectId: string, topicPrompt?: string): Promise<PublishingPackage> {
     if (this._state !== ContentPipelineState.EXECUTING) {
       throw new PipelineExecutionException("Pipeline must be in EXECUTING state to run.");
     }
@@ -156,7 +156,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
       this._currentStage = ContentStage.STORYBOARD;
       this._progressPercent = 10;
       await this._emit(PipelineEventType.STAGE_STARTED, { stage: ContentStage.STORYBOARD });
-      const storyboard = await this._storyboardMgr.generateStoryboard(scriptId, projectId);
+      const storyboard = await this._storyboardMgr.generateStoryboard(scriptId, projectId, topicPrompt);
       await this._saveCheckpoint(projectId, ContentStage.STORYBOARD, storyboard);
       await this._emit(PipelineEventType.STAGE_COMPLETED, { stage: ContentStage.STORYBOARD });
 
@@ -415,7 +415,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
 class StoryboardManagerImpl implements IStoryboardManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
-  public async generateStoryboard(scriptId: string, projectId: string): Promise<Storyboard> {
+  public async generateStoryboard(scriptId: string, projectId: string, topicPrompt?: string): Promise<Storyboard> {
     // Automatically convert script parameters
     const mockScenes: Scene[] = [
       {
@@ -438,13 +438,97 @@ class StoryboardManagerImpl implements IStoryboardManager {
       }
     ];
 
+    let scenes: Scene[] = mockScenes;
+
+    if (topicPrompt) {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey || apiKey.trim() === "") {
+        console.warn("GEMINI_API_KEY is missing or empty. Falling back to mock storyboard.");
+      } else {
+        let timeoutId: any;
+        try {
+          const controller = new AbortController();
+          timeoutId = setTimeout(() => controller.abort(), 30000);
+
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `You are a scriptwriter for short-form vertical videos. Given the topic below, write a script broken into 3-5 scenes for a video of approximately <total 15-30 seconds>. Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact shape:
+{ "scenes": [ { "title": string, "scriptText": string, "durationSeconds": number, "visualPrompt": string } ] }
+Topic: ${topicPrompt}`
+                }]
+              }],
+              generationConfig: { responseMimeType: "application/json" }
+            }),
+            signal: controller.signal
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const responseData = await response.json() as any;
+          const text = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!text) {
+            throw new Error("Invalid response format: text content not found in candidates");
+          }
+
+          const parsed = JSON.parse(text);
+          if (!parsed || !Array.isArray(parsed.scenes)) {
+            throw new Error("Invalid response format: 'scenes' array not found or not an array");
+          }
+
+          scenes = parsed.scenes.map((scene: any, index: number) => {
+            const sceneNum = index + 1;
+            const sceneId = `sc-${sceneNum}`;
+            const shotId = `shot-${sceneNum}`;
+            const duration = typeof scene.durationSeconds === "number" ? scene.durationSeconds : 10;
+            return {
+              id: sceneId,
+              sceneNumber: sceneNum,
+              title: scene.title || `Scene ${sceneNum}`,
+              scriptText: scene.scriptText || "",
+              durationSeconds: duration,
+              shots: [
+                {
+                  id: shotId,
+                  shotNumber: 1,
+                  description: scene.visualPrompt || "A visual scene portraying the topic",
+                  camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Subject" },
+                  durationSeconds: duration,
+                  visualPrompt: scene.visualPrompt || ""
+                }
+              ],
+              transition: "Cut"
+            };
+          });
+        } catch (err: any) {
+          console.error("Failed to generate storyboard using Gemini API, falling back to mock storyboard:", err);
+          scenes = mockScenes;
+        } finally {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+        }
+      }
+    }
+
+    const totalScenes = scenes.length;
+    const totalDurationSeconds = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
+
     const storyboard: Storyboard = {
       id: `story-${Date.now()}`,
       projectId,
       scriptId,
-      scenes: mockScenes,
-      totalScenes: 1,
-      totalDurationSeconds: 10,
+      scenes,
+      totalScenes,
+      totalDurationSeconds,
       createdAt: new Date()
     };
 

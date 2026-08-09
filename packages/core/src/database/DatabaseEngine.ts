@@ -279,6 +279,13 @@ class MigrationManagerImpl implements IMigrationManager {
           DROP TABLE IF EXISTS channel_connections;
         `,
         checksum: "pqr678"
+      },
+      {
+        id: "mig-007", version: 7, name: "add_tasks_prompt_updated_at_columns",
+        description: "Add missing prompt and updated_at columns to tasks table", state: MigrationState.PENDING,
+        upSql: "ALTER TABLE tasks ADD COLUMN IF NOT EXISTS prompt TEXT; ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TEXT;",
+        downSql: "ALTER TABLE tasks DROP COLUMN IF EXISTS prompt; ALTER TABLE tasks DROP COLUMN IF EXISTS updated_at;",
+        checksum: "stu901"
       }
     );
   }

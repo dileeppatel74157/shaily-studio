@@ -42,6 +42,10 @@ export class Gateway implements IGateway {
     return (this.context as any).channelManager;
   }
 
+  private async getContentPipelineEngine(): Promise<any> {
+    return (this.context as any).contentPipelineEngine;
+  }
+
   constructor(
     public readonly context: GatewayContext,
     public readonly host: string,
@@ -784,6 +788,85 @@ export class Gateway implements IGateway {
           status: 401,
           headers: { "Content-Type": "application/json" },
           body: { success: false, error: "Invalid username or password" }
+        };
+      }
+    });
+
+    // --- POST /api/internal/run-pipeline ---
+    this.registerRoute({
+      method: "POST",
+      path: "/api/internal/run-pipeline",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        // 1. Verify shared secret
+        const incomingSecret = req.headers["x-internal-secret"] || req.headers["X-Internal-Secret"];
+        const expectedSecret = process.env.INTERNAL_API_SECRET;
+        if (!expectedSecret || incomingSecret !== expectedSecret) {
+          return {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Unauthorized: Invalid or missing X-Internal-Secret header" }
+          };
+        }
+
+        // 2. Validate request body
+        const { taskId, prompt } = req.body || {};
+        if (!taskId || !prompt) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Missing required parameters: taskId and prompt" }
+          };
+        }
+
+        // 3. Get ContentPipelineEngine
+        const engine = await this.getContentPipelineEngine();
+        if (!engine) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "ContentPipelineEngine not registered on context" }
+          };
+        }
+
+        // 4. Run pipeline execution asynchronously
+        (async () => {
+          try {
+            // Force the state of the engine to EXECUTING so it can run again
+            (engine as any)._state = "EXECUTING";
+
+            this.context.logger.info(`Starting pipeline run for task ${taskId}...`);
+            const pack = await engine.execute(taskId, taskId);
+            this.context.logger.info(`Pipeline execution succeeded for task ${taskId}`);
+
+            const db = await this.getDatabaseEngine();
+            const qm = db.getQueryManager();
+            await qm.execute({
+              id: `db-task-complete-${Date.now()}`,
+              sql: "UPDATE tasks SET status = ?, input_data = ?, updated_at = ? WHERE id = ?",
+              params: ["completed", JSON.stringify(pack), new Date().toISOString(), taskId]
+            });
+          } catch (err: any) {
+            this.context.logger.error(`Pipeline execution failed for task ${taskId}: ${err.message}`);
+            try {
+              const db = await this.getDatabaseEngine();
+              const qm = db.getQueryManager();
+              await qm.execute({
+                id: `db-task-failed-${Date.now()}`,
+                sql: "UPDATE tasks SET status = ?, error = ?, updated_at = ? WHERE id = ?",
+                params: ["failed", err.message || "Unknown error", new Date().toISOString(), taskId]
+              });
+            } catch (dbErr: any) {
+              this.context.logger.error(`Failed to update task ${taskId} to failed in DB: ${dbErr.message}`);
+            }
+          }
+        })();
+
+        // 5. Return success immediately
+        return {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+          body: { success: true }
         };
       }
     });

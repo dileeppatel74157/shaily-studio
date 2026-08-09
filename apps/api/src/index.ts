@@ -132,6 +132,7 @@ async function bootstrap() {
   (gatewayContext as any).channelManager = runtime.getEngine<any>("ChannelManagerEngine");
   (gatewayContext as any).memoryEngine = runtime.getEngine<any>("MemoryEngine");
   (gatewayContext as any).observabilityEngine = runtime.getEngine<any>("ObservabilityEngine");
+  (gatewayContext as any).contentPipelineEngine = runtime.getEngine<any>("ContentPipelineEngine");
 
   // 6. Build and start Gateway
   const host = process.env.HOST || "0.0.0.0";

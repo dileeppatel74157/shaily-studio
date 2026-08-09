@@ -5,6 +5,7 @@ import sys
 import json
 import redis
 import psycopg
+import requests
 
 # Ensure packages can be imported dynamically in dev environment
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../packages")))
@@ -63,22 +64,41 @@ async def execute_heavy_job(task_id: str, agent_id: str, prompt: str, task_type:
     update_task_in_db(task_id, "running")
     
     try:
-        # Simulate pipeline execution: rendering, video, voice, image generation, heavy AI
-        await asyncio.sleep(3.0)
-        
-        # Real task routing
         if task_type == "video_generation":
-            logger.info("Generating video for prompt: %s", prompt)
-        elif task_type == "image_generation":
-            logger.info("Generating image for prompt: %s", prompt)
-        elif task_type == "voice_generation":
-            logger.info("Generating voice for prompt: %s", prompt)
-        elif task_type == "rendering":
-            logger.info("Rendering video frames...")
-        else:
-            logger.info("Executing general AI agent job: %s", prompt)
+            api_base_url = os.getenv("API_BASE_URL", "https://api.velmorahome.online")
+            internal_secret = os.getenv("INTERNAL_API_SECRET", "")
+            url = f"{api_base_url}/api/internal/run-pipeline"
+            headers = {
+                "X-Internal-Secret": internal_secret,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "taskId": task_id,
+                "prompt": prompt
+            }
+            logger.info("Triggering real pipeline for task %s via POST %s", task_id, url)
             
-        update_task_in_db(task_id, "completed")
+            def do_post():
+                return requests.post(url, json=payload, headers=headers, timeout=120)
+            
+            response = await asyncio.to_thread(do_post)
+            response.raise_for_status()
+            logger.info("Successfully triggered pipeline for task %s, response: %s", task_id, response.text)
+        else:
+            # Simulate pipeline execution: rendering, video, voice, image generation, heavy AI
+            await asyncio.sleep(3.0)
+            
+            # Real task routing
+            if task_type == "image_generation":
+                logger.info("Generating image for prompt: %s", prompt)
+            elif task_type == "voice_generation":
+                logger.info("Generating voice for prompt: %s", prompt)
+            elif task_type == "rendering":
+                logger.info("Rendering video frames...")
+            else:
+                logger.info("Executing general AI agent job: %s", prompt)
+                
+            update_task_in_db(task_id, "completed")
     except Exception as e:
         logger.error("Error executing task %s: %s", task_id, str(e))
         update_task_in_db(task_id, "failed", error=str(e))

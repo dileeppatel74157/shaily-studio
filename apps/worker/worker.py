@@ -15,10 +15,22 @@ logger = logging.getLogger("shaily.worker")
 
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD")
+REDIS_TLS = os.getenv("REDIS_TLS", "false").lower() == "true"
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 # Connect to Redis
-r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+redis_kwargs = {
+    "host": REDIS_HOST,
+    "port": REDIS_PORT,
+    "decode_responses": True
+}
+if REDIS_PASSWORD:
+    redis_kwargs["password"] = REDIS_PASSWORD
+if REDIS_TLS:
+    redis_kwargs["ssl"] = True
+
+r = redis.Redis(**redis_kwargs)
 
 def update_task_in_db(task_id: str, status: str, error: str = None):
     if not DATABASE_URL:

@@ -424,7 +424,7 @@ export class Gateway implements IGateway {
                 status = EXCLUDED.status,
                 connected_at = EXCLUDED.connected_at
             `,
-            parameters: [channelId, "YOUTUBE", channelName, channelName, "CONNECTED", new Date().toISOString()]
+            params: [channelId, "YOUTUBE", channelName, channelName, "CONNECTED", new Date().toISOString()]
           });
 
           // Insert/Update DB oauth_credentials
@@ -440,7 +440,7 @@ export class Gateway implements IGateway {
                 scopes = EXCLUDED.scopes,
                 issued_at = EXCLUDED.issued_at
             `,
-            parameters: [
+            params: [
               channelId,
               encryptedAccess,
               encryptedRefresh,
@@ -524,12 +524,12 @@ export class Gateway implements IGateway {
             await db.getQueryManager().execute({
               id: `db-channel-delete-${Date.now()}`,
               sql: "UPDATE channel_connections SET status = 'DISCONNECTED' WHERE id = ?",
-              parameters: [channelId]
+              params: [channelId]
             });
             await db.getQueryManager().execute({
               id: `db-cred-delete-${Date.now()}`,
               sql: "DELETE FROM oauth_credentials WHERE channel_id = ?",
-              parameters: [channelId]
+              params: [channelId]
             });
           } catch (_) {}
 
@@ -609,7 +609,7 @@ export class Gateway implements IGateway {
           await db.getQueryManager().execute({
             id: `db-task-insert-${Date.now()}`,
             sql: "INSERT INTO tasks (id, status, prompt, agent_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-            parameters: [taskId, "pending", prompt, agent_id || "default", new Date().toISOString(), new Date().toISOString()]
+            params: [taskId, "pending", prompt, agent_id || "default", new Date().toISOString(), new Date().toISOString()]
           });
 
           // Publish task to Redis

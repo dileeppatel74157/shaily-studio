@@ -113,8 +113,6 @@ async function bootstrap() {
 
   console.log("[Bootstrap] Starting RuntimeEngine...");
   await runtime.start();
-  (runtimeContext as any).mediaProviderEngine = runtime.getEngine<any>("MediaProviderEngine");
-  (runtimeContext as any).knowledgeBaseEngine = runtime.getEngine<any>("KnowledgeBaseEngine");
 
   // 5. Build GatewayContext
   console.log("[Bootstrap] Building GatewayContext...");

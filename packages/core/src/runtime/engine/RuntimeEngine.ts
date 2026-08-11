@@ -267,7 +267,11 @@ export class RuntimeEngine implements IRuntimeEngine {
     });
 
     const contentPipelineEngine = new ContentPipelineBuilder()
-      .withContext(_context)
+      .withContext({
+        ..._context,
+        mediaProviderEngine,
+        get knowledgeBaseEngine() { return knowledgeBaseEngine; }
+      })
       .build();
     this.registerEngine({
       id: "ContentPipelineEngine",

@@ -9,7 +9,7 @@ import {
   MemoryStore,
   ServiceRegistry,
   ConfigBuilder,
-  DatabaseEngine
+  DatabaseEngine,
 } from "@shaily/core/api-gateway";
 import { GatewayBuilder } from "./gateway/GatewayBuilder";
 import { GatewayContext } from "./gateway/GatewayContext";
@@ -29,14 +29,17 @@ try {
           const idx = trimmed.indexOf("=");
           if (idx !== -1) {
             const key = trimmed.substring(0, idx).trim();
-            const val = trimmed.substring(idx + 1).trim().replace(/^['"]|['"]$/g, "");
+            const val = trimmed
+              .substring(idx + 1)
+              .trim()
+              .replace(/^['"]|['"]$/g, "");
             process.env[key] = val;
           }
         }
       }
     }
   }
-} catch (_) { }
+} catch (_) {}
 
 console.log("[Diagnostic] AFTER LOAD: process.env.PORT =", process.env.PORT);
 
@@ -68,7 +71,7 @@ async function bootstrap() {
     eventBus,
     memoryStore,
     registry,
-    config
+    config,
   };
 
   const runtimeConfig = {
@@ -77,7 +80,7 @@ async function bootstrap() {
     healthCheckIntervalMs: 10000,
     startupTimeoutMs: 5000,
     shutdownTimeoutMs: 5000,
-    metadata: { version: "1.0.0" }
+    metadata: { version: "1.0.0" },
   };
 
   // 2. Instantiate RuntimeEngine
@@ -110,6 +113,8 @@ async function bootstrap() {
 
   console.log("[Bootstrap] Starting RuntimeEngine...");
   await runtime.start();
+  (runtimeContext as any).mediaProviderEngine = runtime.getEngine<any>("MediaProviderEngine");
+  (runtimeContext as any).knowledgeBaseEngine = runtime.getEngine<any>("KnowledgeBaseEngine");
 
   // 5. Build GatewayContext
   console.log("[Bootstrap] Building GatewayContext...");
@@ -126,7 +131,7 @@ async function bootstrap() {
     rag: runtime.getEngine<any>("RAGEngine"),
     plugins: runtime.getEngine<any>("PluginRegistry"),
     mcp: runtime.getEngine<any>("MCPServer"),
-    metadata: { version: "1.0.0", env: process.env.NODE_ENV || "development" }
+    metadata: { version: "1.0.0", env: process.env.NODE_ENV || "development" },
   };
   (gatewayContext as any).databaseEngine = dbEngine;
   (gatewayContext as any).channelManager = runtime.getEngine<any>("ChannelManagerEngine");
@@ -153,7 +158,7 @@ async function bootstrap() {
   console.log(`[Bootstrap] Shaily Studio Node API Gateway is running on http://${host}:${port}`);
 }
 
-bootstrap().catch(err => {
+bootstrap().catch((err) => {
   console.error("[Bootstrap] Bootstrapping failed:", err);
   process.exit(1);
 });

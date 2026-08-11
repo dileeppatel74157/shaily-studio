@@ -678,7 +678,8 @@ class SfxGenerationManagerImpl implements ISfxGenerationManager {
       if (this._engine.context.mediaProviderEngine?.getMusicManager()?.generateSfx) {
         const res = await this._engine.context.mediaProviderEngine.getMusicManager().generateSfx({
           id: `sfx-${sc.id}`,
-          prompt: "Key click"
+          prompt: "Key click",
+          mode: GenerationMode.TEXT_TO_SFX
         });
         audioUrl = res.assets[0]?.url ?? audioUrl;
       }

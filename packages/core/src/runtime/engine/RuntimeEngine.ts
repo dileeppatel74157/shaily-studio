@@ -311,8 +311,8 @@ export class RuntimeEngine implements IRuntimeEngine {
         apiKey: "unused-real-calls-use-env-vars-directly",
         capabilities: {
           provider: MediaProviderType.MUSICGEN,
-          supportedTypes: [MediaType.MUSIC],
-          supportedModes: [GenerationMode.TEXT_TO_MUSIC],
+          supportedTypes: [MediaType.MUSIC, MediaType.SFX],
+          supportedModes: [GenerationMode.TEXT_TO_MUSIC, GenerationMode.TEXT_TO_SFX],
           supportedQualities: [MediaQuality.MEDIUM],
           supportsStreaming: false
         }

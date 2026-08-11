@@ -264,6 +264,7 @@ export class RuntimeEngine implements IRuntimeEngine {
       .withContext(_context)
       .withProvider({
         provider: MediaProviderType.OPENAI,
+        apiKey: "unused-real-calls-use-env-vars-directly",
         capabilities: {
           provider: MediaProviderType.OPENAI,
           supportedTypes: [MediaType.IMAGE],
@@ -274,6 +275,7 @@ export class RuntimeEngine implements IRuntimeEngine {
       })
       .withProvider({
         provider: MediaProviderType.ELEVENLABS,
+        apiKey: "unused-real-calls-use-env-vars-directly",
         capabilities: {
           provider: MediaProviderType.ELEVENLABS,
           supportedTypes: [MediaType.VOICE],

@@ -49,6 +49,7 @@ import {
 import { KnowledgeNodeType } from "../knowledge-base/KnowledgeNodeType";
 import { KnowledgeSource } from "../knowledge-base/KnowledgeSource";
 import { ContentPipelineValidator } from "./ContentPipelineValidator";
+import { GenerationMode } from "../media-provider/GenerationMode";
 
 export class ContentPipelineEngine implements IContentPipelineEngine {
   private _state: ContentPipelineState = ContentPipelineState.CREATED;
@@ -651,7 +652,8 @@ class MusicGenerationManagerImpl implements IMusicGenerationManager {
       const res = await this._engine.context.mediaProviderEngine.getMusicManager().generateMusic({
         id: "bg-music-req",
         prompt,
-        durationSeconds
+        durationSeconds,
+        mode: GenerationMode.TEXT_TO_MUSIC
       });
       audioUrl = res.assets[0]?.url ?? audioUrl;
     }

@@ -14,6 +14,10 @@ import { DatabaseBuilder } from "../../database/DatabaseBuilder";
 import { ObservabilityBuilder } from "../../observability/ObservabilityBuilder";
 import { LLMProviderBuilder } from "../../llm-provider/LLMProviderBuilder";
 import { MediaProviderBuilder } from "../../media-provider/MediaProviderBuilder";
+import { MediaProviderType } from "../../media-provider/MediaProviderType";
+import { MediaType } from "../../media-provider/MediaType";
+import { GenerationMode } from "../../media-provider/GenerationMode";
+import { MediaQuality } from "../../media-provider/MediaQuality";
 import { ContentPipelineBuilder } from "../../content-pipeline/ContentPipelineBuilder";
 import { YouTubeIntegrationBuilder } from "../../youtube-integration/YouTubeIntegrationBuilder";
 import { PublishingBuilder } from "../../publishing/PublishingBuilder";
@@ -258,6 +262,26 @@ export class RuntimeEngine implements IRuntimeEngine {
 
     const mediaProviderEngine = new MediaProviderBuilder()
       .withContext(_context)
+      .withProvider({
+        provider: MediaProviderType.OPENAI,
+        capabilities: {
+          provider: MediaProviderType.OPENAI,
+          supportedTypes: [MediaType.IMAGE],
+          supportedModes: [GenerationMode.TEXT_TO_IMAGE],
+          supportedQualities: [MediaQuality.MEDIUM, MediaQuality.HIGH],
+          supportsStreaming: false
+        }
+      })
+      .withProvider({
+        provider: MediaProviderType.ELEVENLABS,
+        capabilities: {
+          provider: MediaProviderType.ELEVENLABS,
+          supportedTypes: [MediaType.VOICE],
+          supportedModes: [GenerationMode.TEXT_TO_SPEECH],
+          supportedQualities: [MediaQuality.MEDIUM, MediaQuality.HIGH],
+          supportsStreaming: false
+        }
+      })
       .build();
     this.registerEngine({
       id: "MediaProviderEngine",

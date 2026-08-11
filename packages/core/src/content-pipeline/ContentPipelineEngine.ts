@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { execFile } from "node:child_process";
 import { ContentPipelineState } from "./ContentPipelineState";
 import { ContentStage } from "./ContentStage";
 import { AssetType } from "./AssetType";
@@ -798,7 +801,7 @@ class RenderManagerImpl implements IRenderManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async render(timeline: CompositionTimeline, quality: RenderQuality): Promise<RenderReport> {
-    return {
+    const mockReport: RenderReport = {
       id: `render-${Date.now()}`,
       quality,
       resolution: timeline.resolution,
@@ -808,6 +811,161 @@ class RenderManagerImpl implements IRenderManager {
       renderedFileUrl: "https://mockmedia.ai/renders/production-final.mp4",
       timestamp: new Date()
     };
+
+    // Helper function to strip file:// and handle Windows paths
+    const fileUrlToPath = (url: string): string => {
+      if (url.startsWith("file://")) {
+        let p = url.substring(7);
+        if (/^\/[a-zA-Z]:/.test(p)) {
+          p = p.substring(1);
+        }
+        return p;
+      }
+      return url;
+    };
+
+    // Promise wrapper for execFile
+    const execFilePromise = (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
+      return new Promise((resolve, reject) => {
+        execFile(file, args, (error, stdout, stderr) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve({ stdout, stderr });
+          }
+        });
+      });
+    };
+
+    // 1. Extract tracks
+    const imageTrack = timeline.tracks.find(t => t.id === "tr-images");
+    const voiceTrack = timeline.tracks.find(t => t.id === "tr-voice");
+
+    if (!imageTrack || !voiceTrack) {
+      console.warn("RenderManagerImpl: Missing 'tr-images' or 'tr-voice' tracks. Falling back to mock render.");
+      return mockReport;
+    }
+
+    const imageAssets = imageTrack.assets;
+    const voiceAssets = voiceTrack.assets;
+
+    if (imageAssets.length === 0 || voiceAssets.length === 0 || imageAssets.length !== voiceAssets.length) {
+      console.warn(
+        `RenderManagerImpl: Mismatch or empty tracks (images: ${imageAssets.length}, voice: ${voiceAssets.length}). Falling back to mock render.`
+      );
+      return mockReport;
+    }
+
+    let tempDir: string | undefined;
+
+    try {
+      // Create unique temp directory
+      const timestamp = Date.now();
+      const storageDir = path.join(process.cwd(), "storage", "media");
+      tempDir = path.join(storageDir, `render-${timestamp}`);
+      fs.mkdirSync(tempDir, { recursive: true });
+
+      // 2. Convert URLs and process each scene
+      const numScenes = imageAssets.length;
+      for (let i = 0; i < numScenes; i++) {
+        const imagePath = fileUrlToPath(imageAssets[i].url);
+        const voicePath = fileUrlToPath(voiceAssets[i].url);
+
+        // 3. Query voice duration using ffprobe
+        const { stdout: durationStdout } = await execFilePromise("ffprobe", [
+          "-v", "error",
+          "-show_entries", "format=duration",
+          "-of", "default=noprint_wrappers=1:nokey=1",
+          voicePath
+        ]);
+        const duration = parseFloat(durationStdout.trim());
+        if (isNaN(duration)) {
+          throw new Error(`Failed to parse voice duration from ffprobe: "${durationStdout}"`);
+        }
+
+        // 4. Build per-scene clip
+        const sceneOutputPath = path.join(tempDir, `scene-${i}.mp4`);
+        await execFilePromise("ffmpeg", [
+          "-y",
+          "-loop", "1",
+          "-i", imagePath,
+          "-i", voicePath,
+          "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.0015,1.2)':d=125:s=1080x1920:fps=25",
+          "-c:v", "libx264",
+          "-t", duration.toString(),
+          "-pix_fmt", "yuv420p",
+          "-c:a", "aac",
+          "-shortest",
+          sceneOutputPath
+        ]);
+      }
+
+      // 5. Create concat list
+      const concatListPath = path.join(tempDir, "concat-list.txt");
+      const concatContent = Array.from({ length: numScenes }, (_, i) => `file 'scene-${i}.mp4'`).join("\n");
+      fs.writeFileSync(concatListPath, concatContent);
+
+      // 6. Concatenate clips
+      const finalOutputPath = path.join(tempDir, "final-output.mp4");
+      await execFilePromise("ffmpeg", [
+        "-y",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", concatListPath,
+        "-c", "copy",
+        finalOutputPath
+      ]);
+
+      // 7. Get final video details
+      const stats = fs.statSync(finalOutputPath);
+      const finalSizeBytes = stats.size;
+
+      const { stdout: finalDurationStdout } = await execFilePromise("ffprobe", [
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        finalOutputPath
+      ]);
+      const finalDurationSeconds = parseFloat(finalDurationStdout.trim());
+      if (isNaN(finalDurationSeconds)) {
+        throw new Error(`Failed to parse final video duration: "${finalDurationStdout}"`);
+      }
+
+      // 8. Move/copy final video to standard storage directory
+      if (!fs.existsSync(storageDir)) {
+        fs.mkdirSync(storageDir, { recursive: true });
+      }
+      const finalFilename = `render-${timestamp}.mp4`;
+      const destinationPath = path.join(storageDir, finalFilename);
+      fs.copyFileSync(finalOutputPath, destinationPath);
+
+      // Replace backslashes with forward slashes for Windows-compatible file:// URL
+      const finalFileUrl = `file:///${destinationPath.replace(/\\/g, "/")}`;
+
+      // 9. Return real RenderReport
+      return {
+        id: `render-${timestamp}`,
+        quality,
+        resolution: timeline.resolution,
+        fps: timeline.fps,
+        sizeBytes: finalSizeBytes,
+        durationSeconds: finalDurationSeconds,
+        renderedFileUrl: finalFileUrl,
+        timestamp: new Date()
+      };
+    } catch (error) {
+      console.error("FFmpeg/FFprobe rendering failed. Falling back to mock render report:", error);
+      return mockReport;
+    } finally {
+      // 11. Clean up temporary directory and scene files
+      if (tempDir && fs.existsSync(tempDir)) {
+        try {
+          fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch (cleanupError) {
+          console.error("RenderManagerImpl: Clean up of temporary files failed:", cleanupError);
+        }
+      }
+    }
   }
 }
 

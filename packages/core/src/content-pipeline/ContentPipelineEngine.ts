@@ -624,7 +624,8 @@ class VoiceGenerationManagerImpl implements IVoiceGenerationManager {
         const res = await this._engine.context.mediaProviderEngine.getVoiceManager().textToSpeech({
           id: `vox-${sc.id}`,
           text: sc.scriptText,
-          voiceId: "Rachel"
+          voiceId: "Rachel",
+          mode: GenerationMode.TEXT_TO_SPEECH
         });
         audioUrl = res.audioUrl ?? audioUrl;
       }
@@ -708,7 +709,8 @@ class VideoGenerationManagerImpl implements IVideoGenerationManager {
           const res = await this._engine.context.mediaProviderEngine.getVideoManager().generateVideo({
             id: `vid-${sh.id}`,
             prompt: sh.description,
-            durationSeconds: sh.durationSeconds
+            durationSeconds: sh.durationSeconds,
+            mode: GenerationMode.TEXT_TO_VIDEO
           });
           videoUrl = res.assets[0]?.url ?? videoUrl;
         }

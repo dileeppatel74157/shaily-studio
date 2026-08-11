@@ -284,6 +284,50 @@ export class RuntimeEngine implements IRuntimeEngine {
           supportsStreaming: false
         }
       })
+      .withProvider({
+        provider: MediaProviderType.RUNWAY,
+        apiKey: "unused-real-calls-use-env-vars-directly",
+        capabilities: {
+          provider: MediaProviderType.RUNWAY,
+          supportedTypes: [MediaType.VIDEO],
+          supportedModes: [GenerationMode.TEXT_TO_VIDEO, GenerationMode.IMAGE_TO_VIDEO],
+          supportedQualities: [MediaQuality.MEDIUM, MediaQuality.HIGH],
+          supportsStreaming: false
+        }
+      })
+      .withProvider({
+        provider: MediaProviderType.SUNO,
+        apiKey: "unused-real-calls-use-env-vars-directly",
+        capabilities: {
+          provider: MediaProviderType.SUNO,
+          supportedTypes: [MediaType.MUSIC],
+          supportedModes: [GenerationMode.TEXT_TO_MUSIC],
+          supportedQualities: [MediaQuality.MEDIUM, MediaQuality.HIGH],
+          supportsStreaming: false
+        }
+      })
+      .withProvider({
+        provider: MediaProviderType.MUSICGEN,
+        apiKey: "unused-real-calls-use-env-vars-directly",
+        capabilities: {
+          provider: MediaProviderType.MUSICGEN,
+          supportedTypes: [MediaType.MUSIC],
+          supportedModes: [GenerationMode.TEXT_TO_MUSIC],
+          supportedQualities: [MediaQuality.MEDIUM],
+          supportsStreaming: false
+        }
+      })
+      .withProvider({
+        provider: MediaProviderType.WHISPER,
+        apiKey: "unused-real-calls-use-env-vars-directly",
+        capabilities: {
+          provider: MediaProviderType.WHISPER,
+          supportedTypes: [MediaType.SUBTITLE, MediaType.TRANSCRIPTION],
+          supportedModes: [GenerationMode.SPEECH_TO_TEXT],
+          supportedQualities: [MediaQuality.MEDIUM],
+          supportsStreaming: false
+        }
+      })
       .build();
     this.registerEngine({
       id: "MediaProviderEngine",

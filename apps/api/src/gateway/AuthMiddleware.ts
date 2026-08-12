@@ -16,7 +16,8 @@ export class AuthMiddleware implements GatewayMiddleware {
       path === "/api/auth/login" ||
       path === "/api/channels/oauth/callback" ||
       path.startsWith("/api/channels/connect/") ||
-      path === "/api/internal/run-pipeline"
+      path === "/api/internal/run-pipeline" ||
+      path.startsWith("/api/internal/download-render/")
     ) {
       return next(request);
     }

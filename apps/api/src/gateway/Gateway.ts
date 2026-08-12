@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   IGateway,
   PlatformProvider,
@@ -868,6 +870,55 @@ export class Gateway implements IGateway {
           headers: { "Content-Type": "application/json" },
           body: { success: true }
         };
+      }
+    });
+
+    // --- GET /api/internal/download-render/:filename ---
+    this.registerRoute({
+      method: "GET",
+      path: "/api/internal/download-render/:filename",
+      metadata: { builtIn: false },
+      handler: async (req: any): Promise<GatewayResponse> => {
+        // 1. Verify shared secret
+        const incomingSecret = req.headers["x-internal-secret"] || req.headers["X-Internal-Secret"];
+        const expectedSecret = process.env.INTERNAL_API_SECRET;
+        if (!expectedSecret || incomingSecret !== expectedSecret) {
+          return {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Unauthorized: Invalid or missing X-Internal-Secret header" }
+          } as GatewayResponse;
+        }
+
+        // 2. Extract and sanitize filename
+        const filename = req.params.filename;
+        if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Bad Request: Invalid or unsafe filename" }
+          } as GatewayResponse;
+        }
+
+        // 3. Build full path and check existence
+        const filePath = path.join(process.cwd(), "storage", "media", filename);
+        if (!fs.existsSync(filePath)) {
+          return {
+            status: 404,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Not Found: Render file does not exist" }
+          } as GatewayResponse;
+        }
+
+        // 4. Stream the file back
+        return {
+          status: 200,
+          headers: {
+            "Content-Type": "video/mp4",
+            "Content-Disposition": `attachment; filename="${filename}"`
+          },
+          body: fs.createReadStream(filePath)
+        } as GatewayResponse;
       }
     });
 

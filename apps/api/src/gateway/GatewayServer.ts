@@ -98,7 +98,9 @@ export class GatewayServer {
           const gatewayResponse = await this.handle(gatewayRequest);
           res.writeHead(gatewayResponse.status, gatewayResponse.headers || {});
           if (gatewayResponse.body !== null && gatewayResponse.body !== undefined) {
-            if (typeof gatewayResponse.body === "object") {
+            if (gatewayResponse.body && typeof gatewayResponse.body.pipe === "function") {
+              gatewayResponse.body.pipe(res);
+            } else if (typeof gatewayResponse.body === "object") {
               res.end(JSON.stringify(gatewayResponse.body));
             } else {
               res.end(gatewayResponse.body);

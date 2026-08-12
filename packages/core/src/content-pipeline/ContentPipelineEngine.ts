@@ -895,10 +895,12 @@ class RenderManagerImpl implements IRenderManager {
           "-loop", "1",
           "-i", imagePath,
           "-i", voicePath,
-          "-vf", "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,zoompan=z='min(zoom+0.0015,1.2)':d=125:s=1080x1920:fps=25",
+          "-vf", "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280",
           "-c:v", "libx264",
+          "-preset", "ultrafast",
           "-t", duration.toString(),
           "-pix_fmt", "yuv420p",
+          "-r", "24",
           "-c:a", "aac",
           "-shortest",
           sceneOutputPath

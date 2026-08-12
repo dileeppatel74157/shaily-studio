@@ -463,7 +463,7 @@ class StoryboardManagerImpl implements IStoryboardManager {
             body: JSON.stringify({
               contents: [{
                 parts: [{
-                  text: `You are a scriptwriter for short-form vertical videos. Given the topic below, write a script broken into 3-5 scenes for a video of approximately <total 15-30 seconds>. Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact shape:
+                  text: `You are a scriptwriter for short-form vertical videos. Given the topic below, write a script broken into EXACTLY 4 to 6 distinct scenes — never fewer than 4 scenes, even for simple topics. Each scene should cover a different aspect, location, or moment related to the topic (e.g. different landmarks, different parts of an event, different facts) so the scenes are visually varied, not repetitive. Each scene's durationSeconds should be between 3 and 6 seconds, so the total adds up to approximately the target video length implied by the topic. Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact shape:
 { "scenes": [ { "title": string, "scriptText": string, "durationSeconds": number, "visualPrompt": string } ] }
 Topic: ${topicPrompt}`
                 }]
@@ -486,6 +486,11 @@ Topic: ${topicPrompt}`
           const parsed = JSON.parse(text);
           if (!parsed || !Array.isArray(parsed.scenes)) {
             throw new Error("Invalid response format: 'scenes' array not found or not an array");
+          }
+
+          console.log(`Gemini storyboard generated ${parsed.scenes.length} scenes for topic: "${topicPrompt}"`);
+          if (parsed.scenes.length < 2) {
+            console.warn(`Gemini returned only ${parsed.scenes.length} scene(s) despite requesting 4-6 — video will be shorter than expected.`);
           }
 
           scenes = parsed.scenes.map((scene: any, index: number) => {

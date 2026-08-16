@@ -813,7 +813,7 @@ export class RenderEngine implements IRenderEngine {
             const resolved = fileUrlToPath(filePath);
             if (resolved.startsWith("http://") || resolved.startsWith("https://")) {
               if (isTestMode) {
-                const p = path.join(tempDir, `audio-fallback-${inputIdx}.wav`);
+                const p = path.join(tempDir!, `audio-fallback-${inputIdx}.wav`);
                 const pcm = Buffer.alloc(Math.max(1, Math.ceil(durationSec)) * 24000 * 2);
                 fs.writeFileSync(p, pcmToWav(pcm, 24000, 1, 16));
                 return p;

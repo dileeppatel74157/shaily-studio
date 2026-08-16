@@ -43,7 +43,6 @@ export type {
   IVoiceGenerationManager,
   IMusicGenerationManager,
   ISfxGenerationManager,
-  IVideoGenerationManager,
   ICompositionManager,
   IRenderManager,
   IQualityManager

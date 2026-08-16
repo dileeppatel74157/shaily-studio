@@ -108,6 +108,9 @@ export interface MediaAsset {
   durationSeconds?: number;
   width?: number;
   height?: number;
+  status?: string;
+  format?: string;
+  timestamp?: Date;
   metadata?: Record<string, unknown>;
 }
 

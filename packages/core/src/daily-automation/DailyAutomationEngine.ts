@@ -494,10 +494,20 @@ class PipelineManagerImpl implements IPipelineManager {
 
   public async executeContentRoutine(): Promise<string[]> {
     const pipeline = this.engine.getEngine<any>("ContentPipelineEngine");
-    if (pipeline && pipeline.getVideoGenerationManager) {
+    if (pipeline && pipeline.getRenderManager) {
       try {
-        const assets = await pipeline.getVideoGenerationManager().generateVideos([]);
-        return assets.map((a: any) => a.id);
+        const report = await pipeline.getRenderManager().render({
+          id: "routine-render-task",
+          durationSeconds: 30,
+          tracks: [
+            { id: "tr-images", type: "IMAGE", assets: [] },
+            { id: "tr-videos", type: "VIDEO", assets: [] }
+          ],
+          audioTrack: { voiceClips: [], musicClips: [], sfxClips: [] },
+          fps: 30,
+          resolution: "1920x1080"
+        }, "STANDARD");
+        return [report.id];
       } catch {}
     }
     return ["voice_segment_1", "video_render_draft.mp4"];

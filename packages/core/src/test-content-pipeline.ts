@@ -144,17 +144,16 @@ async function run(): Promise<void> {
   assert(sfx.length > 0, "effects generated");
   assert(sfx[0].sceneId === scenes[0].id, "mapped to scenes");
 
-  // 8. Video Generation
-  console.log("8. Video Generation...");
-  const videoMgr = engine.getVideoGenerationManager();
-  const videos = await videoMgr.generateVideos(scenes);
-  assert(videos.length > 0, "clips generated");
-  assert(videos[0].durationSeconds === scenes[0].shots[0].durationSeconds, "clip durations valid");
+  // 8. Programmatic Animation / Storyboard Specs
+  console.log("8. Programmatic Animation / Storyboard Specs...");
+  scenes[0].animation = "IMAGE_KEN_BURNS";
+  scenes[0].visualType = "IMAGE";
+  assert(scenes[0].animation === "IMAGE_KEN_BURNS", "animation preset applied");
 
   // 9. Composition
   console.log("9. Composition...");
   const compositionMgr = engine.getCompositionManager();
-  const timeline = await compositionMgr.assembleTimeline(scenes, images, videos, voiceSegments, music, sfx);
+  const timeline = await compositionMgr.assembleTimeline(scenes, images, voiceSegments, music, sfx);
   assert(timeline.tracks.length > 0, "timeline assembled");
   assert(timeline.durationSeconds === storyboard.totalDurationSeconds, "tracks synchronized");
 

@@ -396,10 +396,20 @@ class ExecutionManagerImpl implements IExecutionManager {
       }
     } else if (command === "Generate today's video") {
       const pipeline = this.engine.getEngine<any>("ContentPipelineEngine");
-      if (pipeline && pipeline.getVideoGenerationManager) {
+      if (pipeline && pipeline.getRenderManager) {
         try {
-          const videos = await pipeline.getVideoGenerationManager().generateVideos([]);
-          result = { status: "success", videosGenerated: videos.length };
+          const report = await pipeline.getRenderManager().render({
+            id: "founder-render-task",
+            durationSeconds: 30,
+            tracks: [
+              { id: "tr-images", type: "IMAGE", assets: [] },
+              { id: "tr-videos", type: "VIDEO", assets: [] }
+            ],
+            audioTrack: { voiceClips: [], musicClips: [], sfxClips: [] },
+            fps: 30,
+            resolution: "1920x1080"
+          }, "STANDARD");
+          result = { status: "success", renderedUrl: report.renderedFileUrl };
         } catch {}
       }
     } else if (command === "Publish today's content") {

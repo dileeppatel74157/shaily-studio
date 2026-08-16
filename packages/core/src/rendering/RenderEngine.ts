@@ -575,6 +575,55 @@ export class RenderEngine implements IRenderEngine {
     const timelineDuration: number = timeline.durationSeconds;
     const fps: number              = request.fps;
 
+    // Helper to convert file:// to path
+    const fileUrlToPath = (url: string): string => {
+      if (url.startsWith("file://")) {
+        let p = url.substring(7);
+        if (/^\/[a-zA-Z]:/.test(p)) {
+          p = p.substring(1);
+        }
+        return p.replace(/\//g, path.sep);
+      }
+      return url;
+    };
+
+    // Validate required assets in production mode
+    const isTestMode = this.context?.env === "test" || this.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
+    if (!isTestMode) {
+      // 1. Validate required Visual clips
+      const visualClips: any[] = [];
+      const imageTrack = timeline.tracks.find((t: any) => t.id === "tr-images" || t.type === "IMAGE");
+      const videoTrack = timeline.tracks.find((t: any) => t.id === "tr-videos" || t.type === "VIDEO");
+      if (imageTrack) {
+        const clips = imageTrack.clips || imageTrack.assets?.map((a: any) => ({ id: a.id, assetPath: a.url })) || [];
+        visualClips.push(...clips);
+      }
+      if (videoTrack) {
+        const clips = videoTrack.clips || videoTrack.assets?.map((a: any) => ({ id: a.id, assetPath: a.url })) || [];
+        visualClips.push(...clips);
+      }
+      for (let i = 0; i < visualClips.length; i++) {
+        const clip = visualClips[i];
+        const srcPath = fileUrlToPath(clip.assetPath || clip.url);
+        if (!srcPath || (!srcPath.startsWith("http") && !fs.existsSync(srcPath))) {
+          throw new RenderingException(`Required visual asset unavailable: assetId=${clip.id}, path=${srcPath}`);
+        }
+      }
+
+      // 2. Validate required Voice clips
+      let voiceClips = timeline.audioTrack?.voiceClips || [];
+      const voiceTrack = timeline.tracks.find((t: any) => t.id === "tr-voice" || t.type === "VOICE");
+      if (voiceTrack && voiceClips.length === 0) {
+        voiceClips = voiceTrack.assets.map((a: any) => ({ id: a.id, assetPath: a.url }));
+      }
+      for (const vc of voiceClips) {
+        const srcPath = fileUrlToPath(vc.assetPath);
+        if (!srcPath || (!srcPath.startsWith("http") && !fs.existsSync(srcPath))) {
+          throw new RenderingException(`Required voice asset unavailable: assetId=${vc.id}, path=${srcPath}`);
+        }
+      }
+    }
+
     if (isFfmpegAvailable()) {
       let tempDir: string | undefined;
       try {
@@ -582,18 +631,6 @@ export class RenderEngine implements IRenderEngine {
         const storageDir = path.join(process.cwd(), "storage");
         tempDir = path.join(storageDir, "temp", `render-${request.id}-${timestamp}`);
         fs.mkdirSync(tempDir, { recursive: true });
-
-        // Helper to convert file:// to path
-        const fileUrlToPath = (url: string): string => {
-          if (url.startsWith("file://")) {
-            let p = url.substring(7);
-            if (/^\/[a-zA-Z]:/.test(p)) {
-              p = p.substring(1);
-            }
-            return p.replace(/\//g, path.sep);
-          }
-          return url;
-        };
 
         // Extract tracks
         const imageTrack = timeline.tracks.find((t: any) => t.id === "tr-images" || t.type === "IMAGE");
@@ -684,14 +721,22 @@ export class RenderEngine implements IRenderEngine {
                 throw new Error("HTTP fail");
               }
             } catch (_) {
-              const tempImgPath = path.join(tempDir, `fallback-${i}.png`);
-              fs.writeFileSync(tempImgPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
-              localSrcPath = tempImgPath;
+              if (isTestMode) {
+                const tempImgPath = path.join(tempDir, `fallback-${i}.png`);
+                fs.writeFileSync(tempImgPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+                localSrcPath = tempImgPath;
+              } else {
+                throw new RenderingException(`Required visual asset unavailable: path=${srcPath}`);
+              }
             }
           } else {
             if (!fs.existsSync(localSrcPath)) {
-              fs.mkdirSync(path.dirname(localSrcPath), { recursive: true });
-              fs.writeFileSync(localSrcPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+              if (isTestMode) {
+                fs.mkdirSync(path.dirname(localSrcPath), { recursive: true });
+                fs.writeFileSync(localSrcPath, Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"));
+              } else {
+                throw new RenderingException(`Required visual asset unavailable: path=${localSrcPath}`);
+              }
             }
           }
 
@@ -764,52 +809,64 @@ export class RenderEngine implements IRenderEngine {
           const filterFilters: string[] = [];
           let inputIdx = 0;
 
-          const processAudioPath = (filePath: string, durationSec: number): string => {
+          const processAudioPath = (filePath: string, durationSec: number, isOptional: boolean): string | null => {
             const resolved = fileUrlToPath(filePath);
             if (resolved.startsWith("http://") || resolved.startsWith("https://")) {
-              const p = path.join(tempDir, `audio-fallback-${inputIdx}.wav`);
-              const pcm = Buffer.alloc(Math.max(1, Math.ceil(durationSec)) * 24000 * 2);
-              fs.writeFileSync(p, pcmToWav(pcm, 24000, 1, 16));
-              return p;
+              if (isTestMode) {
+                const p = path.join(tempDir, `audio-fallback-${inputIdx}.wav`);
+                const pcm = Buffer.alloc(Math.max(1, Math.ceil(durationSec)) * 24000 * 2);
+                fs.writeFileSync(p, pcmToWav(pcm, 24000, 1, 16));
+                return p;
+              } else {
+                return isOptional ? null : resolved;
+              }
             }
             if (!fs.existsSync(resolved)) {
-              fs.mkdirSync(path.dirname(resolved), { recursive: true });
-              const pcm = Buffer.alloc(Math.max(1, Math.ceil(durationSec)) * 24000 * 2);
-              fs.writeFileSync(resolved, pcmToWav(pcm, 24000, 1, 16));
+              if (isTestMode) {
+                fs.mkdirSync(path.dirname(resolved), { recursive: true });
+                const pcm = Buffer.alloc(Math.max(1, Math.ceil(durationSec)) * 24000 * 2);
+                fs.writeFileSync(resolved, pcmToWav(pcm, 24000, 1, 16));
+                return resolved;
+              } else {
+                return isOptional ? null : resolved;
+              }
             }
             return resolved;
           };
 
           for (const vc of voiceClips) {
             const dur = vc.endTimeSeconds - vc.startTimeSeconds;
-            const p = processAudioPath(vc.assetPath, dur);
-            audioInputs.push("-i", p);
-
-            const startMs = Math.round(vc.startTimeSeconds * 1000);
-            filterFilters.push(`[${inputIdx}:a]adelay=${startMs}|${startMs}[a${inputIdx}]`);
-            inputIdx++;
+            const p = processAudioPath(vc.assetPath, dur, false);
+            if (p) {
+              audioInputs.push("-i", p);
+              const startMs = Math.round(vc.startTimeSeconds * 1000);
+              filterFilters.push(`[${inputIdx}:a]adelay=${startMs}|${startMs}[a${inputIdx}]`);
+              inputIdx++;
+            }
           }
 
           for (const mc of musicClips) {
             const dur = mc.endTimeSeconds - mc.startTimeSeconds;
-            const p = processAudioPath(mc.assetPath, dur);
-            audioInputs.push("-i", p);
-
-            const startMs = Math.round(mc.startTimeSeconds * 1000);
-            const vol = mc.volume ?? 0.2;
-            filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}|${startMs}[a${inputIdx}]`);
-            inputIdx++;
+            const p = processAudioPath(mc.assetPath, dur, true);
+            if (p) {
+              audioInputs.push("-i", p);
+              const startMs = Math.round(mc.startTimeSeconds * 1000);
+              const vol = mc.volume ?? 0.2;
+              filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}|${startMs}[a${inputIdx}]`);
+              inputIdx++;
+            }
           }
 
           for (const sc of sfxClips) {
             const dur = sc.endTimeSeconds - sc.startTimeSeconds;
-            const p = processAudioPath(sc.assetPath, dur);
-            audioInputs.push("-i", p);
-
-            const startMs = Math.round(sc.startTimeSeconds * 1000);
-            const vol = sc.volume ?? 0.8;
-            filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}|${startMs}[a${inputIdx}]`);
-            inputIdx++;
+            const p = processAudioPath(sc.assetPath, dur, true);
+            if (p) {
+              audioInputs.push("-i", p);
+              const startMs = Math.round(sc.startTimeSeconds * 1000);
+              const vol = sc.volume ?? 0.8;
+              filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}|${startMs}[a${inputIdx}]`);
+              inputIdx++;
+            }
           }
 
           const amixInputs = Array.from({ length: inputIdx }, (_, i) => `[a${i}]`).join("");

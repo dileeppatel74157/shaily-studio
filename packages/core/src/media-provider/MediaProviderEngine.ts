@@ -927,6 +927,24 @@ export class MediaProviderEngine implements IMediaProviderEngine {
     const fullPath = path.join(storageDir, filename);
     let contentToWrite = realContent;
     if (!contentToWrite) {
+      const isTestMode = this._context?.env === "test" || this._context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
+      const isOptional = type === MediaType.MUSIC || type === MediaType.SFX;
+
+      if (!isTestMode) {
+        if (!isOptional) {
+          throw new GenerationException(`Required ${type} asset unavailable in production: assetId=${id}`);
+        }
+        return {
+          id,
+          type,
+          url: `file:///${fullPath.replace(/\\/g, "/")}`,
+          format: extension.toUpperCase(),
+          mimeType,
+          status: "FAILED",
+          timestamp: new Date()
+        };
+      }
+
       if (type === MediaType.IMAGE) {
         contentToWrite = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
       } else if (type === MediaType.VOICE || type === MediaType.MUSIC || type === MediaType.SFX) {

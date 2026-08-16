@@ -17,7 +17,6 @@ import {
   IVoiceGenerationManager,
   IMusicGenerationManager,
   ISfxGenerationManager,
-  IVideoGenerationManager,
   ICompositionManager,
   IRenderManager,
   IQualityManager
@@ -85,7 +84,6 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   private readonly _voiceGenerationMgr: IVoiceGenerationManager;
   private readonly _musicGenerationMgr: IMusicGenerationManager;
   private readonly _sfxGenerationMgr: ISfxGenerationManager;
-  private readonly _videoGenerationMgr: IVideoGenerationManager;
   private readonly _compositionMgr: ICompositionManager;
   private readonly _renderMgr: IRenderManager;
   private readonly _qualityMgr: IQualityManager;
@@ -102,7 +100,6 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
     this._voiceGenerationMgr = new VoiceGenerationManagerImpl(this);
     this._musicGenerationMgr = new MusicGenerationManagerImpl(this);
     this._sfxGenerationMgr = new SfxGenerationManagerImpl(this);
-    this._videoGenerationMgr = new VideoGenerationManagerImpl(this);
     this._compositionMgr = new CompositionManagerImpl(this);
     this._renderMgr = new RenderManagerImpl(this);
     this._qualityMgr = new QualityManagerImpl(this);
@@ -208,20 +205,11 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
       await this._emit(PipelineEventType.ASSET_GENERATED, { type: "SFX", count: sfx.length });
       await this._emit(PipelineEventType.STAGE_COMPLETED, { stage: ContentStage.SFX_GENERATION });
 
-      // 7. Video Generation Stage
-      this._currentStage = ContentStage.VIDEO_GENERATION;
-      this._progressPercent = 70;
-      await this._emit(PipelineEventType.STAGE_STARTED, { stage: ContentStage.VIDEO_GENERATION });
-      const videos = await this._videoGenerationMgr.generateVideos(scenes);
-      this._metrics.assetsGeneratedCount += videos.length;
-      await this._emit(PipelineEventType.ASSET_GENERATED, { type: "VIDEO", count: videos.length });
-      await this._emit(PipelineEventType.STAGE_COMPLETED, { stage: ContentStage.VIDEO_GENERATION });
-
-      // 8. Composition Stage
+      // 7. Composition Stage
       this._currentStage = ContentStage.COMPOSITION;
       this._progressPercent = 80;
       await this._emit(PipelineEventType.STAGE_STARTED, { stage: ContentStage.COMPOSITION });
-      const timeline = await this._compositionMgr.assembleTimeline(scenes, images, videos, voice, music, sfx);
+      const timeline = await this._compositionMgr.assembleTimeline(scenes, images, voice, music, sfx);
       await this._saveCheckpoint(projectId, ContentStage.COMPOSITION, timeline);
       await this._emit(PipelineEventType.STAGE_COMPLETED, { stage: ContentStage.COMPOSITION });
 
@@ -342,7 +330,6 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   public getVoiceGenerationManager(): IVoiceGenerationManager { return this._voiceGenerationMgr; }
   public getMusicGenerationManager(): IMusicGenerationManager { return this._musicGenerationMgr; }
   public getSfxGenerationManager(): ISfxGenerationManager { return this._sfxGenerationMgr; }
-  public getVideoGenerationManager(): IVideoGenerationManager { return this._videoGenerationMgr; }
   public getCompositionManager(): ICompositionManager { return this._compositionMgr; }
   public getRenderManager(): IRenderManager { return this._renderMgr; }
   public getQualityManager(): IQualityManager { return this._qualityMgr; }
@@ -702,29 +689,7 @@ class SfxGenerationManagerImpl implements ISfxGenerationManager {
   }
 }
 
-class VideoGenerationManagerImpl implements IVideoGenerationManager {
-  constructor(private readonly _engine: ContentPipelineEngine) {}
 
-  public async generateVideos(scenes: Scene[]): Promise<VideoSegment[]> {
-    const segments: VideoSegment[] = [];
-    for (const sc of scenes) {
-      for (const sh of sc.shots) {
-        // Deterministic static segment placeholder URL without calling generative model
-        const videoUrl = "https://mockmedia.ai/videos/shot.mp4";
-        segments.push({
-          id: `vid-seg-${sh.id}`,
-          sceneId: sc.id,
-          shotId: sh.id,
-          videoUrl,
-          durationSeconds: sh.durationSeconds,
-          fps: 30,
-          resolution: "1080p"
-        });
-      }
-    }
-    return segments;
-  }
-}
 
 class CompositionManagerImpl implements ICompositionManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
@@ -732,7 +697,6 @@ class CompositionManagerImpl implements ICompositionManager {
   public async assembleTimeline(
     scenes: Scene[],
     images: GeneratedAsset[],
-    videos: VideoSegment[],
     voice: VoiceSegment[],
     music: MusicTrack,
     sfx: SoundEffect[]
@@ -752,29 +716,6 @@ class CompositionManagerImpl implements ICompositionManager {
           camera: scene?.camera,
           text: scene?.text || scene?.overlayText,
           visualType: scene?.visualType || "IMAGE",
-          chartConfiguration: scene?.chartConfiguration,
-          mapConfiguration: scene?.mapConfiguration,
-          characterConfiguration: scene?.characterConfiguration,
-          duration: scene?.durationSeconds
-        }
-      };
-    });
-
-    const videoRefs: AssetReference[] = videos.map((vid, i) => {
-      const scene = scenes.find(s => s.id === vid.sceneId || s.shots.some(sh => `vid-seg-${sh.id}` === vid.id || sh.id === vid.shotId)) || scenes[i];
-      return {
-        id: vid.id,
-        type: AssetType.VIDEO,
-        url: vid.videoUrl,
-        status: AssetStatus.APPROVED,
-        meta: {
-          resolution: vid.resolution,
-          fps: vid.fps,
-          sceneId: scene?.id,
-          animation: scene?.animation,
-          camera: scene?.camera,
-          text: scene?.text || scene?.overlayText,
-          visualType: scene?.visualType || "VIDEO_ASSET",
           chartConfiguration: scene?.chartConfiguration,
           mapConfiguration: scene?.mapConfiguration,
           characterConfiguration: scene?.characterConfiguration,
@@ -811,7 +752,7 @@ class CompositionManagerImpl implements ICompositionManager {
 
     const tracks: TimelineTrack[] = [
       { id: "tr-images", name: "Visual Layer (Images)", type: AssetType.IMAGE, assets: imageRefs },
-      { id: "tr-videos", name: "Visual Layer (Videos)", type: AssetType.VIDEO, assets: videoRefs },
+      { id: "tr-videos", name: "Visual Layer (Videos)", type: AssetType.VIDEO, assets: [] },
       { id: "tr-voice", name: "Voice-over track", type: AssetType.VOICE, assets: voiceRefs },
       { id: "tr-music", name: "Music background track", type: AssetType.MUSIC, assets: musicRefs },
       { id: "tr-sfx", name: "SFX overlay track", type: AssetType.SFX, assets: sfxRefs }

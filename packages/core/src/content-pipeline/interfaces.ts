@@ -38,7 +38,6 @@ export interface IContentPipelineEngine {
   getVoiceGenerationManager(): IVoiceGenerationManager;
   getMusicGenerationManager(): IMusicGenerationManager;
   getSfxGenerationManager(): ISfxGenerationManager;
-  getVideoGenerationManager(): IVideoGenerationManager;
   getCompositionManager(): ICompositionManager;
   getRenderManager(): IRenderManager;
   getQualityManager(): IQualityManager;
@@ -73,15 +72,10 @@ export interface ISfxGenerationManager {
   generateSfx(scenes: Scene[]): Promise<SoundEffect[]>;
 }
 
-export interface IVideoGenerationManager {
-  generateVideos(scenes: Scene[]): Promise<VideoSegment[]>;
-}
-
 export interface ICompositionManager {
   assembleTimeline(
     scenes: Scene[],
     images: GeneratedAsset[],
-    videos: VideoSegment[],
     voice: VoiceSegment[],
     music: MusicTrack,
     sfx: SoundEffect[]

@@ -779,9 +779,11 @@ export class RenderEngine implements IRenderEngine {
           await execFilePromise("ffmpeg", args);
         }
 
-        // Step 2: Concatenate silent visual clips
         const concatListPath = path.join(tempDir, "concat-list.txt");
-        const concatContent = Array.from({ length: visualClips.length }, (_, i) => `file 'scene-${i}.mp4'`).join("\n");
+        const concatContent = Array.from({ length: visualClips.length }, (_, i) => {
+          const absoluteScenePath = path.join(tempDir!, `scene-${i}.mp4`);
+          return `file '${absoluteScenePath.replace(/\\/g, "/")}'`;
+        }).join("\n");
         fs.writeFileSync(concatListPath, concatContent);
 
         const visualOnlyPath = path.join(tempDir, "visual-only.mp4");
@@ -834,54 +836,101 @@ export class RenderEngine implements IRenderEngine {
             return resolved;
           };
 
-          for (const vc of voiceClips) {
-            const dur = vc.endTimeSeconds - vc.startTimeSeconds;
-            const p = processAudioPath(vc.assetPath, dur, false);
-            if (p) {
-              audioInputs.push("-i", p);
-              const startMs = Math.round(vc.startTimeSeconds * 1000);
-              filterFilters.push(`[${inputIdx}:a]adelay=${startMs}|${startMs}[a${inputIdx}]`);
-              inputIdx++;
+          if (musicClips.length === 0 && sfxClips.length === 0) {
+            // Sequential voice-only concatenation (avoids amix memory bugs in old FFmpeg versions)
+            for (const vc of voiceClips) {
+              const dur = vc.endTimeSeconds - vc.startTimeSeconds;
+              const p = processAudioPath(vc.assetPath, dur, false);
+              if (p) {
+                audioInputs.push("-i", p);
+                filterFilters.push(`[${inputIdx}:a]`);
+                inputIdx++;
+              }
             }
-          }
-
-          for (const mc of musicClips) {
-            const dur = mc.endTimeSeconds - mc.startTimeSeconds;
-            const p = processAudioPath(mc.assetPath, dur, true);
-            if (p) {
-              audioInputs.push("-i", p);
-              const startMs = Math.round(mc.startTimeSeconds * 1000);
-              const vol = mc.volume ?? 0.2;
-              filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}|${startMs}[a${inputIdx}]`);
-              inputIdx++;
+            if (inputIdx > 0) {
+              const concatInputs = filterFilters.join("");
+              const filterStr = `${concatInputs}concat=n=${inputIdx}:v=0:a=1[outa]`;
+              const audioArgs = [
+                "-y",
+                ...audioInputs,
+                "-filter_complex", filterStr,
+                "-map", "[outa]",
+                "-t", timelineDuration.toFixed(3),
+                audioMixPath
+              ];
+              await execFilePromise("ffmpeg", audioArgs);
+            } else {
+              await execFilePromise("ffmpeg", [
+                "-y",
+                "-f", "lavfi",
+                "-i", `anullsrc=r=24000:cl=mono`,
+                "-t", timelineDuration.toFixed(3),
+                audioMixPath
+              ]);
             }
-          }
-
-          for (const sc of sfxClips) {
-            const dur = sc.endTimeSeconds - sc.startTimeSeconds;
-            const p = processAudioPath(sc.assetPath, dur, true);
-            if (p) {
-              audioInputs.push("-i", p);
-              const startMs = Math.round(sc.startTimeSeconds * 1000);
-              const vol = sc.volume ?? 0.8;
-              filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}|${startMs}[a${inputIdx}]`);
-              inputIdx++;
+          } else {
+            // General mixing with amix (fixed to use single channel adelay)
+            for (const vc of voiceClips) {
+              const dur = vc.endTimeSeconds - vc.startTimeSeconds;
+              const p = processAudioPath(vc.assetPath, dur, false);
+              if (p) {
+                audioInputs.push("-i", p);
+                const startMs = Math.round(vc.startTimeSeconds * 1000);
+                if (startMs > 0) {
+                  filterFilters.push(`[${inputIdx}:a]adelay=${startMs}[a${inputIdx}]`);
+                } else {
+                  filterFilters.push(`[${inputIdx}:a]anull[a${inputIdx}]`);
+                }
+                inputIdx++;
+              }
             }
+
+            for (const mc of musicClips) {
+              const dur = mc.endTimeSeconds - mc.startTimeSeconds;
+              const p = processAudioPath(mc.assetPath, dur, true);
+              if (p) {
+                audioInputs.push("-i", p);
+                const startMs = Math.round(mc.startTimeSeconds * 1000);
+                const vol = mc.volume ?? 0.2;
+                if (startMs > 0) {
+                  filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}[a${inputIdx}]`);
+                } else {
+                  filterFilters.push(`[${inputIdx}:a]volume=${vol}[a${inputIdx}]`);
+                }
+                inputIdx++;
+              }
+            }
+
+            for (const sc of sfxClips) {
+              const dur = sc.endTimeSeconds - sc.startTimeSeconds;
+              const p = processAudioPath(sc.assetPath, dur, true);
+              if (p) {
+                audioInputs.push("-i", p);
+                const startMs = Math.round(sc.startTimeSeconds * 1000);
+                const vol = sc.volume ?? 0.8;
+                if (startMs > 0) {
+                  filterFilters.push(`[${inputIdx}:a]volume=${vol},adelay=${startMs}[a${inputIdx}]`);
+                } else {
+                  filterFilters.push(`[${inputIdx}:a]volume=${vol}[a${inputIdx}]`);
+                }
+                inputIdx++;
+              }
+            }
+
+            const amixInputs = Array.from({ length: inputIdx }, (_, i) => `[a${i}]`).join("");
+            filterFilters.push(`${amixInputs}amix=inputs=${inputIdx}:duration=longest[outa]`);
+
+            const audioArgs = [
+              "-y",
+              ...audioInputs,
+              "-filter_complex", filterFilters.join(";"),
+              "-map", "[outa]",
+              "-t", timelineDuration.toFixed(3),
+              audioMixPath
+            ];
+
+            await execFilePromise("ffmpeg", audioArgs);
           }
-
-          const amixInputs = Array.from({ length: inputIdx }, (_, i) => `[a${i}]`).join("");
-          filterFilters.push(`${amixInputs}amix=inputs=${inputIdx}:duration=longest[outa]`);
-
-          const audioArgs = [
-            "-y",
-            ...audioInputs,
-            "-filter_complex", filterFilters.join(";"),
-            "-map", "[outa]",
-            "-t", timelineDuration.toFixed(3),
-            audioMixPath
-          ];
-
-          await execFilePromise("ffmpeg", audioArgs);
         }
 
         // Step 4: Merge silent visual and audio mix into final output path

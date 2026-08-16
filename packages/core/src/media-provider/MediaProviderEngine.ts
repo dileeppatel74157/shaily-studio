@@ -925,7 +925,18 @@ export class MediaProviderEngine implements IMediaProviderEngine {
       fs.mkdirSync(storageDir, { recursive: true });
     }
     const fullPath = path.join(storageDir, filename);
-    const contentToWrite = realContent || Buffer.from(`mock-binary-data-for-${type}-${id}`);
+    let contentToWrite = realContent;
+    if (!contentToWrite) {
+      if (type === MediaType.IMAGE) {
+        contentToWrite = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+      } else if (type === MediaType.VOICE || type === MediaType.MUSIC || type === MediaType.SFX) {
+        const secs = durationSeconds || 1;
+        const pcm = Buffer.alloc(secs * 24000 * 2);
+        contentToWrite = pcmToWav(pcm, 24000, 1, 16);
+      } else {
+        contentToWrite = Buffer.from(`mock-binary-data-for-${type}-${id}`);
+      }
+    }
     fs.writeFileSync(fullPath, contentToWrite);
     const localUrl = `file:///${fullPath.replace(/\\/g, "/")}`;
 

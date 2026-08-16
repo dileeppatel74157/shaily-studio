@@ -31,6 +31,18 @@ export interface Scene {
   transition: string;
   overlayText?: string;
   captions?: string;
+  visualType?: "IMAGE" | "TEXT" | "SHAPE" | "CHART" | "MAP" | "DIAGRAM" | "CHARACTER" | "BACKGROUND" | "SCREENSHOT" | "PHOTO" | "VIDEO_ASSET";
+  assets?: string[];
+  layers?: string[];
+  text?: string;
+  animation?: string;
+  camera?: string;
+  overlays?: string[];
+  transitions?: string[];
+  chartConfiguration?: Record<string, any>;
+  mapConfiguration?: Record<string, any>;
+  characterConfiguration?: Record<string, any>;
+  timing?: Record<string, any>;
 }
 
 export interface Storyboard {

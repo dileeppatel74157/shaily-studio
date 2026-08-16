@@ -6,14 +6,16 @@ import { Workflow, Play, Compass, CheckCircle2, ChevronRight, Clock, HelpCircle,
 import { apiFetch } from "@/lib/api";
 
 const PIPELINE_STEPS = [
-  { id: "step-1", name: "Topic Angle", description: "Target demographics research & SEO keywords" },
-  { id: "step-2", name: "Research Segment", description: "Fetch references and wiki data facts" },
-  { id: "step-3", name: "Script Generation", description: "Write narration script with hook & CTA" },
-  { id: "step-4", name: "Voice Synthesis", description: "Generate voiceover mp3 using TTS engine" },
-  { id: "step-5", name: "Image Sourcing", description: "Generate dynamic cinematic visuals via AI" },
-  { id: "step-6", name: "Video Render", description: "Stitch visual assets and voiceover track" },
-  { id: "step-7", name: "Post Editing", description: "Apply subtitles and background soundtrack" },
-  { id: "step-8", name: "Publishing Check", description: "Upload to YouTube and apply metadata" }
+  { id: "step-1", name: "Research", description: "Target demographics research & SEO keywords" },
+  { id: "step-2", name: "Script", description: "Write narration script with hook & CTA" },
+  { id: "step-3", name: "Storyboard", description: "Plan visual concepts and scenes" },
+  { id: "step-4", name: "Generate Visual Assets", description: "Generate images and fetch illustration assets" },
+  { id: "step-5", name: "Generate Voice", description: "Synthesize narration voiceover using TTS engine" },
+  { id: "step-6", name: "Animate Scenes", description: "Apply Ken Burns and motion graphic presets to assets" },
+  { id: "step-7", name: "Compose Video", description: "Stitch scenes, overlays, and transitions on the timeline" },
+  { id: "step-8", name: "Render Video", description: "Process and render the timeline to a final output file" },
+  { id: "step-9", name: "Quality Check", description: "Verify assets, audio alignment, and subtitle formatting" },
+  { id: "step-10", name: "Publish", description: "Upload video to channel and fetch publishing analytics" }
 ];
 
 interface Task {
@@ -80,7 +82,7 @@ export default function PipelineMonitor() {
         method: "POST",
         body: JSON.stringify({
           prompt: promptInput.trim(),
-          task_type: "video_generation"
+          task_type: "content_pipeline"
         })
       });
 

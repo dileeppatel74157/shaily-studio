@@ -709,16 +709,8 @@ class VideoGenerationManagerImpl implements IVideoGenerationManager {
     const segments: VideoSegment[] = [];
     for (const sc of scenes) {
       for (const sh of sc.shots) {
-        let videoUrl = "https://mockmedia.ai/videos/shot.mp4";
-        if (this._engine.context.mediaProviderEngine?.getVideoManager()?.generateVideo) {
-          const res = await this._engine.context.mediaProviderEngine.getVideoManager().generateVideo({
-            id: `vid-${sh.id}`,
-            prompt: sh.description,
-            durationSeconds: sh.durationSeconds,
-            mode: GenerationMode.TEXT_TO_VIDEO
-          });
-          videoUrl = res.assets[0]?.url ?? videoUrl;
-        }
+        // Deterministic static segment placeholder URL without calling generative model
+        const videoUrl = "https://mockmedia.ai/videos/shot.mp4";
         segments.push({
           id: `vid-seg-${sh.id}`,
           sceneId: sc.id,
@@ -747,20 +739,49 @@ class CompositionManagerImpl implements ICompositionManager {
   ): Promise<CompositionTimeline> {
     const totalDur = scenes.reduce((acc, sc) => acc + sc.durationSeconds, 0);
 
-    const imageRefs: AssetReference[] = images.map(img => ({
-      id: img.id,
-      type: AssetType.IMAGE,
-      url: img.url,
-      status: AssetStatus.APPROVED
-    }));
+    const imageRefs: AssetReference[] = images.map((img, i) => {
+      const scene = scenes.find(s => s.id === img.id || s.shots.some(sh => `img-${sh.id}` === img.id || sh.id === img.id)) || scenes[i];
+      return {
+        id: img.id,
+        type: AssetType.IMAGE,
+        url: img.url,
+        status: AssetStatus.APPROVED,
+        meta: {
+          sceneId: scene?.id,
+          animation: scene?.animation,
+          camera: scene?.camera,
+          text: scene?.text || scene?.overlayText,
+          visualType: scene?.visualType || "IMAGE",
+          chartConfiguration: scene?.chartConfiguration,
+          mapConfiguration: scene?.mapConfiguration,
+          characterConfiguration: scene?.characterConfiguration,
+          duration: scene?.durationSeconds
+        }
+      };
+    });
 
-    const videoRefs: AssetReference[] = videos.map(vid => ({
-      id: vid.id,
-      type: AssetType.VIDEO,
-      url: vid.videoUrl,
-      status: AssetStatus.APPROVED,
-      meta: { resolution: vid.resolution, fps: vid.fps }
-    }));
+    const videoRefs: AssetReference[] = videos.map((vid, i) => {
+      const scene = scenes.find(s => s.id === vid.sceneId || s.shots.some(sh => `vid-seg-${sh.id}` === vid.id || sh.id === vid.shotId)) || scenes[i];
+      return {
+        id: vid.id,
+        type: AssetType.VIDEO,
+        url: vid.videoUrl,
+        status: AssetStatus.APPROVED,
+        meta: {
+          resolution: vid.resolution,
+          fps: vid.fps,
+          sceneId: scene?.id,
+          animation: scene?.animation,
+          camera: scene?.camera,
+          text: scene?.text || scene?.overlayText,
+          visualType: scene?.visualType || "VIDEO_ASSET",
+          chartConfiguration: scene?.chartConfiguration,
+          mapConfiguration: scene?.mapConfiguration,
+          characterConfiguration: scene?.characterConfiguration,
+          duration: scene?.durationSeconds
+        }
+      };
+    });
 
     const voiceRefs: AssetReference[] = voice.map(vox => ({
       id: vox.id,
@@ -811,6 +832,44 @@ class RenderManagerImpl implements IRenderManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async render(timeline: CompositionTimeline, quality: RenderQuality): Promise<RenderReport> {
+    // Try to find the RenderEngine on the context and delegate rendering to it
+    const renderEngine = this._engine.context.renderEngine 
+      || (this._engine.context.runtimeEngine ? this._engine.context.runtimeEngine.getEngine("RenderEngine") : null)
+      || (this._engine.context.registry?.resolve ? this._engine.context.registry.resolve({ name: "IRenderEngine" }) : null);
+
+    if (renderEngine) {
+      try {
+        const resolution = timeline.resolution === "1920x1080" ? "P1080" : "P720";
+        const renderRes = await renderEngine.render({
+          id: `render-${Date.now()}`,
+          compositionId: timeline.id,
+          format: "MP4",
+          resolution,
+          quality: "STANDARD",
+          codec: "H264",
+          fps: timeline.fps || 30,
+          state: "CREATED",
+          timestamp: new Date(),
+          options: {
+            outputPath: path.join(process.cwd(), "storage", "media", `render-${Date.now()}.mp4`)
+          }
+        });
+
+        return {
+          id: renderRes.id,
+          quality,
+          resolution: renderRes.resolution,
+          fps: renderRes.fps,
+          sizeBytes: renderRes.fileSizeBytes || 15 * 1024 * 1024,
+          durationSeconds: renderRes.durationSeconds || timeline.durationSeconds,
+          renderedFileUrl: `file:///${renderRes.outputPath.replace(/\\/g, "/")}`,
+          timestamp: new Date()
+        };
+      } catch (err) {
+        console.error("RenderManagerImpl: RenderEngine failed, falling back to internal rendering:", err);
+      }
+    }
+
     const mockReport: RenderReport = {
       id: `render-${Date.now()}`,
       quality,

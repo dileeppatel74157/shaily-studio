@@ -64,26 +64,44 @@ async def execute_heavy_job(task_id: str, agent_id: str, prompt: str, task_type:
     update_task_in_db(task_id, "running")
     
     try:
-        if task_type == "video_generation":
-            api_base_url = os.getenv("API_BASE_URL", "https://api.velmorahome.online")
-            internal_secret = os.getenv("INTERNAL_API_SECRET", "")
-            url = f"{api_base_url}/api/internal/run-pipeline"
-            headers = {
-                "X-Internal-Secret": internal_secret,
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "taskId": task_id,
-                "prompt": prompt
-            }
-            logger.info("Triggering real pipeline for task %s via POST %s", task_id, url)
-            
+        api_base_url = os.getenv("API_BASE_URL", "https://api.velmorahome.online")
+        internal_secret = os.getenv("INTERNAL_API_SECRET", "")
+        headers = {
+            "X-Internal-Secret": internal_secret,
+            "Content-Type": "application/json"
+        }
+
+        target_types = ["content_pipeline", "video_generation", "image_generation", "voice_generation", "scene_render", "video_render", "quality_check", "publishing"]
+
+        if task_type in target_types:
+            if task_type in ["content_pipeline", "video_generation"]:
+                url = f"{api_base_url}/api/internal/run-pipeline"
+                payload = {
+                    "taskId": task_id,
+                    "prompt": prompt
+                }
+            else:
+                url = f"{api_base_url}/api/internal/task/{task_type}"
+                data_payload = {}
+                try:
+                    if prompt.strip().startswith("{") and prompt.strip().endswith("}"):
+                        data_payload = json.loads(prompt)
+                except Exception:
+                    pass
+                payload = {
+                    "taskId": task_id,
+                    "prompt": prompt,
+                    "data": data_payload
+                }
+
+            logger.info("Triggering real pipeline/task %s for task %s via POST %s", task_type, task_id, url)
+
             def do_post():
                 return requests.post(url, json=payload, headers=headers, timeout=120)
-            
+
             response = await asyncio.to_thread(do_post)
             response.raise_for_status()
-            logger.info("Successfully triggered pipeline for task %s, response: %s", task_id, response.text)
+            logger.info("Successfully triggered pipeline/task %s for task %s, response: %s", task_type, task_id, response.text)
         else:
             # Simulate pipeline execution: rendering, video, voice, image generation, heavy AI
             await asyncio.sleep(3.0)

@@ -873,6 +873,135 @@ export class Gateway implements IGateway {
       }
     });
 
+    // --- POST /api/internal/task/:type ---
+    this.registerRoute({
+      method: "POST",
+      path: "/api/internal/task/:type",
+      metadata: { builtIn: false },
+      handler: async (req: any) => {
+        const incomingSecret = req.headers["x-internal-secret"] || req.headers["X-Internal-Secret"];
+        const expectedSecret = process.env.INTERNAL_API_SECRET;
+        if (!expectedSecret || incomingSecret !== expectedSecret) {
+          return {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Unauthorized: Invalid or missing X-Internal-Secret header" }
+          };
+        }
+
+        const { type } = req.params;
+        const { taskId, prompt, data } = req.body || {};
+
+        if (!taskId) {
+          return {
+            status: 400,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: "Missing required parameter: taskId" }
+          };
+        }
+
+        try {
+          const pipeline = await this.getContentPipelineEngine();
+          if (!pipeline) {
+            throw new Error("ContentPipelineEngine not registered on context");
+          }
+
+          let result: any = null;
+
+          if (type === "image_generation") {
+            const mediaProviderEngine = pipeline.context.mediaProviderEngine;
+            if (!mediaProviderEngine) throw new Error("MediaProviderEngine not found on context");
+            result = await mediaProviderEngine.getImageManager().generateImage({
+              id: taskId,
+              prompt: prompt || data?.prompt,
+              size: data?.size || "1024x1024",
+              mode: data?.mode || "TEXT_TO_IMAGE"
+            });
+          } else if (type === "voice_generation") {
+            const mediaProviderEngine = pipeline.context.mediaProviderEngine;
+            if (!mediaProviderEngine) throw new Error("MediaProviderEngine not found on context");
+            result = await mediaProviderEngine.getVoiceManager().textToSpeech({
+              id: taskId,
+              text: prompt || data?.text,
+              voiceId: data?.voiceId || "default"
+            });
+          } else if (type === "scene_render" || type === "video_render") {
+            const renderEngine = pipeline.context.renderEngine;
+            if (!renderEngine) throw new Error("RenderEngine not found on context");
+            result = await renderEngine.render({
+              id: taskId,
+              compositionId: data?.compositionId || "default",
+              format: data?.format || "mp4",
+              resolution: data?.resolution || "1080p",
+              quality: data?.quality || "standard",
+              codec: data?.codec || "h264",
+              fps: data?.fps || 30,
+              state: "CREATED",
+              timestamp: new Date(),
+              options: data?.options
+            });
+          } else if (type === "quality_check") {
+            const qualityEngine = pipeline.context.qualityEngine;
+            if (!qualityEngine) throw new Error("QualityEngine not found on context");
+            result = await qualityEngine.review({
+              id: taskId,
+              renderId: data?.renderId
+            });
+          } else if (type === "publishing") {
+            const youtubeIntegrationEngine = pipeline.context.youtubeIntegrationEngine;
+            if (!youtubeIntegrationEngine) throw new Error("YouTubeIntegrationEngine not found on context");
+            result = await youtubeIntegrationEngine.uploadVideo({
+              id: taskId,
+              projectId: data?.projectId || "default",
+              videoFileUrl: data?.videoFileUrl,
+              thumbnailUrl: data?.thumbnailUrl,
+              title: data?.title || "Video",
+              description: data?.description || "",
+              tags: data?.tags || [],
+              privacy: data?.privacy || "private",
+              category: data?.category || "Education"
+            });
+          } else {
+            throw new Error(`Unsupported task type: ${type}`);
+          }
+
+          // Update task in DB
+          const db = await this.getDatabaseEngine();
+          const qm = db.getQueryManager();
+          await qm.execute({
+            id: `db-task-complete-${Date.now()}`,
+            sql: "UPDATE tasks SET status = ?, input_data = ?, updated_at = ? WHERE id = ?",
+            params: ["completed", JSON.stringify(result), new Date().toISOString(), taskId]
+          });
+
+          return {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+            body: { success: true, result }
+          };
+        } catch (err: any) {
+          this.context.logger.error(`Internal task execution failed: ${err.message}`);
+          try {
+            const db = await this.getDatabaseEngine();
+            const qm = db.getQueryManager();
+            await qm.execute({
+              id: `db-task-failed-${Date.now()}`,
+              sql: "UPDATE tasks SET status = ?, error = ?, updated_at = ? WHERE id = ?",
+              params: ["failed", err.message || "Unknown error", new Date().toISOString(), taskId]
+            });
+          } catch (dbErr: any) {
+            this.context.logger.error(`Failed to update task ${taskId} in database: ${dbErr.message}`);
+          }
+
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: err.message }
+          };
+        }
+      }
+    });
+
     // --- GET /api/internal/download-render/:filename ---
     this.registerRoute({
       method: "GET",

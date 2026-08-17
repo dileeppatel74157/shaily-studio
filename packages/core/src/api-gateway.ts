@@ -3,6 +3,9 @@ export { DatabaseEngine } from "./database/DatabaseEngine";
 export { PlatformProvider } from "./channel-manager/PlatformProvider";
 export { ChannelManagerState } from "./channel-manager/ChannelManagerState";
 export { encrypt } from "./security/encryption";
+export { RenderEngine } from "./rendering/RenderEngine";
+export { IRenderEngine } from "./rendering/interfaces";
+
 
 // Core subsystems exports for api gateway
 export * from "./gateway";

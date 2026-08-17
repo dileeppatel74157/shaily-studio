@@ -10,6 +10,7 @@ import {
   ServiceRegistry,
   ConfigBuilder,
   DatabaseEngine,
+  RenderEngine,
 } from "@shaily/core/api-gateway";
 import { GatewayBuilder } from "./gateway/GatewayBuilder";
 import { GatewayContext } from "./gateway/GatewayContext";
@@ -73,6 +74,13 @@ async function bootstrap() {
     registry,
     config,
   };
+
+  // Instantiate, initialize, start, and register RenderEngine in ServiceRegistry
+  console.log("[Bootstrap] Instantiating and registering RenderEngine...");
+  const renderEngine = new RenderEngine(runtimeContext);
+  await renderEngine.initialize();
+  await renderEngine.start();
+  registry.register({ name: "IRenderEngine" } as any, renderEngine);
 
   const runtimeConfig = {
     env: process.env.NODE_ENV || "development",

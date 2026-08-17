@@ -82,6 +82,18 @@ async function bootstrap() {
   await renderEngine.start();
   registry.register({ name: "IRenderEngine" } as any, renderEngine);
 
+  // Startup binary availability check for ffmpeg & ffprobe
+  try {
+    const { execSync } = require("node:child_process");
+    const ffmpegVer = execSync("ffmpeg -version", { stdio: "pipe" }).toString().split("\n")[0];
+    const ffprobeVer = execSync("ffprobe -version", { stdio: "pipe" }).toString().split("\n")[0];
+    console.log(`[Diagnostic] ffmpeg available: ${ffmpegVer}`);
+    console.log(`[Diagnostic] ffprobe available: ${ffprobeVer}`);
+  } catch (err: any) {
+    console.warn("[Diagnostic] ffmpeg/ffprobe check failed:", err.message);
+  }
+
+
   const runtimeConfig = {
     env: process.env.NODE_ENV || "development",
     heartbeatIntervalMs: 5000,

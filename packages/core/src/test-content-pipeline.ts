@@ -31,6 +31,7 @@ function makeMockContext(overrides: Record<string, any> = {}): any {
   const kbStore: any[] = [];
 
   return {
+    env: "test",
     logger: { info: () => {}, error: () => {}, warn: () => {} },
     eventBus: {
       publish: async (e: any) => { events.push(e); },

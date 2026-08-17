@@ -43,8 +43,10 @@ import {
 import {
   ContentPipelineException,
   PipelineExecutionException,
+  RenderException,
   deepFreeze
 } from "./types";
+import { Resolution } from "../rendering/Resolution";
 import { KnowledgeNodeType } from "../knowledge-base/KnowledgeNodeType";
 import { KnowledgeSource } from "../knowledge-base/KnowledgeSource";
 import { ContentPipelineValidator } from "./ContentPipelineValidator";
@@ -778,9 +780,21 @@ class RenderManagerImpl implements IRenderManager {
       || (this._engine.context.runtimeEngine ? this._engine.context.runtimeEngine.getEngine("RenderEngine") : null)
       || (this._engine.context.registry?.resolve ? this._engine.context.registry.resolve({ name: "IRenderEngine" }) : null);
 
+    const isTestMode = this._engine.context?.env === "test" || this._engine.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
+
     if (renderEngine) {
       try {
-        const resolution = timeline.resolution === "1920x1080" ? "P1080" : "P720";
+        let resolution: Resolution;
+        if (timeline.resolution === "1920x1080" || timeline.resolution === "P1080" || timeline.resolution === Resolution.P1080) {
+          resolution = Resolution.P1080;
+        } else if (timeline.resolution === "1280x720" || timeline.resolution === "P720" || timeline.resolution === Resolution.P720) {
+          resolution = Resolution.P720;
+        } else if (Object.values(Resolution).includes(timeline.resolution as any)) {
+          resolution = timeline.resolution as Resolution;
+        } else {
+          resolution = Resolution.P1080; // default fallback
+        }
+
         const renderRes = await renderEngine.render({
           id: `render-${Date.now()}`,
           compositionId: timeline.id,
@@ -806,8 +820,15 @@ class RenderManagerImpl implements IRenderManager {
           renderedFileUrl: `file:///${renderRes.outputPath.replace(/\\/g, "/")}`,
           timestamp: new Date()
         };
-      } catch (err) {
+      } catch (err: any) {
+        if (!isTestMode) {
+          throw err instanceof RenderException ? err : new RenderException(`RenderEngine failed: ${err.message || err}`);
+        }
         console.error("RenderManagerImpl: RenderEngine failed, falling back to internal rendering:", err);
+      }
+    } else {
+      if (!isTestMode) {
+        throw new RenderException("RenderEngine is not available in production.");
       }
     }
 

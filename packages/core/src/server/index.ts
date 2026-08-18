@@ -50,6 +50,7 @@ export { MemoryStore } from "../memory";
 // Database implementation
 export { DatabaseEngine } from "../database/DatabaseEngine";
 export { DatabaseBuilder } from "../database/DatabaseBuilder";
+export { DatabaseProvider } from "../database/DatabaseProvider";
 
 // Node integrations & other engines/builders
 export { SystemIntegrationEngine } from "../system-integration/SystemIntegrationEngine";

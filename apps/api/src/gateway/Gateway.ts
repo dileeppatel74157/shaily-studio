@@ -576,12 +576,48 @@ export class Gateway implements IGateway {
           const db = await this.getDatabaseEngine();
           const result = await db.getQueryManager().execute({
             id: `db-tasks-get-${Date.now()}`,
-            sql: "SELECT id, status, prompt, agent_id, error, created_at, updated_at FROM tasks ORDER BY created_at DESC"
+            sql: "SELECT id, status, prompt, agent_id, input_data, error, created_at, updated_at FROM tasks ORDER BY created_at DESC"
           });
+
+          const tasks = (result.rows || []).map((row: any) => {
+            let videoUrl: string | undefined;
+            if (row.status === "completed" && row.input_data) {
+              try {
+                const data = JSON.parse(row.input_data);
+                const rawUrl = data.videoFileUrl || data.renderedFileUrl || data.outputPath;
+                if (rawUrl) {
+                  if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
+                    videoUrl = rawUrl;
+                  } else {
+                    const cleanPath = rawUrl.replace(/^file:\/\/\/?/, "");
+                    const filename = path.basename(cleanPath);
+                    const protocol = req.headers["x-forwarded-proto"] || "http";
+                    const host = req.headers["host"] || "localhost:8000";
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || `${protocol}://${host}`;
+                    videoUrl = `${baseUrl}/api/internal/download-render/${filename}`;
+                  }
+                }
+              } catch (e) {
+                // Ignore parsing errors
+              }
+            }
+
+            return {
+              id: row.id,
+              status: row.status,
+              prompt: row.prompt,
+              agent_id: row.agent_id,
+              error: row.error,
+              videoUrl,
+              created_at: row.created_at,
+              updated_at: row.updated_at
+            };
+          });
+
           return {
             status: 200,
             headers: { "Content-Type": "application/json" },
-            body: result.rows || []
+            body: tasks
           };
         } catch (err: any) {
           return {
@@ -1008,18 +1044,7 @@ export class Gateway implements IGateway {
       path: "/api/internal/download-render/:filename",
       metadata: { builtIn: false },
       handler: async (req: any): Promise<GatewayResponse> => {
-        // 1. Verify shared secret
-        const incomingSecret = req.headers["x-internal-secret"] || req.headers["X-Internal-Secret"];
-        const expectedSecret = process.env.INTERNAL_API_SECRET;
-        if (!expectedSecret || incomingSecret !== expectedSecret) {
-          return {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-            body: { success: false, error: "Unauthorized: Invalid or missing X-Internal-Secret header" }
-          } as GatewayResponse;
-        }
-
-        // 2. Extract and sanitize filename
+        // 1. Extract and sanitize filename
         const filename = req.params.filename;
         if (!filename || filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
           return {
@@ -1029,7 +1054,7 @@ export class Gateway implements IGateway {
           } as GatewayResponse;
         }
 
-        // 3. Build full path and check existence
+        // 2. Build full path and check existence
         const filePath = path.join(process.cwd(), "storage", "media", filename);
         if (!fs.existsSync(filePath)) {
           return {
@@ -1039,15 +1064,59 @@ export class Gateway implements IGateway {
           } as GatewayResponse;
         }
 
-        // 4. Stream the file back
-        return {
-          status: 200,
-          headers: {
-            "Content-Type": "video/mp4",
-            "Content-Disposition": `attachment; filename="${filename}"`
-          },
-          body: fs.createReadStream(filePath)
-        } as GatewayResponse;
+        // 3. Stream the file back with HTTP Range support
+        try {
+          const stat = fs.statSync(filePath);
+          const fileSize = stat.size;
+          const range = req.headers.range || req.headers.Range;
+
+          if (range) {
+            const parts = range.replace(/bytes=/, "").split("-");
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+            if (start >= fileSize || end >= fileSize || start > end) {
+              return {
+                status: 416,
+                headers: {
+                  "Content-Range": `bytes */${fileSize}`,
+                  "Content-Type": "text/plain"
+                },
+                body: "Requested Range Not Satisfiable"
+              } as GatewayResponse;
+            }
+
+            const chunksize = (end - start) + 1;
+            const fileStream = fs.createReadStream(filePath, { start, end });
+            return {
+              status: 206,
+              headers: {
+                "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+                "Accept-Ranges": "bytes",
+                "Content-Length": chunksize.toString(),
+                "Content-Type": "video/mp4",
+                "Content-Disposition": `inline; filename="${filename}"`
+              },
+              body: fileStream
+            } as GatewayResponse;
+          } else {
+            return {
+              status: 200,
+              headers: {
+                "Content-Length": fileSize.toString(),
+                "Content-Type": "video/mp4",
+                "Content-Disposition": `inline; filename="${filename}"`
+              },
+              body: fs.createReadStream(filePath)
+            } as GatewayResponse;
+          }
+        } catch (err: any) {
+          return {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+            body: { success: false, error: `Server Error: ${err.message}` }
+          } as GatewayResponse;
+        }
       }
     });
 

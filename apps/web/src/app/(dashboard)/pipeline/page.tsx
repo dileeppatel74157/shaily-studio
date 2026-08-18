@@ -24,6 +24,7 @@ interface Task {
   prompt: string;
   agent_id: string;
   error?: string | null;
+  videoUrl?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -204,6 +205,17 @@ export default function PipelineMonitor() {
             <div className="p-4 bg-rose-950/20 border border-rose-900/30 rounded-lg text-rose-400 text-xs space-y-1">
               <div className="font-semibold">Error Details:</div>
               <div className="font-mono break-all">{activeTask.error}</div>
+            </div>
+          )}
+
+          {activeTask.status === "completed" && activeTask.videoUrl && (
+            <div className="mt-4 border border-zinc-800 rounded-xl overflow-hidden bg-black aspect-video max-w-2xl mx-auto flex items-center justify-center">
+              <video
+                src={activeTask.videoUrl}
+                controls
+                playsInline
+                className="w-full h-full object-contain"
+              />
             </div>
           )}
 

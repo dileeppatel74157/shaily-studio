@@ -86,6 +86,7 @@ export interface Mission {
   status: "pending" | "running" | "completed" | "failed";
   progress: number;
   logs: string[];
+  videoUrl?: string;
   timestamp: string;
 }
 
@@ -105,6 +106,7 @@ export async function getMissions(): Promise<Mission[]> {
       status: t.status,
       progress: t.status === "completed" ? 100 : (t.status === "running" ? 50 : 0),
       logs: t.error ? [t.error] : [`Task state: ${t.status}`],
+      videoUrl: t.videoUrl,
       timestamp: t.created_at || new Date().toISOString()
     }));
   } catch (err) {

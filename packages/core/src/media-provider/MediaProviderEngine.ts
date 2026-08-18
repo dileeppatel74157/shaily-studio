@@ -133,9 +133,21 @@ class ImageManagerImpl implements IImageManager {
     let realContent: Buffer | undefined = undefined;
     let timeoutId: any;
 
+    let timeoutMs = 60000;
+    if (process.env.POLLINATIONS_TIMEOUT_MS) {
+      const parsed = parseInt(process.env.POLLINATIONS_TIMEOUT_MS, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        timeoutMs = parsed;
+      }
+    } else if (request.timeoutMs && request.timeoutMs > 0) {
+      timeoutMs = request.timeoutMs;
+    }
+
     try {
       const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), 30000);
+      timeoutId = setTimeout(() => {
+        controller.abort();
+      }, timeoutMs);
 
       const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(request.prompt)}?width=${width}&height=${height}&nologo=true`;
       const response = await fetch(url, {
@@ -143,17 +155,69 @@ class ImageManagerImpl implements IImageManager {
         signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
+      timeoutId = undefined;
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const arrayBuffer = await response.arrayBuffer();
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.startsWith("image/")) {
+        throw new Error(`Invalid content-type: ${contentType ?? "none"}. Expected an image.`);
+      }
+
+      let arrayBuffer;
+      try {
+        arrayBuffer = await response.arrayBuffer();
+      } catch (dlErr: any) {
+        const fetchErr = new Error(`Failed to download image data: ${dlErr.message}`);
+        (fetchErr as any).cause = dlErr;
+        throw fetchErr;
+      }
+
       realContent = Buffer.from(arrayBuffer);
+      if (realContent.length === 0) {
+        throw new Error("Empty image response from provider");
+      }
     } catch (err: any) {
-      console.error("Pollinations image generation failed, falling back to mock behavior:", err);
-    } finally {
       if (timeoutId) {
         clearTimeout(timeoutId);
+        timeoutId = undefined;
+      }
+
+      const isTestMode = this._engine.context?.env === "test" || this._engine.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
+      if (isTestMode) {
+        console.error("Pollinations image generation failed, falling back to mock behavior:", err);
+      } else {
+        const taskId = request.metadata?.taskId ?? "unknown";
+        const sceneId = request.metadata?.sceneId ?? "unknown";
+        let reason = err.message || "Unknown error";
+        let statusStr = "";
+
+        if (err.name === "AbortError") {
+          reason = "Request timed out";
+        }
+
+        if (err.status) {
+          statusStr = `\nstatus=${err.status}`;
+        } else if (err.message && err.message.includes("status: ")) {
+          const match = err.message.match(/status:\s*(\d+)/);
+          if (match) {
+            statusStr = `\nstatus=${match[1]}`;
+          }
+        }
+
+        const errMsg = `Image generation failed:
+provider=Pollinations
+taskId=${taskId}
+sceneId=${sceneId}
+reason=${reason}${statusStr}
+timeoutMs=${timeoutMs}`;
+
+        const genErr = new GenerationException(errMsg);
+        (genErr as any).cause = err;
+        throw genErr;
       }
     }
 
@@ -868,6 +932,10 @@ export class MediaProviderEngine implements IMediaProviderEngine {
     this._usageManager     = new UsageManagerImpl(this);
     this._healthManager    = new HealthManagerImpl(this);
     this._eventManager     = new EventManagerImpl(this);
+  }
+
+  public get context(): any {
+    return this._context;
   }
 
   async initialize(): Promise<void> {

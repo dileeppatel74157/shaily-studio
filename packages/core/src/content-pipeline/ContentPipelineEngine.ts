@@ -56,6 +56,15 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   private _state: ContentPipelineState = ContentPipelineState.CREATED;
   private _currentStage: ContentStage = ContentStage.STORYBOARD;
   private _progressPercent: number = 0;
+  private _currentTaskId?: string;
+
+  public get currentTaskId(): string | undefined {
+    return this._currentTaskId;
+  }
+
+  public set currentTaskId(val: string | undefined) {
+    this._currentTaskId = val;
+  }
   private _eventHandlers = new Map<string, Array<(payload: any) => void>>();
   private _reports = new Map<string, PublishingPackage>();
 
@@ -150,6 +159,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
       throw new PipelineExecutionException("Pipeline must be in EXECUTING state to run.");
     }
 
+    this._currentTaskId = projectId;
     const startTime = Date.now();
     this._stats.totalRuns++;
     await this._emit(PipelineEventType.PIPELINE_STARTED, { scriptId, projectId });
@@ -599,7 +609,11 @@ class ImageGenerationManagerImpl implements IImageGenerationManager {
           const res = await this._engine.context.mediaProviderEngine.getImageManager().generateImage({
             id: `img-${sh.id}`,
             prompt: sh.visualPrompt,
-            mode: "TEXT_TO_IMAGE"
+            mode: "TEXT_TO_IMAGE",
+            metadata: {
+              taskId: this._engine.currentTaskId,
+              sceneId: sc.id
+            }
           });
           const generatedAsset = res.assets?.[0];
           if (!generatedAsset) {

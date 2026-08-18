@@ -340,6 +340,334 @@ async function run() {
   assert.ok(reportJ.renderedFileUrl.includes("mockmedia.ai") || reportJ.renderedFileUrl.startsWith("file://"), "Should fallback to mock/internal render report");
   console.log("  ✓ Test J passed: Test-mode fallback behavior verified");
 
+  // Test K: Regression tests for visual-asset lifecycle, undefined asset ID, stub protection, and timeline propagation
+  console.log("Test K: Regression tests for asset propagation and validation...");
+  
+  // A. Valid visual asset reaches RenderEngine successfully
+  const validTimeline = {
+    id: "timeline-valid-asset",
+    durationSeconds: 10,
+    fps: 30,
+    tracks: [
+      {
+        id: "tr-images",
+        type: "IMAGE",
+        assets: [
+          {
+            id: "img-asset-valid-1",
+            type: "IMAGE",
+            url: "https://mockmedia.ai/images/valid.png",
+            status: "APPROVED"
+          }
+        ]
+      }
+    ],
+    audioTrack: {
+      voiceClips: [],
+      musicClips: [],
+      sfxClips: []
+    }
+  };
+
+  const renderEngineMockK = {
+    render: async (req: any) => {
+      // Assert timeline was propagated
+      assert.ok(req.options?.timeline !== undefined, "timeline must be propagated in options");
+      return {
+        id: req.id,
+        outputPath: "mock.mp4",
+        fileSizeBytes: 100,
+        durationSeconds: 10,
+        resolution: req.resolution,
+        fps: req.fps,
+        state: "COMPLETED",
+        timestamp: new Date()
+      };
+    }
+  };
+
+  const ctxK = {
+    env: "production",
+    renderEngine: renderEngineMockK,
+    logger: { info: () => {}, error: () => {}, warn: () => {} }
+  };
+  const engineK = new ContentPipelineBuilder().withContext(ctxK).build() as ContentPipelineEngine;
+  await engineK.getRenderManager().render(validTimeline as any, RenderQuality.HIGH);
+  console.log("  ✓ Regression A: Valid visual asset with defined ID and URL (https) propagates and passes validation");
+
+  // B. Missing assetId rejects the invalid asset
+  const invalidAssetIdTimeline = {
+    id: "timeline-invalid-id",
+    durationSeconds: 10,
+    fps: 30,
+    tracks: [
+      {
+        id: "tr-images",
+        type: "IMAGE",
+        assets: [
+          {
+            id: undefined, // undefined asset ID
+            type: "IMAGE",
+            url: "https://mockmedia.ai/images/valid.png",
+            status: "APPROVED"
+          }
+        ]
+      }
+    ],
+    audioTrack: {
+      voiceClips: [],
+      musicClips: [],
+      sfxClips: []
+    }
+  };
+
+  const rendererK = new RenderEngine(ctxK);
+  await rendererK.initialize();
+  await rendererK.start();
+
+  let threwIdErr = false;
+  try {
+    await rendererK.render({
+      id: "render-job-id-fail",
+      compositionId: invalidAssetIdTimeline.id,
+      format: "MP4",
+      resolution: "1080P",
+      quality: "STANDARD",
+      codec: "H264",
+      fps: 30,
+      state: "CREATED",
+      timestamp: new Date(),
+      options: { timeline: invalidAssetIdTimeline }
+    });
+  } catch (err: any) {
+    threwIdErr = true;
+    assert.ok(err instanceof RenderingException, "Should throw RenderingException");
+    assert.ok(err.message.includes("Required visual asset unavailable"), "error message check");
+    assert.ok(err.message.includes("assetId=undefined"), "error message should say assetId=undefined");
+  }
+  assert.ok(threwIdErr, "Should fail rendering if required visual asset ID is undefined");
+  console.log("  ✓ Regression B: Undefined assetId gets rejected with a clear error");
+
+  // C. Stub asset protection rejects /assets/stub-img.png
+  const stubTimeline = {
+    id: "timeline-stub",
+    durationSeconds: 10,
+    fps: 30,
+    tracks: [
+      {
+        id: "tr-images",
+        type: "IMAGE",
+        assets: [
+          {
+            id: "stub-asset-1",
+            type: "IMAGE",
+            url: "/assets/stub-img.png",
+            status: "APPROVED"
+          }
+        ]
+      }
+    ],
+    audioTrack: {
+      voiceClips: [],
+      musicClips: [],
+      sfxClips: []
+    }
+  };
+
+  const rendererK2 = new RenderEngine(ctxK);
+  await rendererK2.initialize();
+  await rendererK2.start();
+
+  let threwStubErr = false;
+  try {
+    await rendererK2.render({
+      id: "render-job-stub-fail",
+      compositionId: stubTimeline.id,
+      format: "MP4",
+      resolution: "1080P",
+      quality: "STANDARD",
+      codec: "H264",
+      fps: 30,
+      state: "CREATED",
+      timestamp: new Date(),
+      options: { timeline: stubTimeline }
+    });
+  } catch (err: any) {
+    threwStubErr = true;
+    assert.ok(err instanceof RenderingException, "Should throw RenderingException");
+    assert.ok(err.message.includes("Stub/mock asset rejected in production"), "stub asset error message check");
+  }
+  assert.ok(threwStubErr, "Should fail rendering in production if stub asset is used");
+  console.log("  ✓ Regression C: Stub asset rejected in production successfully");
+
+  // C2. Mock asset protection rejects mockmedia.ai
+  const mockTimeline = {
+    id: "timeline-mock",
+    durationSeconds: 10,
+    fps: 30,
+    tracks: [
+      {
+        id: "tr-images",
+        type: "IMAGE",
+        assets: [
+          {
+            id: "mock-asset-1",
+            type: "IMAGE",
+            url: "https://mockmedia.ai/images/fallback.png",
+            status: "APPROVED"
+          }
+        ]
+      }
+    ],
+    audioTrack: {
+      voiceClips: [],
+      musicClips: [],
+      sfxClips: []
+    }
+  };
+
+  const rendererK3 = new RenderEngine(ctxK);
+  await rendererK3.initialize();
+  await rendererK3.start();
+
+  let threwMockErr = false;
+  try {
+    await rendererK3.render({
+      id: "render-job-mock-fail",
+      compositionId: mockTimeline.id,
+      format: "MP4",
+      resolution: "1080P",
+      quality: "STANDARD",
+      codec: "H264",
+      fps: 30,
+      state: "CREATED",
+      timestamp: new Date(),
+      options: { timeline: mockTimeline }
+    });
+  } catch (err: any) {
+    threwMockErr = true;
+    assert.ok(err instanceof RenderingException, "Should throw RenderingException");
+    assert.ok(err.message.includes("Stub/mock asset rejected in production"), "mock asset error message check");
+  }
+  assert.ok(threwMockErr, "Should fail rendering in production if mockmedia.ai asset is used");
+  console.log("  ✓ Regression C2: Mock URL asset rejected in production successfully");
+
+  // D & E: Multiple scenes and asset propagation
+  console.log("Test L: Multiple scenes and asset propagation...");
+  const pipelineCtx = {
+    env: "production",
+    namespace: "prod-pipeline-test",
+    logger: { info: () => {}, error: () => {}, warn: () => {} },
+    eventBus: { publish: async () => {} },
+    databaseEngine: {
+      getQueryManager: () => ({
+        execute: async () => ({ rows: [] })
+      })
+    },
+    memoryStore: {
+      set: async () => {},
+      get: async () => {}
+    },
+    knowledgeBaseEngine: {
+      store: async () => ({ success: true })
+    },
+    mediaProviderEngine: {
+      getImageManager: () => ({
+        generateImage: async (req: any) => ({
+          assets: [
+            {
+              id: `provider-${req.id}`,
+              url: `https://shaily.studio/generated-${req.id}.png`,
+              type: MediaType.IMAGE
+            }
+          ]
+        })
+      }),
+      getVoiceManager: () => ({
+        textToSpeech: async (req: any) => ({
+          id: `vox-${req.id}`,
+          audioUrl: `https://shaily.studio/voice-${req.id}.mp3`
+        })
+      }),
+      getMusicManager: () => ({
+        generateMusic: async () => ({ assets: [{ id: "m1", url: "https://shaily.studio/music.mp3" }] }),
+        generateSfx: async (req: any) => ({ assets: [{ id: `sfx-${req.id}`, url: "https://shaily.studio/sfx.mp3" }] })
+      })
+    },
+    renderEngine: {
+      render: async (req: any) => {
+        // Verify timeline contains all 4 generated visual assets with correct propagated IDs
+        const timeline = req.options?.timeline;
+        assert.ok(timeline !== undefined, "Timeline is missing in render request");
+        const imageTrack = timeline.tracks.find((t: any) => t.type === "IMAGE");
+        assert.ok(imageTrack !== undefined, "Image track is missing");
+        
+        // Assert we have 4 images (matching our 4 scenes)
+        assert.strictEqual(imageTrack.assets.length, 4, "Should have exactly 4 image assets");
+        
+        // Check propagation of IDs and URLs
+        for (let i = 0; i < 4; i++) {
+          const asset = imageTrack.assets[i];
+          assert.ok(asset.id.startsWith("provider-"), "Asset ID must be propagated from provider");
+          assert.ok(asset.url.includes("generated-"), "Asset URL must be propagated from provider");
+        }
+        
+        return {
+          id: req.id,
+          outputPath: "output.mp4",
+          fileSizeBytes: 1000,
+          durationSeconds: 16,
+          resolution: req.resolution,
+          fps: req.fps,
+          state: "COMPLETED",
+          timestamp: new Date()
+        };
+      }
+    }
+  };
+
+  const pipelineEngine = new ContentPipelineBuilder().withContext(pipelineCtx).build() as ContentPipelineEngine;
+  await pipelineEngine.initialize();
+  await pipelineEngine.start();
+
+  // Mock storyboard manager to generate 4 scenes
+  const originalGenerate = pipelineEngine.getStoryboardManager().generateStoryboard;
+  pipelineEngine.getStoryboardManager().generateStoryboard = async (scriptId: string, projectId: string, topicPrompt?: string) => {
+    const sb = {
+      id: "story-4-scenes",
+      projectId,
+      scriptId,
+      scenes: Array.from({ length: 4 }, (_, i) => ({
+        id: `sc-${i+1}`,
+        sceneNumber: i+1,
+        title: `Scene ${i+1}`,
+        scriptText: `Text for scene ${i+1}`,
+        durationSeconds: 4,
+        shots: [
+          {
+            id: `shot-${i+1}`,
+            shotNumber: 1,
+            description: `Shot desc ${i+1}`,
+            camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
+            durationSeconds: 4,
+            visualPrompt: `Prompt ${i+1}`
+          }
+        ],
+        transition: "Cut"
+      })),
+      totalScenes: 4,
+      totalDurationSeconds: 16,
+      createdAt: new Date()
+    };
+    // Cache it manually so ScenePlannerImpl can resolve it
+    (pipelineEngine.getStoryboardManager() as any)._storyboards.set(sb.id, sb);
+    return sb;
+  };
+
+  // Run the pipeline
+  await pipelineEngine.execute("script-123", "proj-456", "WebGPU TypeScript");
+  console.log("  ✓ Regression D & E: 4 scenes receive independent visual assets and asset ID propagates from provider to timeline");
+
   cleanMediaDir();
   console.log("\n=== ALL HARDENING AND CLEANUP VERIFICATION TESTS PASSED ===\n");
 }

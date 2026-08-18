@@ -35,6 +35,7 @@ export interface RenderingRequest {
     outputPath?: string;
     watermark?: string;
     maxConcurrentFrames?: number;
+    timeline?: any;
   };
 }
 

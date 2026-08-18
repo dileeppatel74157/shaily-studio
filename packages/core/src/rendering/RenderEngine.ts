@@ -509,7 +509,9 @@ export class RenderEngine implements IRenderEngine {
 
     let timeline: any = null;
 
-    if (this.context?.compositionEngine) {
+    if (request.options?.timeline) {
+      timeline = request.options.timeline;
+    } else if (this.context?.compositionEngine) {
       try {
         const history: any[] = this.context.compositionEngine.getHistory();
         const compResp = history.find((r: any) => r.requestId === request.compositionId)
@@ -595,18 +597,40 @@ export class RenderEngine implements IRenderEngine {
       const imageTrack = timeline.tracks.find((t: any) => t.id === "tr-images" || t.type === "IMAGE");
       const videoTrack = timeline.tracks.find((t: any) => t.id === "tr-videos" || t.type === "VIDEO");
       if (imageTrack) {
-        const clips = imageTrack.clips || imageTrack.assets?.map((a: any) => ({ id: a.id, assetPath: a.url })) || [];
-        visualClips.push(...clips);
+        const clips = imageTrack.clips || imageTrack.assets?.map((a: any) => ({ id: a.id, assetPath: a.url, type: "IMAGE", sceneId: a.meta?.sceneId })) || [];
+        visualClips.push(...clips.map((c: any) => ({ ...c, type: "IMAGE" })));
       }
       if (videoTrack) {
-        const clips = videoTrack.clips || videoTrack.assets?.map((a: any) => ({ id: a.id, assetPath: a.url })) || [];
-        visualClips.push(...clips);
+        const clips = videoTrack.clips || videoTrack.assets?.map((a: any) => ({ id: a.id, assetPath: a.url, type: "VIDEO", sceneId: a.meta?.sceneId })) || [];
+        visualClips.push(...clips.map((c: any) => ({ ...c, type: "VIDEO" })));
       }
       for (let i = 0; i < visualClips.length; i++) {
         const clip = visualClips[i];
         const srcPath = fileUrlToPath(clip.assetPath || clip.url);
+
+        // Ensure asset ID is defined
+        if (!clip.id) {
+          throw new RenderingException(
+            `Required visual asset unavailable: taskId=${request.id}, sceneId=${clip.sceneId || "unknown"}, assetId=undefined, path=${srcPath || "undefined"}, type=${clip.type || "IMAGE"} (Undefined asset ID)`
+          );
+        }
+
+        // Stub/mock asset protection: reject stub assets and mock URLs in production
+        if (srcPath && (
+          srcPath.includes("stub-img.png") ||
+          srcPath.includes("stub-vid.mp4") ||
+          srcPath.includes("mockmedia.ai") ||
+          srcPath.includes("mock.ai")
+        )) {
+          throw new RenderingException(
+            `Required visual asset unavailable: taskId=${request.id}, sceneId=${clip.sceneId || "unknown"}, assetId=${clip.id}, path=${srcPath}, type=${clip.type || "IMAGE"} (Stub/mock asset rejected in production)`
+          );
+        }
+
         if (!srcPath || (!srcPath.startsWith("http") && !fs.existsSync(srcPath))) {
-          throw new RenderingException(`Required visual asset unavailable: assetId=${clip.id}, path=${srcPath}`);
+          throw new RenderingException(
+            `Required visual asset unavailable: taskId=${request.id}, sceneId=${clip.sceneId || "unknown"}, assetId=${clip.id}, path=${srcPath}, type=${clip.type || "IMAGE"}`
+          );
         }
       }
 
@@ -614,12 +638,28 @@ export class RenderEngine implements IRenderEngine {
       let voiceClips = timeline.audioTrack?.voiceClips || [];
       const voiceTrack = timeline.tracks.find((t: any) => t.id === "tr-voice" || t.type === "VOICE");
       if (voiceTrack && voiceClips.length === 0) {
-        voiceClips = voiceTrack.assets.map((a: any) => ({ id: a.id, assetPath: a.url }));
+        voiceClips = voiceTrack.assets.map((a: any) => ({ id: a.id, assetPath: a.url, sceneId: a.meta?.sceneId }));
       }
       for (const vc of voiceClips) {
         const srcPath = fileUrlToPath(vc.assetPath);
+        if (!vc.id) {
+          throw new RenderingException(
+            `Required voice asset unavailable: taskId=${request.id}, sceneId=${vc.sceneId || "unknown"}, assetId=undefined, path=${srcPath || "undefined"} (Undefined asset ID)`
+          );
+        }
+        if (srcPath && (
+          srcPath.includes("stub-voice") ||
+          srcPath.includes("mockmedia.ai") ||
+          srcPath.includes("mock.ai")
+        )) {
+          throw new RenderingException(
+            `Required voice asset unavailable: taskId=${request.id}, sceneId=${vc.sceneId || "unknown"}, assetId=${vc.id}, path=${srcPath} (Stub/mock asset rejected in production)`
+          );
+        }
         if (!srcPath || (!srcPath.startsWith("http") && !fs.existsSync(srcPath))) {
-          throw new RenderingException(`Required voice asset unavailable: assetId=${vc.id}, path=${srcPath}`);
+          throw new RenderingException(
+            `Required voice asset unavailable: taskId=${request.id}, sceneId=${vc.sceneId || "unknown"}, assetId=${vc.id}, path=${srcPath}`
+          );
         }
       }
     }

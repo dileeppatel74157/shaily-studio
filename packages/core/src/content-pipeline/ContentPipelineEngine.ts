@@ -406,6 +406,8 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
 // ─── Subsystem Implementation Modules ─────────────────────────────────────────
 
 class StoryboardManagerImpl implements IStoryboardManager {
+  private readonly _storyboards = new Map<string, Storyboard>();
+
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async generateStoryboard(scriptId: string, projectId: string, topicPrompt?: string): Promise<Storyboard> {
@@ -530,6 +532,9 @@ Topic: ${topicPrompt}`
       createdAt: new Date()
     };
 
+    // Save in local cache
+    this._storyboards.set(storyboard.id, storyboard);
+
     // Store in Knowledge Base
     if (this._engine.context.knowledgeBaseEngine?.store) {
       await this._engine.context.knowledgeBaseEngine.store({
@@ -544,7 +549,7 @@ Topic: ${topicPrompt}`
   }
 
   public getStoryboard(storyboardId: string): Storyboard | undefined {
-    return undefined;
+    return this._storyboards.get(storyboardId);
   }
 }
 
@@ -552,6 +557,11 @@ class ScenePlannerImpl implements IScenePlanner {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async planScenes(storyboardId: string): Promise<Scene[]> {
+    const storyboard = this._engine.getStoryboardManager().getStoryboard(storyboardId);
+    if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
+      return storyboard.scenes;
+    }
+
     return [
       {
         id: "sc-1",
@@ -583,16 +593,59 @@ class ImageGenerationManagerImpl implements IImageGenerationManager {
     for (const sc of scenes) {
       for (const sh of sc.shots) {
         let mediaUrl = "https://mockmedia.ai/images/fallback.png";
+        let assetId = `img-asset-${sh.id}`;
+
         if (this._engine.context.mediaProviderEngine?.getImageManager()?.generateImage) {
           const res = await this._engine.context.mediaProviderEngine.getImageManager().generateImage({
             id: `img-${sh.id}`,
             prompt: sh.visualPrompt,
             mode: "TEXT_TO_IMAGE"
           });
-          mediaUrl = res.assets[0]?.url ?? mediaUrl;
+          const generatedAsset = res.assets?.[0];
+          if (!generatedAsset) {
+            throw new Error(`Media provider failed to generate image for shot ${sh.id}`);
+          }
+          if (!generatedAsset.id) {
+            generatedAsset.id = `img-asset-${sh.id}`;
+          }
+          if (!generatedAsset.url) {
+            throw new Error(`Media provider returned image asset with undefined URL for shot ${sh.id}`);
+          }
+
+          // Validate that it doesn't leak mock/stub assets in production mode
+          const isTestMode = this._engine.context?.env === "test" || this._engine.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
+          if (!isTestMode) {
+            if (generatedAsset.url.includes("stub-img.png") || generatedAsset.url.includes("mockmedia.ai") || generatedAsset.url.includes("mock.ai")) {
+              throw new Error(`Invalid mock image URL returned in production for shot ${sh.id}`);
+            }
+            if (generatedAsset.url.startsWith("file:///")) {
+              let p = generatedAsset.url.substring(8); // file:/// is 8 chars
+              if (/^[a-zA-Z]:/.test(p)) {
+                // Windows path
+              } else if (/^\/[a-zA-Z]:/.test(p)) {
+                p = p.substring(1);
+              }
+              const resolvedPath = path.normalize(p);
+              if (!fs.existsSync(resolvedPath)) {
+                throw new Error(`Generated image file does not exist on disk: ${resolvedPath} for shot ${sh.id}`);
+              }
+            }
+          }
+
+          mediaUrl = generatedAsset.url;
+          assetId = generatedAsset.id;
         }
+
+        // Validate final asset properties
+        if (!assetId) {
+          throw new Error(`Final image assetId is undefined for shot ${sh.id}`);
+        }
+        if (!mediaUrl) {
+          throw new Error(`Final image URL is undefined for shot ${sh.id}`);
+        }
+
         assets.push({
-          id: `img-asset-${sh.id}`,
+          id: assetId,
           type: AssetType.IMAGE,
           url: mediaUrl,
           status: AssetStatus.GENERATED,
@@ -623,6 +676,15 @@ class VoiceGenerationManagerImpl implements IVoiceGenerationManager {
         });
         audioUrl = res.audioUrl ?? audioUrl;
       }
+
+      // Validate that it doesn't leak mock/stub assets in production mode
+      const isTestMode = this._engine.context?.env === "test" || this._engine.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
+      if (!isTestMode) {
+        if (audioUrl.includes("stub-voice") || audioUrl.includes("mockmedia.ai") || audioUrl.includes("mock.ai")) {
+          throw new Error(`Invalid mock voice URL returned in production for scene ${sc.id}`);
+        }
+      }
+
       segments.push({
         id: `vox-seg-${sc.id}`,
         sceneId: sc.id,
@@ -706,7 +768,7 @@ class CompositionManagerImpl implements ICompositionManager {
     const totalDur = scenes.reduce((acc, sc) => acc + sc.durationSeconds, 0);
 
     const imageRefs: AssetReference[] = images.map((img, i) => {
-      const scene = scenes.find(s => s.id === img.id || s.shots.some(sh => `img-${sh.id}` === img.id || sh.id === img.id)) || scenes[i];
+      const scene = scenes.find(s => s.id === img.id || s.shots.some(sh => sh.id === img.id || `img-${sh.id}` === img.id || `img-asset-${sh.id}` === img.id || img.id.includes(sh.id))) || scenes[i];
       return {
         id: img.id,
         type: AssetType.IMAGE,
@@ -806,7 +868,8 @@ class RenderManagerImpl implements IRenderManager {
           state: "CREATED",
           timestamp: new Date(),
           options: {
-            outputPath: path.join(process.cwd(), "storage", "media", `render-${Date.now()}.mp4`)
+            outputPath: path.join(process.cwd(), "storage", "media", `render-${Date.now()}.mp4`),
+            timeline
           }
         });
 

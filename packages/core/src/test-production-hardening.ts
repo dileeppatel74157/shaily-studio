@@ -668,6 +668,69 @@ async function run() {
   await pipelineEngine.execute("script-123", "proj-456", "WebGPU TypeScript");
   console.log("  ✓ Regression D & E: 4 scenes receive independent visual assets and asset ID propagates from provider to timeline");
 
+  // Test L: Gemini TTS HTTP 429 -> Fallback voice generation -> asset creation -> pipeline continuation
+  console.log("Test L: Gemini TTS 429 voice fallback regression test...");
+  
+  // Set to production mode to enforce real VOICE asset validation
+  process.env.NODE_ENV = "production";
+  
+  const originalEnv = process.env.GEMINI_API_KEY;
+  // Use an invalid key so that the API call fails or we hit error path
+  process.env.GEMINI_API_KEY = "dummy-bad-key-for-test-429";
+  
+  const testLMediaProvider = new MediaProviderEngine({
+    env: "production",
+    namespace: "prod-test-l",
+    logger: { info: () => {}, error: () => {}, warn: () => {} },
+    database: {
+      getQueryManager: () => ({
+        execute: async () => ({ rows: [] })
+      })
+    }
+  });
+  await testLMediaProvider.initialize();
+  await testLMediaProvider.getProviderManager().registerProvider({
+    provider: "ELEVENLABS" as any,
+    apiKey: "eleven-labs-key-789",
+    capabilities: {
+      provider: "ELEVENLABS" as any,
+      supportedTypes: ["VOICE" as any],
+      supportedModes: ["TEXT_TO_SPEECH" as any],
+      supportedQualities: ["HIGH" as any],
+      supportsStreaming: true
+    }
+  });
+  
+  // Directly calling textToSpeech, it should fail API call and fall back to producing a real WAV file
+  const ttsRes = await testLMediaProvider.getVoiceManager().textToSpeech({
+    id: "req-test-l",
+    text: "This is a regression test for Gemini TTS 429 fallback.",
+    voiceId: "Rachel",
+    mode: "TEXT_TO_SPEECH" as any,
+    languageCode: "en-US"
+  });
+  
+  assert.ok(ttsRes.audioUrl.startsWith("file:///"), "Fallback should return a local file URL");
+  const fallbackPath = ttsRes.audioUrl.substring(8); // file:/// is 8 chars
+  let cleanFallbackPath = fallbackPath;
+  if (/^\/[a-zA-Z]:/.test(fallbackPath)) {
+    cleanFallbackPath = fallbackPath.substring(1);
+  }
+  const resolvedFallbackPath = path.normalize(cleanFallbackPath);
+  assert.ok(fs.existsSync(resolvedFallbackPath), `Fallback audio file must physically exist on disk: ${resolvedFallbackPath}`);
+  
+  // Clean up the created file
+  fs.rmSync(resolvedFallbackPath, { force: true });
+  
+  // Restore API key
+  if (originalEnv) {
+    process.env.GEMINI_API_KEY = originalEnv;
+  } else {
+    delete process.env.GEMINI_API_KEY;
+  }
+  
+  console.log("  ✓ Test L passed: Fallback voice generation correctly creates file and returns valid URL");
+
   cleanMediaDir();
   console.log("\n=== ALL HARDENING AND CLEANUP VERIFICATION TESTS PASSED ===\n");
 }

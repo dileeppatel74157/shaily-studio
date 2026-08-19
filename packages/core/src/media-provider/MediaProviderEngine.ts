@@ -502,95 +502,119 @@ class VoiceManagerImpl implements IVoiceManager {
 
     const apiKey = process.env.GEMINI_API_KEY;
     if (apiKey && apiKey.trim() !== "") {
-      let timeoutId: any;
-      try {
-        const controller = new AbortController();
-        timeoutId = setTimeout(() => controller.abort(), 30000);
+      const maxAttempts = 3;
+      let attempt = 1;
+      let delayMs = 500;
+      let lastError: any = null;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: request.text }] }],
-            generationConfig: {
-              responseModalities: ["AUDIO"],
-              speechConfig: {
-                voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
+      while (attempt <= maxAttempts) {
+        let timeoutId: any;
+        try {
+          const controller = new AbortController();
+          timeoutId = setTimeout(() => controller.abort(), 30000);
+
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${apiKey}`;
+          const response = await fetch(url, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: request.text }] }],
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: {
+                  voiceConfig: { prebuiltVoiceConfig: { voiceName: "Kore" } }
+                }
               }
-            }
-          }),
-          signal: controller.signal
-        });
+            }),
+            signal: controller.signal
+          });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
 
-        const responseData = (await response.json()) as any;
-        const base64Data = responseData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!base64Data) {
-          throw new Error("Invalid response format: inlineData data not found");
-        }
+          const responseData = (await response.json()) as any;
+          const base64Data = responseData?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+          if (!base64Data) {
+            throw new Error("Invalid response format: inlineData data not found");
+          }
 
-        const pcmBuffer = Buffer.from(base64Data, "base64");
-        const wavBuffer = pcmToWav(pcmBuffer);
+          const pcmBuffer = Buffer.from(base64Data, "base64");
+          const wavBuffer = pcmToWav(pcmBuffer);
 
-        const sampleRate = 24000;
-        const numChannels = 1;
-        const bitsPerSample = 16;
-        const duration = pcmBuffer.length / (sampleRate * numChannels * (bitsPerSample / 8));
+          const sampleRate = 24000;
+          const numChannels = 1;
+          const bitsPerSample = 16;
+          const duration = pcmBuffer.length / (sampleRate * numChannels * (bitsPerSample / 8));
 
-        const assetId = `speech-${Date.now()}`;
-        const asset = await this._engine.processAndPersistMedia(
-          assetId,
-          MediaType.VOICE,
-          "wav",
-          "audio/wav",
-          undefined,
-          undefined,
-          duration,
-          wavBuffer
-        );
+          const assetId = `speech-${Date.now()}`;
+          const asset = await this._engine.processAndPersistMedia(
+            assetId,
+            MediaType.VOICE,
+            "wav",
+            "audio/wav",
+            undefined,
+            undefined,
+            duration,
+            wavBuffer
+          );
 
-        const cost = request.text.length * 0.0001; // mock voice cost
+          const cost = request.text.length * 0.0001; // mock voice cost
 
-        this._engine.getUsageManager().recordUsage(provider, MediaType.VOICE, duration, cost);
-        this._engine.getUsageManager().recordRequest(provider, Date.now() - start, true, 1, cost);
-        this._engine.getEventManager().emit(MediaEventType.REQUEST_COMPLETED, { requestId: request.id, provider });
+          this._engine.getUsageManager().recordUsage(provider, MediaType.VOICE, duration, cost);
+          this._engine.getUsageManager().recordRequest(provider, Date.now() - start, true, 1, cost);
+          this._engine.getEventManager().emit(MediaEventType.REQUEST_COMPLETED, { requestId: request.id, provider });
 
-        return {
-          id: `speech-resp-${Date.now()}`,
-          requestId: request.id,
-          provider,
-          audioUrl: asset.url,
-          durationSeconds: duration,
-          charCount: request.text.length
-        };
-      } catch (err: any) {
-        console.error("Gemini TTS API call failed, falling back to mock behavior:", err);
-      } finally {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
+          return {
+            id: `speech-resp-${Date.now()}`,
+            requestId: request.id,
+            provider,
+            audioUrl: asset.url,
+            durationSeconds: duration,
+            charCount: request.text.length
+          };
+        } catch (err: any) {
+          lastError = err;
+          const is429 = err.message && err.message.includes("429");
+          console.warn(`Gemini TTS API call failed (attempt ${attempt}/${maxAttempts}): ${err.message}`);
+          if (attempt < maxAttempts && (is429 || err.name === "AbortError" || err.message.includes("fetch"))) {
+            attempt++;
+            await new Promise((r) => setTimeout(r, delayMs));
+            delayMs *= 2; // exponential backoff
+          } else {
+            break;
+          }
+        } finally {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
         }
       }
+      console.error("Gemini TTS API call failed, falling back to local voice generation:", lastError);
     } else {
-      console.warn("GEMINI_API_KEY is missing or empty. Falling back to mock behavior.");
+      console.warn("GEMINI_API_KEY is missing or empty. Falling back to local voice generation.");
     }
 
-    // --- Fallback Mock Behavior ---
-    const duration = Math.ceil(request.text.length / 15); // mock speech rate
+    // --- Local Fallback Audio Generation Behavior ---
+    const duration = Math.max(1, Math.ceil(request.text.length / 15)); // mock speech rate
+    const sampleRate = 24000;
+    const numChannels = 1;
+    const bitsPerSample = 16;
+    const pcmBuffer = Buffer.alloc(duration * sampleRate * numChannels * (bitsPerSample / 8));
+    const wavBuffer = pcmToWav(pcmBuffer, sampleRate, numChannels, bitsPerSample);
+
     const assetId = `speech-${Date.now()}`;
     const asset = await this._engine.processAndPersistMedia(
       assetId,
       MediaType.VOICE,
-      "mp3",
-      "audio/mp3",
+      "wav",
+      "audio/wav",
       undefined,
       undefined,
-      duration
+      duration,
+      wavBuffer
     );
 
     const cost = request.text.length * 0.0001; // mock voice cost

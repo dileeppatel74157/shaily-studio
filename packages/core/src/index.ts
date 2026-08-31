@@ -2,6 +2,7 @@ export * from "./client";
 export * from "./constants";
 export * from "./providers";
 export * from "./animation";
+export * from "./visual-intelligence";
 export { ModelDescriptor } from "./router/ModelDescriptor";
 export { ContentPipelineEngine } from "./content-pipeline/ContentPipelineEngine";
 export { ContentPipelineBuilder } from "./content-pipeline/ContentPipelineBuilder";

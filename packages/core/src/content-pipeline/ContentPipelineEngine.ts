@@ -268,7 +268,26 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
         description: "A complete programming tutorial discussing core patterns.",
         tags: ["programming", "typescript", "architecture"],
         captionsSrtUrl: "https://mockmedia.ai/captions/123.srt",
-        metadata: { renderQuality: RenderQuality.HIGH },
+        metadata: {
+          renderQuality: RenderQuality.HIGH,
+          debugInfo: {
+            detectedDomain: storyboard.domainClassification?.domain || "GENERAL",
+            confidence: storyboard.domainClassification?.confidence || 1.0,
+            visualStyle: storyboard.visualStylePlan?.visualStyle || "DEFAULT",
+            sceneCount: storyboard.scenes.length,
+            sceneVisualPlans: storyboard.scenes.map(s => ({
+              sceneNumber: s.sceneNumber,
+              purpose: s.visualPlan?.purpose,
+              dominantVisualType: s.visualPlan?.dominantVisualType,
+              layersCount: s.visualPlan?.layers.length || (s.layers ? (s.layers as any[]).length : 1),
+              overlaysCount: s.visualPlan?.overlays.length || 0,
+              dataVizCount: s.visualPlan?.dataVisualizations.length || 0,
+              animationAction: s.animation
+            })),
+            renderOutputPath: renderReport.renderedFileUrl,
+            videoFileUrl: renderReport.renderedFileUrl
+          }
+        },
         analyticsSeed: { expectedViews: 1000 },
         timestamp: new Date()
       };
@@ -425,7 +444,22 @@ import {
   CameraMotion,
   AnimationActionPreset
 } from "../animation/models";
-import { createCartoonCharacterSprite, createCartoonBackground } from "../animation/pngUtils";
+import {
+  createCartoonCharacterSprite,
+  createCartoonBackground,
+  createDomainBackground
+} from "../animation/pngUtils";
+import {
+  DomainClassifier,
+  VisualStylePlanner,
+  SceneVisualPlanner,
+  ContentDomain,
+  DomainClassificationResult,
+  VisualStylePlan,
+  SceneVisualPlan,
+  DataVisualizationSpec,
+  OverlaySpec
+} from "../visual-intelligence";
 
 class StoryboardManagerImpl implements IStoryboardManager {
   private readonly _storyboards = new Map<string, Storyboard>();
@@ -433,9 +467,12 @@ class StoryboardManagerImpl implements IStoryboardManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async generateStoryboard(scriptId: string, projectId: string, topicPrompt?: string): Promise<Storyboard> {
-    const isKidsPrompt = topicPrompt && /kid|child|cartoon|animat|story|cute|lion|bear|fox/i.test(topicPrompt);
+    const rawPrompt = topicPrompt || "";
+    const domainClassification: DomainClassificationResult = await DomainClassifier.classify(rawPrompt);
+    const domain: ContentDomain = domainClassification.domain;
+    const visualStylePlan: VisualStylePlan = VisualStylePlanner.plan(domainClassification, rawPrompt);
 
-    const defaultCharacters: SceneCharacter[] = isKidsPrompt
+    const defaultCharacters: SceneCharacter[] = domain === "KIDS"
       ? [
           {
             id: "char-leo",
@@ -446,141 +483,448 @@ class StoryboardManagerImpl implements IStoryboardManager {
         ]
       : [];
 
-    const mockScenes: Scene[] = isKidsPrompt
-      ? [
-          {
-            id: "sc-1",
-            sceneNumber: 1,
-            title: "Leo Arrives in the Meadow",
-            scriptText: "Meet Leo the little lion! Today is a big adventure day in the sunny meadow.",
-            durationSeconds: 5,
-            shots: [
-              {
-                id: "shot-1",
-                shotNumber: 1,
-                description: "Leo enters the bright cartoon meadow with a playful skip",
-                camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Character" },
-                durationSeconds: 5,
-                visualPrompt: "Bright colorful cartoon meadow with rainbow flowers and rolling green hills under a sunny blue sky"
-              }
-            ],
-            transition: "Cut",
-            animation: "ENTER_LEFT",
-            cameraMotion: { type: "ZOOM_IN", intensity: 0.2 },
-            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
-            animationInstructions: [
-              {
-                characterId: "char-leo",
-                action: "ENTER_LEFT",
-                movement: { startX: 0.35, startY: 0.65, endX: 0.35, endY: 0.65 }
-              }
-            ]
-          },
-          {
-            id: "sc-2",
-            sceneNumber: 2,
-            title: "Leo Explores the Path",
-            scriptText: "Leo trots happily along the flower path, looking for dancing butterflies.",
-            durationSeconds: 5,
-            shots: [
-              {
-                id: "shot-2",
-                shotNumber: 1,
-                description: "Leo walks across the path as the camera pans along",
-                camera: { angle: "Eye Level", pan: "Pan Right", zoom: "Static", focus: "Character" },
-                durationSeconds: 5,
-                visualPrompt: "Whimsical cartoon flower path winding through bright green trees with sparkling sunbeams"
-              }
-            ],
-            transition: "Cut",
-            animation: "WALK",
-            cameraMotion: { type: "PAN_RIGHT", intensity: 0.3 },
-            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
-            animationInstructions: [
-              {
-                characterId: "char-leo",
-                action: "WALK",
-                movement: { startX: 0.15, startY: 0.65, endX: 0.82, endY: 0.65 }
-              }
-            ]
-          },
-          {
-            id: "sc-3",
-            sceneNumber: 3,
-            title: "The Big Joyful Leap",
-            scriptText: "Look at that sparkling brook! Leo gathers speed and leaps high into the air!",
-            durationSeconds: 5,
-            shots: [
-              {
-                id: "shot-3",
-                shotNumber: 1,
-                description: "Leo takes a high joyful leap over the crystal stream",
-                camera: { angle: "Low Angle", pan: "Static", zoom: "Zoom In", focus: "Action" },
-                durationSeconds: 5,
-                visualPrompt: "Playful cartoon sparkling crystal stream with colorful stepping stones and friendly mushrooms"
-              }
-            ],
-            transition: "Cut",
-            animation: "JUMP",
-            cameraMotion: { type: "ZOOM_IN", intensity: 0.3 },
-            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
-            animationInstructions: [
-              {
-                characterId: "char-leo",
-                action: "JUMP",
-                movement: { startX: 0.2, startY: 0.65, endX: 0.8, endY: 0.65 }
-              }
-            ]
-          },
-          {
-            id: "sc-4",
-            sceneNumber: 4,
-            title: "Leo Waves Goodbye",
-            scriptText: "Hooray, what a wonderful adventure! See you next time, little friends!",
-            durationSeconds: 5,
-            shots: [
-              {
-                id: "shot-4",
-                shotNumber: 1,
-                description: "Leo standing in the center waving happily under sunset",
-                camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-out", focus: "Character" },
-                durationSeconds: 5,
-                visualPrompt: "Vibrant cartoon meadow clearing with gentle golden sunset, floating bubbles and twinkling stars"
-              }
-            ],
-            transition: "Cut",
-            animation: "WAVE",
-            cameraMotion: { type: "ZOOM_OUT", intensity: 0.2 },
-            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
-            animationInstructions: [
-              {
-                characterId: "char-leo",
-                action: "WAVE",
-                movement: { startX: 0.5, startY: 0.65, endX: 0.5, endY: 0.65 }
-              }
-            ]
-          }
-        ]
-      : [
-          {
-            id: "sc-1",
-            sceneNumber: 1,
-            title: "Introduction",
-            scriptText: "Welcome to this deep dive into TypeScript features.",
-            durationSeconds: 10,
-            shots: [
-              {
-                id: "shot-1",
-                shotNumber: 1,
-                description: "Opening code editor",
-                camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
-                durationSeconds: 10,
-                visualPrompt: "Futuristic editor with bright glowing letters"
-              }
-            ],
-            transition: "Cut"
-          }
-        ];
+    let mockScenes: Scene[];
+
+    if (domain === "FINANCE") {
+      mockScenes = [
+        {
+          id: "sc-1",
+          sceneNumber: 1,
+          title: "The Mystery of Rising Prices",
+          scriptText: "Have you ever noticed that a dollar buys less today than it did years ago? That is inflation in action.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-1",
+              shotNumber: 1,
+              description: "Editorial introduction to purchasing power with modern financial indicators",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Infographic" },
+              durationSeconds: 5,
+              visualPrompt: "Clean modern financial explainer canvas in deep navy with subtle financial grid and floating currency symbols"
+            }
+          ],
+          transition: "Cut",
+          animation: "REVEAL",
+          cameraMotion: { type: "ZOOM_IN", intensity: 0.15 }
+        },
+        {
+          id: "sc-2",
+          sceneNumber: 2,
+          title: "How Money Loses Purchasing Power",
+          scriptText: "When the money supply grows faster than the economy, each individual unit buys fewer goods and services.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-2",
+              shotNumber: 1,
+              description: "Data visualization displaying declining purchasing power curve over time",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Static", focus: "Chart" },
+              durationSeconds: 5,
+              visualPrompt: "Minimalist dark slate financial chart showing purchasing power curve with glowing emerald trendline"
+            }
+          ],
+          transition: "Cut",
+          animation: "DRAW",
+          cameraMotion: { type: "STATIC", intensity: 0.1 }
+        },
+        {
+          id: "sc-3",
+          sceneNumber: 3,
+          title: "The Role of Central Banks",
+          scriptText: "Central banks adjust interest rates to cool down inflation or stimulate growth when needed.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-3",
+              shotNumber: 1,
+              description: "Economic balance diagram showing interest rates vs inflation metrics",
+              camera: { angle: "Eye Level", pan: "Pan Right", zoom: "Slow zoom-in", focus: "Diagram" },
+              durationSeconds: 5,
+              visualPrompt: "Sophisticated editorial diagram with interest rate levers and economic indicators in midnight blue"
+            }
+          ],
+          transition: "Cut",
+          animation: "REVEAL",
+          cameraMotion: { type: "PAN_RIGHT", intensity: 0.15 }
+        },
+        {
+          id: "sc-4",
+          sceneNumber: 4,
+          title: "Protecting Your Wealth",
+          scriptText: "By investing in productive assets like stocks and real estate, you can stay ahead of rising costs.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-4",
+              shotNumber: 1,
+              description: "Key takeaway summary card highlighting investment growth strategies",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-out", focus: "Summary" },
+              durationSeconds: 5,
+              visualPrompt: "Polished financial summary card with compound growth pillar illustration and clean typography"
+            }
+          ],
+          transition: "Cut",
+          animation: "COUNT_UP",
+          cameraMotion: { type: "ZOOM_OUT", intensity: 0.15 }
+        }
+      ];
+    } else if (domain === "HISTORY") {
+      mockScenes = [
+        {
+          id: "sc-1",
+          sceneNumber: 1,
+          title: "From City-State to Republic",
+          scriptText: "Rome began as a modest settlement on the Tiber River, forged by ambition and strategic alliances.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-1",
+              shotNumber: 1,
+              description: "Archival view of early Roman architecture and Tiber settlement",
+              camera: { angle: "Eye Level", pan: "Pan Right", zoom: "Slow zoom-in", focus: "Environment" },
+              durationSeconds: 5,
+              visualPrompt: "Warm parchment-toned historical illustration of early Roman Forum and Seven Hills under morning light"
+            }
+          ],
+          transition: "Fade",
+          animation: "REVEAL",
+          cameraMotion: { type: "PAN_RIGHT", intensity: 0.2 }
+        },
+        {
+          id: "sc-2",
+          sceneNumber: 2,
+          title: "Mediterranean Expansion",
+          scriptText: "Through the Punic Wars, Rome defeated Carthage and expanded its dominance across the Mediterranean Sea.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-2",
+              shotNumber: 1,
+              description: "Historical map animation revealing expansion routes across the Mediterranean",
+              camera: { angle: "Top Down", pan: "Pan Left", zoom: "Static", focus: "Map" },
+              durationSeconds: 5,
+              visualPrompt: "Antique Mediterranean map with glowing crimson Roman expansion territories and sea routes"
+            }
+          ],
+          transition: "Fade",
+          animation: "REVEAL",
+          cameraMotion: { type: "PAN_LEFT", intensity: 0.2 }
+        },
+        {
+          id: "sc-3",
+          sceneNumber: 3,
+          title: "The Disciplined Legions",
+          scriptText: "Highly organized Roman legions built roads, fortifications, and secured distant frontiers from Britannia to Egypt.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-3",
+              shotNumber: 1,
+              description: "Cinematic illustration of Roman legion march along stone road",
+              camera: { angle: "Low Angle", pan: "Static", zoom: "Zoom In", focus: "Legion" },
+              durationSeconds: 5,
+              visualPrompt: "Classical oil painting aesthetic of Roman legion standards and stone fortress at sunset"
+            }
+          ],
+          transition: "Fade",
+          animation: "REVEAL",
+          cameraMotion: { type: "ZOOM_IN", intensity: 0.25 }
+        },
+        {
+          id: "sc-4",
+          sceneNumber: 4,
+          title: "The Imperial Legacy",
+          scriptText: "At its height, the Roman Empire united diverse cultures and shaped law, language, and architecture for millennia.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-4",
+              shotNumber: 1,
+              description: "Panoramic overview of the Colosseum and imperial monuments",
+              camera: { angle: "Wide", pan: "Static", zoom: "Slow zoom-out", focus: "Monuments" },
+              durationSeconds: 5,
+              visualPrompt: "Majestic golden hour panoramic view of Imperial Rome with marble arches and aqueducts"
+            }
+          ],
+          transition: "Fade",
+          animation: "REVEAL",
+          cameraMotion: { type: "ZOOM_OUT", intensity: 0.2 }
+        }
+      ];
+    } else if (domain === "DOCUMENTARY") {
+      mockScenes = [
+        {
+          id: "sc-1",
+          sceneNumber: 1,
+          title: "The Ocean Heat Engine",
+          scriptText: "Covering over seventy percent of our planet, the global oceans absorb the vast majority of excess thermal energy.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-1",
+              shotNumber: 1,
+              description: "Cinematic deep ocean wide shot with sunbeams piercing through dark water",
+              camera: { angle: "Wide", pan: "Static", zoom: "Slow zoom-in", focus: "Ocean" },
+              durationSeconds: 5,
+              visualPrompt: "Cinematic photographic view of open azure ocean with shimmering surface light and deep blue depths"
+            }
+          ],
+          transition: "Fade",
+          animation: "FLOAT",
+          cameraMotion: { type: "ZOOM_IN", intensity: 0.2 }
+        },
+        {
+          id: "sc-2",
+          sceneNumber: 2,
+          title: "Rising Temperature Anomalies",
+          scriptText: "Scientific measurements reveal sea surface temperatures reaching record anomalies year after year.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-2",
+              shotNumber: 1,
+              description: "Global ocean thermal map displaying temperature anomalies in vivid thermal hues",
+              camera: { angle: "Satellite View", pan: "Pan Right", zoom: "Static", focus: "Thermal Map" },
+              durationSeconds: 5,
+              visualPrompt: "High-resolution satellite ocean thermal map with glowing infrared heat signatures across currents"
+            }
+          ],
+          transition: "Fade",
+          animation: "REVEAL",
+          cameraMotion: { type: "PAN_RIGHT", intensity: 0.2 }
+        },
+        {
+          id: "sc-3",
+          sceneNumber: 3,
+          title: "Impact on Coral Ecosystems",
+          scriptText: "Even slight temperature increases trigger mass coral bleaching, destabilizing marine food webs.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-3",
+              shotNumber: 1,
+              description: "Close documentary inspection of coral reef marine biodiversity",
+              camera: { angle: "Macro", pan: "Static", zoom: "Zoom In", focus: "Coral" },
+              durationSeconds: 5,
+              visualPrompt: "Documentary footage style close-up of intricate coral formations and shimmering tropical marine life"
+            }
+          ],
+          transition: "Fade",
+          animation: "FLOAT",
+          cameraMotion: { type: "ZOOM_IN", intensity: 0.25 }
+        },
+        {
+          id: "sc-4",
+          sceneNumber: 4,
+          title: "The Path to Ocean Equilibrium",
+          scriptText: "Protecting our oceans requires global emissions reduction and marine conservation worldwide.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-4",
+              shotNumber: 1,
+              description: "Expansive shoreline view with gentle waves under dramatic atmospheric sky",
+              camera: { angle: "Wide", pan: "Static", zoom: "Slow zoom-out", focus: "Horizon" },
+              durationSeconds: 5,
+              visualPrompt: "Dramatic cinematic coastal landscape with rolling pristine waves and golden atmospheric lighting"
+            }
+          ],
+          transition: "Fade",
+          animation: "FLOAT",
+          cameraMotion: { type: "ZOOM_OUT", intensity: 0.2 }
+        }
+      ];
+    } else if (domain === "KIDS") {
+      mockScenes = [
+        {
+          id: "sc-1",
+          sceneNumber: 1,
+          title: "Leo Arrives in the Meadow",
+          scriptText: "Meet Leo the little lion! Today is a big adventure day in the sunny meadow.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-1",
+              shotNumber: 1,
+              description: "Leo enters the bright cartoon meadow with a playful skip",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Character" },
+              durationSeconds: 5,
+              visualPrompt: "Bright colorful cartoon meadow with rainbow flowers and rolling green hills under a sunny blue sky"
+            }
+          ],
+          transition: "Cut",
+          animation: "ENTER_LEFT",
+          cameraMotion: { type: "ZOOM_IN", intensity: 0.2 },
+          characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+          animationInstructions: [
+            {
+              characterId: "char-leo",
+              action: "ENTER_LEFT",
+              movement: { startX: 0.35, startY: 0.65, endX: 0.35, endY: 0.65 }
+            }
+          ]
+        },
+        {
+          id: "sc-2",
+          sceneNumber: 2,
+          title: "Leo Explores the Path",
+          scriptText: "Leo trots happily along the flower path, looking for dancing butterflies.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-2",
+              shotNumber: 1,
+              description: "Leo walks across the path as the camera pans along",
+              camera: { angle: "Eye Level", pan: "Pan Right", zoom: "Static", focus: "Character" },
+              durationSeconds: 5,
+              visualPrompt: "Whimsical cartoon flower path winding through bright green trees with sparkling sunbeams"
+            }
+          ],
+          transition: "Cut",
+          animation: "WALK",
+          cameraMotion: { type: "PAN_RIGHT", intensity: 0.3 },
+          characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+          animationInstructions: [
+            {
+              characterId: "char-leo",
+              action: "WALK",
+              movement: { startX: 0.15, startY: 0.65, endX: 0.82, endY: 0.65 }
+            }
+          ]
+        },
+        {
+          id: "sc-3",
+          sceneNumber: 3,
+          title: "The Big Joyful Leap",
+          scriptText: "Look at that sparkling brook! Leo gathers speed and leaps high into the air!",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-3",
+              shotNumber: 1,
+              description: "Leo takes a high joyful leap over the crystal stream",
+              camera: { angle: "Low Angle", pan: "Static", zoom: "Zoom In", focus: "Action" },
+              durationSeconds: 5,
+              visualPrompt: "Playful cartoon sparkling crystal stream with colorful stepping stones and friendly mushrooms"
+            }
+          ],
+          transition: "Cut",
+          animation: "JUMP",
+          cameraMotion: { type: "ZOOM_IN", intensity: 0.3 },
+          characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+          animationInstructions: [
+            {
+              characterId: "char-leo",
+              action: "JUMP",
+              movement: { startX: 0.2, startY: 0.65, endX: 0.8, endY: 0.65 }
+            }
+          ]
+        },
+        {
+          id: "sc-4",
+          sceneNumber: 4,
+          title: "Leo Waves Goodbye",
+          scriptText: "Hooray, what a wonderful adventure! See you next time, little friends!",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-4",
+              shotNumber: 1,
+              description: "Leo standing in the center waving happily under sunset",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-out", focus: "Character" },
+              durationSeconds: 5,
+              visualPrompt: "Vibrant cartoon meadow clearing with gentle golden sunset, floating bubbles and twinkling stars"
+            }
+          ],
+          transition: "Cut",
+          animation: "WAVE",
+          cameraMotion: { type: "ZOOM_OUT", intensity: 0.2 },
+          characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+          animationInstructions: [
+            {
+              characterId: "char-leo",
+              action: "WAVE",
+              movement: { startX: 0.5, startY: 0.65, endX: 0.5, endY: 0.65 }
+            }
+          ]
+        }
+      ];
+    } else {
+      mockScenes = [
+        {
+          id: "sc-1",
+          sceneNumber: 1,
+          title: "Introduction",
+          scriptText: "Welcome to this deep dive into core concepts.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-1",
+              shotNumber: 1,
+              description: "Opening code editor",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
+              durationSeconds: 5,
+              visualPrompt: "Futuristic editor with bright glowing letters"
+            }
+          ],
+          transition: "Cut"
+        },
+        {
+          id: "sc-2",
+          sceneNumber: 2,
+          title: "Core Mechanics",
+          scriptText: "Here is how the foundational architecture operates.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-2",
+              shotNumber: 1,
+              description: "System diagram showing structural dataflow",
+              camera: { angle: "Eye Level", pan: "Pan Right", zoom: "Static", focus: "Diagram" },
+              durationSeconds: 5,
+              visualPrompt: "Clean modular architecture diagram in dark slate"
+            }
+          ],
+          transition: "Cut"
+        },
+        {
+          id: "sc-3",
+          sceneNumber: 3,
+          title: "Performance & Scale",
+          scriptText: "Scaling the engine ensures deterministic high throughput.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-3",
+              shotNumber: 1,
+              description: "Performance metrics graph over time",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Zoom In", focus: "Metrics" },
+              durationSeconds: 5,
+              visualPrompt: "Performance metrics visualization with glowing trendlines"
+            }
+          ],
+          transition: "Cut"
+        },
+        {
+          id: "sc-4",
+          sceneNumber: 4,
+          title: "Summary",
+          scriptText: "With these primitives in place, production workflows run seamlessly.",
+          durationSeconds: 5,
+          shots: [
+            {
+              id: "shot-4",
+              shotNumber: 1,
+              description: "Summary overview card",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-out", focus: "Summary" },
+              durationSeconds: 5,
+              visualPrompt: "Clean summary layout with key takeaways"
+            }
+          ],
+          transition: "Cut"
+        }
+      ];
+    }
 
     let scenes: Scene[] = mockScenes;
     let characters: SceneCharacter[] = defaultCharacters;
@@ -588,14 +932,14 @@ class StoryboardManagerImpl implements IStoryboardManager {
     if (topicPrompt) {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey || apiKey.trim() === "") {
-        console.warn("GEMINI_API_KEY is missing or empty. Falling back to mock storyboard.");
+        console.warn("GEMINI_API_KEY is missing or empty. Falling back to deterministic domain storyboard.");
       } else {
         let timeoutId: any;
         try {
           const controller = new AbortController();
           timeoutId = setTimeout(() => controller.abort(), 30000);
 
-          const systemPrompt = isKidsPrompt
+          const systemPrompt = domain === "KIDS"
             ? `You are an animation director for animated kids cartoon videos. Given the topic below, generate a 4-scene animated story with a single consistent cute animal/character protagonist (e.g. Leo the Lion, Barnaby Bear, Pip the Bunny). Each scene MUST have continuous programmatic animation action (e.g. ENTER_LEFT, WALK, JUMP, BOUNCE, WAVE, FLOAT, SHAKE) and a bright cartoon background prompt. Each scene duration should be 4 to 6 seconds so the total is approximately 20 seconds. Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact shape:
 {
   "character": { "id": string, "name": string, "description": string },
@@ -612,8 +956,8 @@ class StoryboardManagerImpl implements IStoryboardManager {
   ]
 }
 Topic: ${topicPrompt}`
-            : `You are a scriptwriter for short-form vertical videos. Given the topic below, write a script broken into EXACTLY 4 to 6 distinct scenes. Respond ONLY with valid JSON matching this exact shape:
-{ "scenes": [ { "title": string, "scriptText": string, "durationSeconds": number, "visualPrompt": string } ] }
+            : `You are an executive video director producing high-impact ${domain} video explainers. Given the topic below, generate an exact 4-scene script (each 5 seconds, total 20 seconds) tailored to the ${domain} domain with rich visual descriptions. Respond ONLY with valid JSON matching this exact shape:
+{ "scenes": [ { "title": string, "scriptText": string, "durationSeconds": number, "visualPrompt": string, "cameraMotion": "ZOOM_IN" | "ZOOM_OUT" | "PAN_LEFT" | "PAN_RIGHT" | "KEN_BURNS" } ] }
 Topic: ${topicPrompt}`;
 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
@@ -659,7 +1003,7 @@ Topic: ${topicPrompt}`;
               const sceneId = `sc-${sceneNum}`;
               const shotId = `shot-${sceneNum}`;
               const duration = typeof scene.durationSeconds === "number" ? scene.durationSeconds : 5;
-              const actionPreset = (scene.characterAction as AnimationActionPreset) || "WALK";
+              const actionPreset = (scene.characterAction as AnimationActionPreset) || (domain === "KIDS" ? "WALK" : "REVEAL");
               const charId = characters[0]?.id || "char-main";
 
               const startX = scene.movement?.startX ?? (actionPreset === "ENTER_LEFT" ? 0.35 : 0.2);
@@ -683,23 +1027,25 @@ Topic: ${topicPrompt}`;
                     visualPrompt: scene.visualPrompt || ""
                   }
                 ],
-                transition: "Cut",
+                transition: domain === "HISTORY" || domain === "DOCUMENTARY" ? "Fade" : "Cut",
                 animation: actionPreset,
                 cameraMotion: {
-                  type: scene.cameraMotion || "ZOOM_IN",
-                  intensity: 0.25
+                  type: scene.cameraMotion || visualStylePlan.cameraStyle.preferredMotion,
+                  intensity: visualStylePlan.cameraStyle.intensity
                 },
                 characterConfiguration: characters[0] ? { characterId: charId, name: characters[0].name } : undefined,
-                animationInstructions: [
-                  {
-                    characterId: charId,
-                    action: actionPreset,
-                    movement: { startX, startY, endX, endY }
-                  }
-                ]
+                animationInstructions: domain === "KIDS"
+                  ? [
+                      {
+                        characterId: charId,
+                        action: actionPreset,
+                        movement: { startX, startY, endX, endY }
+                      }
+                    ]
+                  : undefined
               };
             });
-            console.log(`Gemini storyboard generated ${scenes.length} scenes for topic: "${topicPrompt}"`);
+            console.log(`Gemini storyboard generated ${scenes.length} scenes for domain [${domain}] topic: "${topicPrompt}"`);
           }
         } catch (err: any) {
           console.error("Failed to generate storyboard using Gemini API, falling back to mock storyboard:", err);
@@ -713,6 +1059,20 @@ Topic: ${topicPrompt}`;
       }
     }
 
+    // Enrich all scenes with SceneVisualPlanner
+    scenes = scenes.map(sc => {
+      const visualPlan = SceneVisualPlanner.planScene(sc, visualStylePlan, characters);
+      return {
+        ...sc,
+        visualPlan,
+        layers: sc.layers && sc.layers.length > 0 ? sc.layers : visualPlan.layers,
+        overlays: visualPlan.overlays,
+        dataVisualizations: visualPlan.dataVisualizations,
+        cameraMotion: sc.cameraMotion || visualPlan.cameraMotion,
+        animationInstructions: sc.animationInstructions && sc.animationInstructions.length > 0 ? sc.animationInstructions : visualPlan.animationInstructions
+      };
+    });
+
     const totalScenes = scenes.length;
     const totalDurationSeconds = scenes.reduce((sum, s) => sum + s.durationSeconds, 0);
 
@@ -722,6 +1082,8 @@ Topic: ${topicPrompt}`;
       scriptId,
       scenes,
       characters,
+      visualStylePlan,
+      domainClassification,
       totalScenes,
       totalDurationSeconds,
       createdAt: new Date()
@@ -886,7 +1248,10 @@ class ImageGenerationManagerImpl implements IImageGenerationManager {
           const storageDir = path.join(process.cwd(), "storage", "media");
           fs.mkdirSync(storageDir, { recursive: true });
           const bgFile = path.join(storageDir, `bg-${sh.id}.png`);
-          fs.writeFileSync(bgFile, createCartoonBackground(1280, 720, "meadow"));
+          const domain = sc.visualPlan?.purpose
+            ? (sc.visualPlan.purpose.startsWith("FINANCE") ? "FINANCE" : sc.visualPlan.purpose.startsWith("HISTORY") ? "HISTORY" : sc.visualPlan.purpose.startsWith("DOCUMENTARY") ? "DOCUMENTARY" : sc.visualPlan.purpose.startsWith("KIDS") ? "KIDS" : "GENERAL")
+            : (sc.title?.includes("Inflation") ? "FINANCE" : sc.title?.includes("Rome") ? "HISTORY" : sc.title?.includes("Ocean") ? "DOCUMENTARY" : "GENERAL");
+          fs.writeFileSync(bgFile, createDomainBackground(domain, 1280, 720));
           mediaUrl = `file:///${bgFile.replace(/\\/g, "/")}`;
         }
 

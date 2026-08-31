@@ -75,12 +75,10 @@ export function createCartoonCharacterSprite(
         } else if (eye1 < 16 || eye2 < 16) {
           raw[pxOffset] = 255; raw[pxOffset + 1] = 255; raw[pxOffset + 2] = 255; raw[pxOffset + 3] = 255;
         } else if (cheek1 < 12 || cheek2 < 12) {
-          // Rosy cheeks
           raw[pxOffset] = 255; raw[pxOffset + 1] = 110; raw[pxOffset + 2] = 130; raw[pxOffset + 3] = 255;
         } else if (isSmile) {
           raw[pxOffset] = 190; raw[pxOffset + 1] = 30; raw[pxOffset + 2] = 40; raw[pxOffset + 3] = 255;
         } else {
-          // Mane / body
           if (isEar) {
             raw[pxOffset] = primaryColor.r - 20;
             raw[pxOffset + 1] = primaryColor.g - 20;
@@ -103,25 +101,18 @@ export function createCartoonCharacterSprite(
     }
   }
 
-  // PNG Header
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-
-  // IHDR chunk
   const ihdrData = Buffer.alloc(13);
   ihdrData.writeUInt32BE(width, 0);
   ihdrData.writeUInt32BE(height, 4);
-  ihdrData[8] = 8; // bit depth
-  ihdrData[9] = 6; // color type 6 (RGBA)
-  ihdrData[10] = 0; // compression
-  ihdrData[11] = 0; // filter
-  ihdrData[12] = 0; // interlace
+  ihdrData[8] = 8;
+  ihdrData[9] = 6;
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
   const ihdrChunk = makePngChunk("IHDR", ihdrData);
-
-  // IDAT chunk
   const compressed = zlib.deflateSync(raw);
   const idatChunk = makePngChunk("IDAT", compressed);
-
-  // IEND chunk
   const iendChunk = makePngChunk("IEND", Buffer.alloc(0));
 
   return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
@@ -148,32 +139,27 @@ export function createCartoonBackground(
       const normX = x / width;
 
       if (normY < 0.6) {
-        // Sky gradient
         if (theme === "sunset") {
           raw[pxOffset] = Math.round(255 - normY * 80);
           raw[pxOffset + 1] = Math.round(140 + normY * 60);
           raw[pxOffset + 2] = Math.round(180 + normY * 40);
         } else {
-          // Bright sunny blue sky
           raw[pxOffset] = Math.round(120 + normY * 80);
           raw[pxOffset + 1] = Math.round(190 + normY * 45);
           raw[pxOffset + 2] = 255;
         }
 
-        // Sun / clouds
         const sunDist = Math.sqrt((x - width * 0.8) ** 2 + (y - height * 0.25) ** 2);
         if (sunDist < 60) {
           raw[pxOffset] = 255; raw[pxOffset + 1] = 240; raw[pxOffset + 2] = 120;
         }
       } else {
-        // Rolling green hills / ground
         const hillOffset = Math.sin(normX * Math.PI * 3) * 35;
         if (y > height * 0.6 + hillOffset) {
           raw[pxOffset] = 85;
           raw[pxOffset + 1] = Math.round(190 + normY * 30);
           raw[pxOffset + 2] = 60;
         } else {
-          // Distant hill
           raw[pxOffset] = 110;
           raw[pxOffset + 1] = 175;
           raw[pxOffset + 2] = 90;
@@ -197,4 +183,147 @@ export function createCartoonBackground(
   const iendChunk = makePngChunk("IEND", Buffer.alloc(0));
 
   return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+}
+
+/**
+ * Generate a clean, dark editorial finance background PNG.
+ */
+export function createFinanceBackground(width = 1280, height = 720): Buffer {
+  const rowSize = width * 3 + 1;
+  const raw = Buffer.alloc(rowSize * height);
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * rowSize;
+    raw[rowOffset] = 0;
+    const normY = y / height;
+
+    for (let x = 0; x < width; x++) {
+      const pxOffset = rowOffset + 1 + x * 3;
+      const isGrid = x % 80 === 0 || y % 80 === 0;
+
+      if (isGrid) {
+        raw[pxOffset] = 20;
+        raw[pxOffset + 1] = 45;
+        raw[pxOffset + 2] = 80;
+      } else {
+        // Deep midnight gradient with subtle emerald tint
+        raw[pxOffset] = Math.round(8 + normY * 6);
+        raw[pxOffset + 1] = Math.round(18 + normY * 14);
+        raw[pxOffset + 2] = Math.round(35 + normY * 20);
+      }
+    }
+  }
+
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData[8] = 8;
+  ihdrData[9] = 2;
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
+  const ihdrChunk = makePngChunk("IHDR", ihdrData);
+  const compressed = zlib.deflateSync(raw);
+  const idatChunk = makePngChunk("IDAT", compressed);
+  const iendChunk = makePngChunk("IEND", Buffer.alloc(0));
+
+  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+}
+
+/**
+ * Generate a historical parchment / antique map background PNG.
+ */
+export function createHistoryBackground(width = 1280, height = 720): Buffer {
+  const rowSize = width * 3 + 1;
+  const raw = Buffer.alloc(rowSize * height);
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * rowSize;
+    raw[rowOffset] = 0;
+    const normY = y / height;
+
+    for (let x = 0; x < width; x++) {
+      const pxOffset = rowOffset + 1 + x * 3;
+      const vignette = Math.sqrt((x - width / 2) ** 2 + (y - height / 2) ** 2) / (width * 0.6);
+      const vigFactor = Math.max(0.4, 1.0 - vignette * 0.5);
+
+      // Warm aged parchment
+      raw[pxOffset] = Math.round((55 + normY * 10) * vigFactor);
+      raw[pxOffset + 1] = Math.round((35 + normY * 8) * vigFactor);
+      raw[pxOffset + 2] = Math.round((22 + normY * 5) * vigFactor);
+    }
+  }
+
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData[8] = 8;
+  ihdrData[9] = 2;
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
+  const ihdrChunk = makePngChunk("IHDR", ihdrData);
+  const compressed = zlib.deflateSync(raw);
+  const idatChunk = makePngChunk("IDAT", compressed);
+  const iendChunk = makePngChunk("IEND", Buffer.alloc(0));
+
+  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+}
+
+/**
+ * Generate a cinematic deep blue/oceanic documentary background PNG.
+ */
+export function createDocumentaryBackground(width = 1280, height = 720): Buffer {
+  const rowSize = width * 3 + 1;
+  const raw = Buffer.alloc(rowSize * height);
+
+  for (let y = 0; y < height; y++) {
+    const rowOffset = y * rowSize;
+    raw[rowOffset] = 0;
+    const normY = y / height;
+
+    for (let x = 0; x < width; x++) {
+      const pxOffset = rowOffset + 1 + x * 3;
+      // Oceanic abyss gradient
+      raw[pxOffset] = Math.round(4 + normY * 8);
+      raw[pxOffset + 1] = Math.round(30 + normY * 35);
+      raw[pxOffset + 2] = Math.round(65 + normY * 50);
+    }
+  }
+
+  const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData[8] = 8;
+  ihdrData[9] = 2;
+  ihdrData[10] = 0;
+  ihdrData[11] = 0;
+  ihdrData[12] = 0;
+  const ihdrChunk = makePngChunk("IHDR", ihdrData);
+  const compressed = zlib.deflateSync(raw);
+  const idatChunk = makePngChunk("IDAT", compressed);
+  const iendChunk = makePngChunk("IEND", Buffer.alloc(0));
+
+  return Buffer.concat([signature, ihdrChunk, idatChunk, iendChunk]);
+}
+
+/**
+ * Generate a domain-appropriate background PNG.
+ */
+export function createDomainBackground(domain = "GENERAL", width = 1280, height = 720): Buffer {
+  switch (domain.toUpperCase()) {
+    case "FINANCE":
+      return createFinanceBackground(width, height);
+    case "HISTORY":
+      return createHistoryBackground(width, height);
+    case "DOCUMENTARY":
+      return createDocumentaryBackground(width, height);
+    case "KIDS":
+      return createCartoonBackground(width, height, "meadow");
+    default:
+      return createFinanceBackground(width, height);
+  }
 }

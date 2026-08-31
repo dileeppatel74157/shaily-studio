@@ -13,13 +13,26 @@ import {
   AnimationActionPreset
 } from "../animation/models";
 
+import {
+  VisualStylePlan,
+  DomainClassificationResult,
+  SceneVisualPlan,
+  DataVisualizationSpec,
+  OverlaySpec
+} from "../visual-intelligence/models";
+
 export {
   SceneCharacter,
   SceneVisualLayer,
   AnimationInstruction,
   CameraMotion,
   AnimationKeyframe,
-  AnimationActionPreset
+  AnimationActionPreset,
+  VisualStylePlan,
+  DomainClassificationResult,
+  SceneVisualPlan,
+  DataVisualizationSpec,
+  OverlaySpec
 };
 
 export interface CameraMovement {
@@ -55,13 +68,15 @@ export interface Scene {
   animation?: string;
   camera?: string;
   cameraMotion?: CameraMotion;
-  overlays?: string[];
+  overlays?: string[] | OverlaySpec[];
   transitions?: string[];
   chartConfiguration?: Record<string, any>;
   mapConfiguration?: Record<string, any>;
   characterConfiguration?: Record<string, any>;
   animationInstructions?: AnimationInstruction[];
   timing?: Record<string, any>;
+  visualPlan?: SceneVisualPlan;
+  dataVisualizations?: DataVisualizationSpec[];
 }
 
 export interface Storyboard {
@@ -70,6 +85,8 @@ export interface Storyboard {
   scriptId: string;
   scenes: Scene[];
   characters?: SceneCharacter[];
+  visualStylePlan?: VisualStylePlan;
+  domainClassification?: DomainClassificationResult;
   totalScenes: number;
   totalDurationSeconds: number;
   createdAt: Date;

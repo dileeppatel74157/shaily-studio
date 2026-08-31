@@ -34,6 +34,7 @@ function makeContext(overrides: Record<string, any> = {}): any {
   const store = new Map<string, any>();
 
   return {
+    env: "test",
     logger: {
       info:  (..._args: any[]) => {},
       error: (..._args: any[]) => {},

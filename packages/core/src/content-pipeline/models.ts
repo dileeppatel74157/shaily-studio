@@ -4,6 +4,23 @@ import { AssetStatus } from "./AssetStatus";
 import { CompositionState } from "./CompositionState";
 import { RenderQuality } from "./RenderQuality";
 import { ContentPipelineState } from "./ContentPipelineState";
+import {
+  SceneCharacter,
+  SceneVisualLayer,
+  AnimationInstruction,
+  CameraMotion,
+  AnimationKeyframe,
+  AnimationActionPreset
+} from "../animation/models";
+
+export {
+  SceneCharacter,
+  SceneVisualLayer,
+  AnimationInstruction,
+  CameraMotion,
+  AnimationKeyframe,
+  AnimationActionPreset
+};
 
 export interface CameraMovement {
   angle: string;
@@ -33,15 +50,17 @@ export interface Scene {
   captions?: string;
   visualType?: "IMAGE" | "TEXT" | "SHAPE" | "CHART" | "MAP" | "DIAGRAM" | "CHARACTER" | "BACKGROUND" | "SCREENSHOT" | "PHOTO" | "VIDEO_ASSET";
   assets?: string[];
-  layers?: string[];
+  layers?: string[] | SceneVisualLayer[];
   text?: string;
   animation?: string;
   camera?: string;
+  cameraMotion?: CameraMotion;
   overlays?: string[];
   transitions?: string[];
   chartConfiguration?: Record<string, any>;
   mapConfiguration?: Record<string, any>;
   characterConfiguration?: Record<string, any>;
+  animationInstructions?: AnimationInstruction[];
   timing?: Record<string, any>;
 }
 
@@ -50,6 +69,7 @@ export interface Storyboard {
   projectId: string;
   scriptId: string;
   scenes: Scene[];
+  characters?: SceneCharacter[];
   totalScenes: number;
   totalDurationSeconds: number;
   createdAt: Date;

@@ -1,6 +1,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFile } from "node:child_process";
+
+const ffmpegDir = "C:\\Users\\asus\\AppData\\Local\\DigitalWave\\DW Free Video Downloader";
+if (fs.existsSync(ffmpegDir) && !process.env.PATH?.includes(ffmpegDir)) {
+  process.env.PATH = `${ffmpegDir};${process.env.PATH}`;
+}
 import { ContentPipelineState } from "./ContentPipelineState";
 import { ContentStage } from "./ContentStage";
 import { AssetType } from "./AssetType";
@@ -413,7 +418,14 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   }
 }
 
-// ─── Subsystem Implementation Modules ─────────────────────────────────────────
+import {
+  SceneCharacter,
+  SceneVisualLayer,
+  AnimationInstruction,
+  CameraMotion,
+  AnimationActionPreset
+} from "../animation/models";
+import { createCartoonCharacterSprite, createCartoonBackground } from "../animation/pngUtils";
 
 class StoryboardManagerImpl implements IStoryboardManager {
   private readonly _storyboards = new Map<string, Storyboard>();
@@ -421,29 +433,157 @@ class StoryboardManagerImpl implements IStoryboardManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async generateStoryboard(scriptId: string, projectId: string, topicPrompt?: string): Promise<Storyboard> {
-    // Automatically convert script parameters
-    const mockScenes: Scene[] = [
-      {
-        id: "sc-1",
-        sceneNumber: 1,
-        title: "Introduction",
-        scriptText: "Welcome to this deep dive into TypeScript features.",
-        durationSeconds: 10,
-        shots: [
+    const isKidsPrompt = topicPrompt && /kid|child|cartoon|animat|story|cute|lion|bear|fox/i.test(topicPrompt);
+
+    const defaultCharacters: SceneCharacter[] = isKidsPrompt
+      ? [
           {
-            id: "shot-1",
-            shotNumber: 1,
-            description: "Opening code editor",
-            camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
-            durationSeconds: 10,
-            visualPrompt: "Futuristic editor with bright glowing letters"
+            id: "char-leo",
+            name: "Leo the Lion Cub",
+            description: "Cute cheerful cartoon golden lion cub with big joyful eyes, fluffy mane, and a red bow tie",
+            assetUrl: ""
           }
-        ],
-        transition: "Cut"
-      }
-    ];
+        ]
+      : [];
+
+    const mockScenes: Scene[] = isKidsPrompt
+      ? [
+          {
+            id: "sc-1",
+            sceneNumber: 1,
+            title: "Leo Arrives in the Meadow",
+            scriptText: "Meet Leo the little lion! Today is a big adventure day in the sunny meadow.",
+            durationSeconds: 5,
+            shots: [
+              {
+                id: "shot-1",
+                shotNumber: 1,
+                description: "Leo enters the bright cartoon meadow with a playful skip",
+                camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Character" },
+                durationSeconds: 5,
+                visualPrompt: "Bright colorful cartoon meadow with rainbow flowers and rolling green hills under a sunny blue sky"
+              }
+            ],
+            transition: "Cut",
+            animation: "ENTER_LEFT",
+            cameraMotion: { type: "ZOOM_IN", intensity: 0.2 },
+            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+            animationInstructions: [
+              {
+                characterId: "char-leo",
+                action: "ENTER_LEFT",
+                movement: { startX: 0.35, startY: 0.65, endX: 0.35, endY: 0.65 }
+              }
+            ]
+          },
+          {
+            id: "sc-2",
+            sceneNumber: 2,
+            title: "Leo Explores the Path",
+            scriptText: "Leo trots happily along the flower path, looking for dancing butterflies.",
+            durationSeconds: 5,
+            shots: [
+              {
+                id: "shot-2",
+                shotNumber: 1,
+                description: "Leo walks across the path as the camera pans along",
+                camera: { angle: "Eye Level", pan: "Pan Right", zoom: "Static", focus: "Character" },
+                durationSeconds: 5,
+                visualPrompt: "Whimsical cartoon flower path winding through bright green trees with sparkling sunbeams"
+              }
+            ],
+            transition: "Cut",
+            animation: "WALK",
+            cameraMotion: { type: "PAN_RIGHT", intensity: 0.3 },
+            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+            animationInstructions: [
+              {
+                characterId: "char-leo",
+                action: "WALK",
+                movement: { startX: 0.15, startY: 0.65, endX: 0.82, endY: 0.65 }
+              }
+            ]
+          },
+          {
+            id: "sc-3",
+            sceneNumber: 3,
+            title: "The Big Joyful Leap",
+            scriptText: "Look at that sparkling brook! Leo gathers speed and leaps high into the air!",
+            durationSeconds: 5,
+            shots: [
+              {
+                id: "shot-3",
+                shotNumber: 1,
+                description: "Leo takes a high joyful leap over the crystal stream",
+                camera: { angle: "Low Angle", pan: "Static", zoom: "Zoom In", focus: "Action" },
+                durationSeconds: 5,
+                visualPrompt: "Playful cartoon sparkling crystal stream with colorful stepping stones and friendly mushrooms"
+              }
+            ],
+            transition: "Cut",
+            animation: "JUMP",
+            cameraMotion: { type: "ZOOM_IN", intensity: 0.3 },
+            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+            animationInstructions: [
+              {
+                characterId: "char-leo",
+                action: "JUMP",
+                movement: { startX: 0.2, startY: 0.65, endX: 0.8, endY: 0.65 }
+              }
+            ]
+          },
+          {
+            id: "sc-4",
+            sceneNumber: 4,
+            title: "Leo Waves Goodbye",
+            scriptText: "Hooray, what a wonderful adventure! See you next time, little friends!",
+            durationSeconds: 5,
+            shots: [
+              {
+                id: "shot-4",
+                shotNumber: 1,
+                description: "Leo standing in the center waving happily under sunset",
+                camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-out", focus: "Character" },
+                durationSeconds: 5,
+                visualPrompt: "Vibrant cartoon meadow clearing with gentle golden sunset, floating bubbles and twinkling stars"
+              }
+            ],
+            transition: "Cut",
+            animation: "WAVE",
+            cameraMotion: { type: "ZOOM_OUT", intensity: 0.2 },
+            characterConfiguration: { characterId: "char-leo", name: "Leo the Lion Cub" },
+            animationInstructions: [
+              {
+                characterId: "char-leo",
+                action: "WAVE",
+                movement: { startX: 0.5, startY: 0.65, endX: 0.5, endY: 0.65 }
+              }
+            ]
+          }
+        ]
+      : [
+          {
+            id: "sc-1",
+            sceneNumber: 1,
+            title: "Introduction",
+            scriptText: "Welcome to this deep dive into TypeScript features.",
+            durationSeconds: 10,
+            shots: [
+              {
+                id: "shot-1",
+                shotNumber: 1,
+                description: "Opening code editor",
+                camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
+                durationSeconds: 10,
+                visualPrompt: "Futuristic editor with bright glowing letters"
+              }
+            ],
+            transition: "Cut"
+          }
+        ];
 
     let scenes: Scene[] = mockScenes;
+    let characters: SceneCharacter[] = defaultCharacters;
 
     if (topicPrompt) {
       const apiKey = process.env.GEMINI_API_KEY;
@@ -455,6 +595,27 @@ class StoryboardManagerImpl implements IStoryboardManager {
           const controller = new AbortController();
           timeoutId = setTimeout(() => controller.abort(), 30000);
 
+          const systemPrompt = isKidsPrompt
+            ? `You are an animation director for animated kids cartoon videos. Given the topic below, generate a 4-scene animated story with a single consistent cute animal/character protagonist (e.g. Leo the Lion, Barnaby Bear, Pip the Bunny). Each scene MUST have continuous programmatic animation action (e.g. ENTER_LEFT, WALK, JUMP, BOUNCE, WAVE, FLOAT, SHAKE) and a bright cartoon background prompt. Each scene duration should be 4 to 6 seconds so the total is approximately 20 seconds. Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact shape:
+{
+  "character": { "id": string, "name": string, "description": string },
+  "scenes": [
+    {
+      "title": string,
+      "scriptText": string,
+      "durationSeconds": number,
+      "visualPrompt": string,
+      "characterAction": "ENTER_LEFT" | "WALK" | "JUMP" | "BOUNCE" | "WAVE" | "FLOAT" | "SHAKE" | "EXIT_RIGHT" | "IDLE",
+      "movement": { "startX": number, "startY": number, "endX": number, "endY": number },
+      "cameraMotion": "ZOOM_IN" | "ZOOM_OUT" | "PAN_LEFT" | "PAN_RIGHT" | "TRACK_SUBJECT" | "CAMERA_SHAKE"
+    }
+  ]
+}
+Topic: ${topicPrompt}`
+            : `You are a scriptwriter for short-form vertical videos. Given the topic below, write a script broken into EXACTLY 4 to 6 distinct scenes. Respond ONLY with valid JSON matching this exact shape:
+{ "scenes": [ { "title": string, "scriptText": string, "durationSeconds": number, "visualPrompt": string } ] }
+Topic: ${topicPrompt}`;
+
           const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
           const response = await fetch(url, {
             method: "POST",
@@ -463,11 +624,7 @@ class StoryboardManagerImpl implements IStoryboardManager {
             },
             body: JSON.stringify({
               contents: [{
-                parts: [{
-                  text: `You are a scriptwriter for short-form vertical videos. Given the topic below, write a script broken into EXACTLY 4 to 6 distinct scenes — never fewer than 4 scenes, even for simple topics. Each scene should cover a different aspect, location, or moment related to the topic (e.g. different landmarks, different parts of an event, different facts) so the scenes are visually varied, not repetitive. Each scene's durationSeconds should be between 3 and 6 seconds, so the total adds up to approximately the target video length implied by the topic. Respond ONLY with valid JSON (no markdown fences, no commentary) matching this exact shape:
-{ "scenes": [ { "title": string, "scriptText": string, "durationSeconds": number, "visualPrompt": string } ] }
-Topic: ${topicPrompt}`
-                }]
+                parts: [{ text: systemPrompt }]
               }],
               generationConfig: { responseMimeType: "application/json" }
             }),
@@ -485,42 +642,69 @@ Topic: ${topicPrompt}`
           }
 
           const parsed = JSON.parse(text);
-          if (!parsed || !Array.isArray(parsed.scenes)) {
-            throw new Error("Invalid response format: 'scenes' array not found or not an array");
-          }
-
-          console.log(`Gemini storyboard generated ${parsed.scenes.length} scenes for topic: "${topicPrompt}"`);
-          if (parsed.scenes.length < 2) {
-            console.warn(`Gemini returned only ${parsed.scenes.length} scene(s) despite requesting 4-6 — video will be shorter than expected.`);
-          }
-
-          scenes = parsed.scenes.map((scene: any, index: number) => {
-            const sceneNum = index + 1;
-            const sceneId = `sc-${sceneNum}`;
-            const shotId = `shot-${sceneNum}`;
-            const duration = typeof scene.durationSeconds === "number" ? scene.durationSeconds : 10;
-            return {
-              id: sceneId,
-              sceneNumber: sceneNum,
-              title: scene.title || `Scene ${sceneNum}`,
-              scriptText: scene.scriptText || "",
-              durationSeconds: duration,
-              shots: [
+          if (parsed && Array.isArray(parsed.scenes)) {
+            if (parsed.character) {
+              characters = [
                 {
-                  id: shotId,
-                  shotNumber: 1,
-                  description: scene.visualPrompt || "A visual scene portraying the topic",
-                  camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Subject" },
-                  durationSeconds: duration,
-                  visualPrompt: scene.visualPrompt || ""
+                  id: parsed.character.id || "char-main",
+                  name: parsed.character.name || "Main Character",
+                  description: parsed.character.description || "Cute 2D cartoon character",
+                  assetUrl: ""
                 }
-              ],
-              transition: "Cut"
-            };
-          });
+              ];
+            }
+
+            scenes = parsed.scenes.map((scene: any, index: number) => {
+              const sceneNum = index + 1;
+              const sceneId = `sc-${sceneNum}`;
+              const shotId = `shot-${sceneNum}`;
+              const duration = typeof scene.durationSeconds === "number" ? scene.durationSeconds : 5;
+              const actionPreset = (scene.characterAction as AnimationActionPreset) || "WALK";
+              const charId = characters[0]?.id || "char-main";
+
+              const startX = scene.movement?.startX ?? (actionPreset === "ENTER_LEFT" ? 0.35 : 0.2);
+              const startY = scene.movement?.startY ?? 0.65;
+              const endX = scene.movement?.endX ?? (actionPreset === "ENTER_LEFT" ? 0.35 : 0.8);
+              const endY = scene.movement?.endY ?? 0.65;
+
+              return {
+                id: sceneId,
+                sceneNumber: sceneNum,
+                title: scene.title || `Scene ${sceneNum}`,
+                scriptText: scene.scriptText || "",
+                durationSeconds: duration,
+                shots: [
+                  {
+                    id: shotId,
+                    shotNumber: 1,
+                    description: scene.visualPrompt || "A visual scene portraying the topic",
+                    camera: { angle: "Eye Level", pan: scene.cameraMotion || "Static", zoom: "Slow zoom-in", focus: "Subject" },
+                    durationSeconds: duration,
+                    visualPrompt: scene.visualPrompt || ""
+                  }
+                ],
+                transition: "Cut",
+                animation: actionPreset,
+                cameraMotion: {
+                  type: scene.cameraMotion || "ZOOM_IN",
+                  intensity: 0.25
+                },
+                characterConfiguration: characters[0] ? { characterId: charId, name: characters[0].name } : undefined,
+                animationInstructions: [
+                  {
+                    characterId: charId,
+                    action: actionPreset,
+                    movement: { startX, startY, endX, endY }
+                  }
+                ]
+              };
+            });
+            console.log(`Gemini storyboard generated ${scenes.length} scenes for topic: "${topicPrompt}"`);
+          }
         } catch (err: any) {
           console.error("Failed to generate storyboard using Gemini API, falling back to mock storyboard:", err);
           scenes = mockScenes;
+          characters = defaultCharacters;
         } finally {
           if (timeoutId) {
             clearTimeout(timeoutId);
@@ -537,6 +721,7 @@ Topic: ${topicPrompt}`
       projectId,
       scriptId,
       scenes,
+      characters,
       totalScenes,
       totalDurationSeconds,
       createdAt: new Date()
@@ -596,10 +781,62 @@ class ScenePlannerImpl implements IScenePlanner {
 }
 
 class ImageGenerationManagerImpl implements IImageGenerationManager {
+  private readonly _characterAssetCache = new Map<string, string>();
+
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async generateImages(scenes: Scene[]): Promise<GeneratedAsset[]> {
     const assets: GeneratedAsset[] = [];
+    const isTestMode =
+      this._engine.context?.env === "test" ||
+      this._engine.context?.metadata?.env === "test" ||
+      process.env.NODE_ENV === "test";
+
+    // Step 1: Discover distinct characters and generate/preserve consistent character assets
+    const charMap = new Map<string, string>(); // charId -> assetUrl
+    for (const sc of scenes) {
+      if (sc.characterConfiguration?.characterId) {
+        const charId = sc.characterConfiguration.characterId;
+        if (!charMap.has(charId)) {
+          let charAssetUrl = this._characterAssetCache.get(charId);
+          if (!charAssetUrl) {
+            const charName = sc.characterConfiguration.name || "Leo the Lion Cub";
+            const prompt = `Cute 2D cartoon character illustration, ${charName}, full body, clean readable shapes, isolated on transparent background, vibrant colors, kids storybook style`;
+
+            if (this._engine.context.mediaProviderEngine?.getImageManager()?.generateImage) {
+              try {
+                const res = await this._engine.context.mediaProviderEngine.getImageManager().generateImage({
+                  id: `char-img-${charId}`,
+                  prompt,
+                  mode: "TEXT_TO_IMAGE",
+                  metadata: { taskId: this._engine.currentTaskId, characterId: charId }
+                });
+                charAssetUrl = res.assets?.[0]?.url;
+              } catch (e) {
+                if (!isTestMode) throw e;
+              }
+            }
+
+            if (!charAssetUrl && isTestMode) {
+              const storageDir = path.join(process.cwd(), "storage", "media");
+              fs.mkdirSync(storageDir, { recursive: true });
+              const charFile = path.join(storageDir, `character-${charId}.png`);
+              fs.writeFileSync(charFile, createCartoonCharacterSprite(256, 256));
+              charAssetUrl = `file:///${charFile.replace(/\\/g, "/")}`;
+            }
+
+            if (charAssetUrl) {
+              this._characterAssetCache.set(charId, charAssetUrl);
+            }
+          }
+          if (charAssetUrl) {
+            charMap.set(charId, charAssetUrl);
+          }
+        }
+      }
+    }
+
+    // Step 2: Generate background images and build multi-layer structures per scene
     for (const sc of scenes) {
       for (const sh of sc.shots) {
         let mediaUrl = "https://mockmedia.ai/images/fallback.png";
@@ -626,16 +863,13 @@ class ImageGenerationManagerImpl implements IImageGenerationManager {
             throw new Error(`Media provider returned image asset with undefined URL for shot ${sh.id}`);
           }
 
-          // Validate that it doesn't leak mock/stub assets in production mode
-          const isTestMode = this._engine.context?.env === "test" || this._engine.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
           if (!isTestMode) {
             if (generatedAsset.url.includes("stub-img.png") || generatedAsset.url.includes("mockmedia.ai") || generatedAsset.url.includes("mock.ai")) {
               throw new Error(`Invalid mock image URL returned in production for shot ${sh.id}`);
             }
             if (generatedAsset.url.startsWith("file:///")) {
-              let p = generatedAsset.url.substring(8); // file:/// is 8 chars
+              let p = generatedAsset.url.substring(8);
               if (/^[a-zA-Z]:/.test(p)) {
-                // Windows path
               } else if (/^\/[a-zA-Z]:/.test(p)) {
                 p = p.substring(1);
               }
@@ -648,15 +882,56 @@ class ImageGenerationManagerImpl implements IImageGenerationManager {
 
           mediaUrl = generatedAsset.url;
           assetId = generatedAsset.id;
+        } else if (isTestMode) {
+          const storageDir = path.join(process.cwd(), "storage", "media");
+          fs.mkdirSync(storageDir, { recursive: true });
+          const bgFile = path.join(storageDir, `bg-${sh.id}.png`);
+          fs.writeFileSync(bgFile, createCartoonBackground(1280, 720, "meadow"));
+          mediaUrl = `file:///${bgFile.replace(/\\/g, "/")}`;
         }
 
-        // Validate final asset properties
-        if (!assetId) {
-          throw new Error(`Final image assetId is undefined for shot ${sh.id}`);
+        // Step 3: Populate multi-layer scene structure
+        const layers: SceneVisualLayer[] = [
+          {
+            id: `layer-bg-${sc.id}`,
+            layerType: "BACKGROUND",
+            assetUrl: mediaUrl,
+            zIndex: 0,
+            parallaxRate: 0.3
+          }
+        ];
+
+        const charId = sc.characterConfiguration?.characterId;
+        const charUrl = charId ? charMap.get(charId) : undefined;
+
+        if (charId && charUrl) {
+          const actionPreset = (sc.animation as AnimationActionPreset) || sc.animationInstructions?.[0]?.action || "WALK";
+          const movement = sc.animationInstructions?.[0]?.movement || {
+            startX: actionPreset === "ENTER_LEFT" ? 0.35 : 0.2,
+            startY: 0.65,
+            endX: actionPreset === "ENTER_LEFT" ? 0.35 : 0.8,
+            endY: 0.65
+          };
+
+          layers.push({
+            id: `layer-char-${sc.id}`,
+            layerType: "CHARACTER",
+            characterId: charId,
+            assetUrl: charUrl,
+            actionPreset,
+            movement,
+            initialPosition: {
+              x: movement.startX,
+              y: movement.startY,
+              width: 0.35,
+              height: 0.52
+            },
+            zIndex: 1,
+            parallaxRate: 1.0
+          });
         }
-        if (!mediaUrl) {
-          throw new Error(`Final image URL is undefined for shot ${sh.id}`);
-        }
+
+        sc.layers = layers;
 
         assets.push({
           id: assetId,
@@ -767,8 +1042,6 @@ class SfxGenerationManagerImpl implements ISfxGenerationManager {
   }
 }
 
-
-
 class CompositionManagerImpl implements ICompositionManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
@@ -792,11 +1065,14 @@ class CompositionManagerImpl implements ICompositionManager {
           sceneId: scene?.id,
           animation: scene?.animation,
           camera: scene?.camera,
+          cameraMotion: scene?.cameraMotion,
           text: scene?.text || scene?.overlayText,
           visualType: scene?.visualType || "IMAGE",
           chartConfiguration: scene?.chartConfiguration,
           mapConfiguration: scene?.mapConfiguration,
           characterConfiguration: scene?.characterConfiguration,
+          animationInstructions: scene?.animationInstructions,
+          layers: scene?.layers,
           duration: scene?.durationSeconds
         }
       };

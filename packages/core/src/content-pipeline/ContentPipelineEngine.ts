@@ -63,6 +63,8 @@ import { AudioMasteringEngine } from "../audio-intelligence/AudioMasteringEngine
 import { AudioTimeline, AudioMasterReport } from "../audio-intelligence/models";
 import { SceneDirector } from "../scene-composition/SceneDirector";
 import { SceneCompositionPlan } from "../scene-composition/models";
+import { NarrativeIntelligenceEngine, NarrativeGenerationResult } from "../narrative-intelligence";
+
 
 
 
@@ -77,8 +79,10 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   private _lastAudioTimeline?: AudioTimeline;
   private _lastAudioMasterReport?: AudioMasterReport;
   private _lastSceneCompositionPlans: SceneCompositionPlan[] = [];
+  private _lastNarrativeResult?: NarrativeGenerationResult;
   private readonly _assetPipelineEngine: AssetPipelineEngine;
   private readonly _audioPipelineEngine: AudioPipelineEngine;
+
 
   public get currentTaskId(): string | undefined {
     return this._currentTaskId;
@@ -119,6 +123,11 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   public get lastSceneCompositionPlans(): SceneCompositionPlan[] {
     return this._lastSceneCompositionPlans;
   }
+
+  public get lastNarrativeResult(): NarrativeGenerationResult | undefined {
+    return this._lastNarrativeResult;
+  }
+
 
 
   private _eventHandlers = new Map<string, Array<(payload: any) => void>>();
@@ -356,9 +365,15 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
               sceneId: p.sceneId,
               score: p.informationHierarchy?.totalComplexityScore,
               isOverloaded: p.informationHierarchy?.isOverloaded
-            }))
+            })),
+            narrativePlan: this._lastNarrativeResult?.narrativePlan,
+            scriptPlan: this._lastNarrativeResult?.scriptPlan,
+            narrativeQualityReport: this._lastNarrativeResult?.qualityReport,
+            contentIntent: this._lastNarrativeResult?.intent,
+            audienceProfile: this._lastNarrativeResult?.audience
           }
         },
+
 
         analyticsSeed: { expectedViews: 1000 },
         timestamp: new Date()
@@ -542,10 +557,17 @@ class StoryboardManagerImpl implements IStoryboardManager {
   public async generateStoryboard(scriptId: string, projectId: string, topicPrompt?: string): Promise<Storyboard> {
     const rawPrompt = topicPrompt || "";
     const domainClassification: DomainClassificationResult = await DomainClassifier.classify(rawPrompt);
-    const domain: ContentDomain = domainClassification.domain;
+    const domain = domainClassification.domain;
     const visualStylePlan: VisualStylePlan = VisualStylePlanner.plan(domainClassification, rawPrompt);
 
-    const defaultCharacters: SceneCharacter[] = domain === "KIDS"
+    // M12: Narrative Intelligence & Script Planning
+
+    const narrativeResult = NarrativeIntelligenceEngine.generateNarrative(
+      topicPrompt || "General explainer video discussing core architectural principles"
+    );
+    (this._engine as any)._lastNarrativeResult = narrativeResult;
+
+    const defaultCharacters: SceneCharacter[] = visualStylePlan.characterStrategy?.enabled
       ? [
           {
             id: "char-leo",

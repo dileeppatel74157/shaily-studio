@@ -7,7 +7,9 @@ export * from "./visual-primitives";
 export * from "./asset-intelligence";
 export * from "./audio-intelligence";
 export * from "./scene-composition";
+export * from "./narrative-intelligence";
 export { ModelDescriptor } from "./router/ModelDescriptor";
+
 
 
 

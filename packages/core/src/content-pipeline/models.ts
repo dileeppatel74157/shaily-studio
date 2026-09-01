@@ -163,7 +163,9 @@ export interface CompositionTimeline {
   audioTimeline?: any;
   audioMasterUrl?: string;
   audioMasterReport?: any;
+  sceneCompositionPlans?: any[];
 }
+
 
 
 export interface GeneratedAsset {

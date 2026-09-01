@@ -61,6 +61,9 @@ import { AssetManifest } from "../asset-intelligence/models";
 import { AudioPipelineEngine } from "../audio-intelligence/AudioPipelineEngine";
 import { AudioMasteringEngine } from "../audio-intelligence/AudioMasteringEngine";
 import { AudioTimeline, AudioMasterReport } from "../audio-intelligence/models";
+import { SceneDirector } from "../scene-composition/SceneDirector";
+import { SceneCompositionPlan } from "../scene-composition/models";
+
 
 
 
@@ -73,6 +76,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   private _lastAssetManifest?: AssetManifest;
   private _lastAudioTimeline?: AudioTimeline;
   private _lastAudioMasterReport?: AudioMasterReport;
+  private _lastSceneCompositionPlans: SceneCompositionPlan[] = [];
   private readonly _assetPipelineEngine: AssetPipelineEngine;
   private readonly _audioPipelineEngine: AudioPipelineEngine;
 
@@ -111,6 +115,11 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   public get lastAudioMasterReport(): AudioMasterReport | undefined {
     return this._lastAudioMasterReport;
   }
+
+  public get lastSceneCompositionPlans(): SceneCompositionPlan[] {
+    return this._lastSceneCompositionPlans;
+  }
+
 
   private _eventHandlers = new Map<string, Array<(payload: any) => void>>();
   private _reports = new Map<string, PublishingPackage>();
@@ -336,9 +345,21 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
             renderOutputPath: renderReport.renderedFileUrl,
             videoFileUrl: renderReport.renderedFileUrl,
             assetManifest: this._lastAssetManifest,
-            audioMasterReport: this._lastAudioMasterReport
+            audioMasterReport: this._lastAudioMasterReport,
+            sceneCompositionPlans: this._lastSceneCompositionPlans,
+            sceneBeats: this._lastSceneCompositionPlans.flatMap(p => p.beats),
+            focusTargets: this._lastSceneCompositionPlans.flatMap(p => p.focusTargets),
+            timingMaps: this._lastSceneCompositionPlans.map(p => p.timingMap),
+            pacingProfiles: this._lastSceneCompositionPlans.map(p => p.pacing),
+            continuityStates: this._lastSceneCompositionPlans.map(p => p.continuity),
+            compositionComplexityScores: this._lastSceneCompositionPlans.map(p => ({
+              sceneId: p.sceneId,
+              score: p.informationHierarchy?.totalComplexityScore,
+              isOverloaded: p.informationHierarchy?.isOverloaded
+            }))
           }
         },
+
         analyticsSeed: { expectedViews: 1000 },
         timestamp: new Date()
       };
@@ -1167,32 +1188,54 @@ class ScenePlannerImpl implements IScenePlanner {
 
   public async planScenes(storyboardId: string): Promise<Scene[]> {
     const storyboard = this._engine.getStoryboardManager().getStoryboard(storyboardId);
+    let scenes: Scene[] = [];
     if (storyboard && storyboard.scenes && storyboard.scenes.length > 0) {
-      return storyboard.scenes;
+      scenes = storyboard.scenes;
+    } else {
+      scenes = [
+        {
+          id: "sc-1",
+          sceneNumber: 1,
+          title: "Introduction",
+          scriptText: "Welcome to this deep dive into TypeScript features.",
+          durationSeconds: 10,
+          shots: [
+            {
+              id: "shot-1",
+              shotNumber: 1,
+              description: "Opening code editor",
+              camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
+              durationSeconds: 10,
+              visualPrompt: "Futuristic editor with bright glowing letters"
+            }
+          ],
+          transition: "Cut"
+        }
+      ];
     }
 
-    return [
-      {
-        id: "sc-1",
-        sceneNumber: 1,
-        title: "Introduction",
-        scriptText: "Welcome to this deep dive into TypeScript features.",
-        durationSeconds: 10,
-        shots: [
-          {
-            id: "shot-1",
-            shotNumber: 1,
-            description: "Opening code editor",
-            camera: { angle: "Eye Level", pan: "Static", zoom: "Slow zoom-in", focus: "Code" },
-            durationSeconds: 10,
-            visualPrompt: "Futuristic editor with bright glowing letters"
-          }
-        ],
-        transition: "Cut"
+    if (storyboard) {
+      let prevContinuity: any;
+      const compositionPlans: SceneCompositionPlan[] = [];
+      for (let i = 0; i < scenes.length; i++) {
+        const sc = scenes[i];
+        const plan = SceneDirector.directScene({
+          scene: sc,
+          sceneIndex: i,
+          storyboard,
+          visualStylePlan: storyboard.visualStylePlan,
+          previousContinuity: prevContinuity
+        });
+        prevContinuity = plan.continuity;
+        compositionPlans.push(plan);
       }
-    ];
+      (this._engine as any)._lastSceneCompositionPlans = compositionPlans;
+    }
+
+    return scenes;
   }
 }
+
 
 class ImageGenerationManagerImpl implements IImageGenerationManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
@@ -1415,8 +1458,10 @@ class CompositionManagerImpl implements ICompositionManager {
       state: CompositionState.COMPLETED,
       audioTimeline: (this._engine as any)._lastAudioTimeline,
       audioMasterUrl: (this._engine as any)._lastAudioMasterReport?.masterFileUrl,
-      audioMasterReport: (this._engine as any)._lastAudioMasterReport
+      audioMasterReport: (this._engine as any)._lastAudioMasterReport,
+      sceneCompositionPlans: (this._engine as any)._lastSceneCompositionPlans
     };
+
 
   }
 }

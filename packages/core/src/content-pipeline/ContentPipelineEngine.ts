@@ -1438,10 +1438,13 @@ class CompositionManagerImpl implements ICompositionManager {
           characterConfiguration: scene?.characterConfiguration,
           animationInstructions: scene?.animationInstructions,
           layers: scene?.layers,
+          visualPlan: scene?.visualPlan,
+          visualPrimitives: scene?.visualPlan?.visualPrimitives || (scene as any)?.visualPrimitives,
           duration: scene?.durationSeconds
         }
       };
     });
+
 
     const voiceRefs: AssetReference[] = voice.map(vox => ({
       id: vox.id,

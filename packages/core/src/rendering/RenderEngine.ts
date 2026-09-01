@@ -93,7 +93,11 @@ import {
   deepFreeze,
 } from "./types";
 import { AnimationCompiler } from "../animation/AnimationCompiler";
-import { createCartoonCharacterSprite, createCartoonBackground } from "../animation/pngUtils";
+import { createCartoonCharacterSprite, createCartoonBackground, createDomainBackground } from "../animation/pngUtils";
+import { PrimitiveRenderer } from "../visual-primitives/PrimitiveRenderer";
+import { PrimitiveCompiler } from "../visual-primitives/PrimitiveCompiler";
+import { VisualPrimitive } from "../visual-primitives/models";
+
 
 // ─── Default Frame Renderer ───────────────────────────────────────────────────
 
@@ -754,17 +758,140 @@ export class RenderEngine implements IRenderEngine {
           const dur = clip.endTimeSeconds - clip.startTimeSeconds;
           const sceneOutputPath = path.join(tempDir, `scene-${i}.mp4`);
 
-          // Check if this clip contains multi-layer animation instructions
+          // Check if this clip contains visual primitives
+          const visualPrimitives: VisualPrimitive[] =
+            clip.meta?.visualPrimitives ||
+            clip.visualPrimitives ||
+            clip.meta?.visualPlan?.visualPrimitives ||
+            [];
+
           const layers = clip.meta?.layers;
-          if (layers && Array.isArray(layers) && layers.length > 0) {
-            // Multi-layer animated scene rendering
+
+          if (visualPrimitives && visualPrimitives.length > 0) {
+            // ── Universal Visual Primitive Multi-Layer Rendering ──
+            const localPrimitivePaths: string[] = [];
+
+            // 1. Prepare Background Layer (Input 0)
+            const bgSrcPath = fileUrlToPath(clip.assetPath || clip.url || "");
+            let localBgPath = bgSrcPath;
+
+            if (isTestMode && (!bgSrcPath || bgSrcPath.includes("mockmedia.ai") || bgSrcPath.includes("mock.ai"))) {
+              const tempBgPath = path.join(tempDir, `bg-${i}.png`);
+              const domain = clip.meta?.visualPlan?.purpose?.includes("FINANCE") ? "FINANCE" :
+                clip.meta?.visualPlan?.purpose?.includes("HISTORY") ? "HISTORY" :
+                clip.meta?.visualPlan?.purpose?.includes("DOCUMENTARY") ? "DOCUMENTARY" :
+                clip.meta?.visualPlan?.purpose?.includes("KIDS") ? "KIDS" : "GENERAL";
+              fs.writeFileSync(tempBgPath, createDomainBackground(domain, 1920, 1080));
+              localBgPath = tempBgPath;
+            } else if (bgSrcPath.startsWith("http://") || bgSrcPath.startsWith("https://")) {
+              try {
+                const res = await fetch(bgSrcPath);
+                if (res.ok) {
+                  const arrayBuf = await res.arrayBuffer();
+                  const tempBgPath = path.join(tempDir, `downloaded-bg-${i}.png`);
+                  fs.writeFileSync(tempBgPath, Buffer.from(arrayBuf));
+                  localBgPath = tempBgPath;
+                } else {
+                  throw new Error("HTTP fail");
+                }
+              } catch (_) {
+                if (isTestMode) {
+                  const tempBgPath = path.join(tempDir, `fallback-bg-${i}.png`);
+                  fs.writeFileSync(tempBgPath, createDomainBackground("GENERAL", 1920, 1080));
+                  localBgPath = tempBgPath;
+                } else {
+                  throw new RenderingException(`Required background asset unavailable: path=${bgSrcPath}`);
+                }
+              }
+            } else {
+              if (!fs.existsSync(localBgPath)) {
+                if (isTestMode) {
+                  fs.mkdirSync(path.dirname(localBgPath), { recursive: true });
+                  fs.writeFileSync(localBgPath, createDomainBackground("GENERAL", 1920, 1080));
+                } else {
+                  throw new RenderingException(`Required background asset unavailable: path=${localBgPath}`);
+                }
+              }
+            }
+
+            // 2. Prepare Primitive Layers (Inputs 1..N)
+            for (let j = 0; j < visualPrimitives.length; j++) {
+              const prim = visualPrimitives[j];
+              const primDim = prim.dimensions || {
+                width: Math.round((prim.position.width ?? 0.5) * 1920),
+                height: Math.round((prim.position.height ?? 0.3) * 1080)
+              };
+
+              if (prim.type === "CHARACTER" && prim.metadata?.assetUrl) {
+                let charPath = fileUrlToPath(prim.metadata.assetUrl);
+                if (isTestMode && (!charPath || charPath.includes("mockmedia.ai") || charPath.includes("mock.ai"))) {
+                  const tempCharPath = path.join(tempDir, `prim-${i}-char-${j}.png`);
+                  fs.writeFileSync(tempCharPath, createCartoonCharacterSprite(256, 256));
+                  charPath = tempCharPath;
+                } else if (!fs.existsSync(charPath)) {
+                  if (isTestMode) {
+                    fs.mkdirSync(path.dirname(charPath), { recursive: true });
+                    fs.writeFileSync(charPath, createCartoonCharacterSprite(256, 256));
+                  } else {
+                    throw new RenderingException(`Required character primitive asset unavailable: path=${charPath}`);
+                  }
+                }
+                localPrimitivePaths.push(charPath);
+              } else {
+                // Render transparent RGBA PNG artifact
+                const pngBuffer = PrimitiveRenderer.renderPrimitiveToPng(prim, primDim);
+                const primPngPath = path.join(tempDir, `prim-${i}-${j}.png`);
+                fs.writeFileSync(primPngPath, pngBuffer);
+                localPrimitivePaths.push(primPngPath);
+              }
+            }
+
+
+
+            const camMotion = clip.meta?.cameraMotion || { type: clip.meta?.animation || "ZOOM_IN" };
+            const { filterComplex } = PrimitiveCompiler.compileFilterGraph(
+              visualPrimitives,
+              camMotion,
+              dur,
+              1920,
+              1080,
+              24
+            );
+
+            const args = ["-y", "-loop", "1", "-i", localBgPath];
+            for (const pPath of localPrimitivePaths) {
+              args.push("-loop", "1", "-i", pPath);
+            }
+            args.push(
+              "-filter_complex", filterComplex,
+              "-map", "[finalv]",
+              "-c:v", "libx264",
+              "-preset", "ultrafast",
+              "-t", dur.toFixed(3),
+              "-pix_fmt", "yuv420p",
+              "-r", "24",
+              "-an",
+              sceneOutputPath
+            );
+
+            await execFilePromise("ffmpeg", args);
+          } else if (layers && Array.isArray(layers) && layers.length > 0) {
+            // Multi-layer animated scene rendering (legacy / character-only fallback)
             const localLayerPaths: string[] = [];
             for (let j = 0; j < layers.length; j++) {
               const lyr = layers[j];
               const lyrRawPath = fileUrlToPath(lyr.assetUrl || clip.assetPath || clip.url);
               let lyrLocalPath = lyrRawPath;
 
-              if (lyrRawPath.startsWith("http://") || lyrRawPath.startsWith("https://")) {
+              if (isTestMode && (!lyrRawPath || lyrRawPath.includes("mockmedia.ai") || lyrRawPath.includes("mock.ai"))) {
+                const tempLyrPath = path.join(tempDir, `fallback-${i}-lyr-${j}.png`);
+                if (lyr.layerType === "CHARACTER") {
+                  fs.writeFileSync(tempLyrPath, createCartoonCharacterSprite(256, 256));
+                } else {
+                  fs.writeFileSync(tempLyrPath, createCartoonBackground(1280, 720));
+                }
+                lyrLocalPath = tempLyrPath;
+              } else if (lyrRawPath.startsWith("http://") || lyrRawPath.startsWith("https://")) {
                 try {
                   const res = await fetch(lyrRawPath);
                   if (res.ok) {
@@ -836,7 +963,12 @@ export class RenderEngine implements IRenderEngine {
             // Single layer visual clip fallback
             const srcPath = fileUrlToPath(clip.assetPath || clip.url);
             let localSrcPath = srcPath;
-            if (srcPath.startsWith("http://") || srcPath.startsWith("https://")) {
+
+            if (isTestMode && (!srcPath || srcPath.includes("mockmedia.ai") || srcPath.includes("mock.ai"))) {
+              const tempImgPath = path.join(tempDir, `fallback-${i}.png`);
+              fs.writeFileSync(tempImgPath, createCartoonBackground(1280, 720));
+              localSrcPath = tempImgPath;
+            } else if (srcPath.startsWith("http://") || srcPath.startsWith("https://")) {
               try {
                 const res = await fetch(srcPath);
                 if (res.ok) {
@@ -906,6 +1038,7 @@ export class RenderEngine implements IRenderEngine {
             await execFilePromise("ffmpeg", args);
           }
         }
+
 
         const concatListPath = path.join(tempDir, "concat-list.txt");
         const concatContent = Array.from({ length: visualClips.length }, (_, i) => {

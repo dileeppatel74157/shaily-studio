@@ -16,6 +16,8 @@ import {
   AnimationInstruction,
   SceneCharacter
 } from "../animation/models";
+import { PrimitiveCompiler } from "../visual-primitives/PrimitiveCompiler";
+
 
 export class SceneVisualPlanner {
   /**
@@ -177,7 +179,7 @@ export class SceneVisualPlanner {
     else if (dataVisualizations.some(d => d.type === "MAP")) dominantVisualType = "MAP";
     else if (overlays.some(o => o.type === "INFOGRAPHIC_CARD")) dominantVisualType = "INFOGRAPHIC";
 
-    return {
+    const planResult: SceneVisualPlan = {
       purpose,
       visualObjective,
       layers,
@@ -187,5 +189,16 @@ export class SceneVisualPlanner {
       dataVisualizations,
       dominantVisualType
     };
+
+    planResult.visualPrimitives = PrimitiveCompiler.planToPrimitives(
+      planResult,
+      stylePlan,
+      dur,
+      1920,
+      1080
+    );
+
+    return planResult;
   }
 }
+

@@ -115,6 +115,8 @@ export interface VisualStylePlan {
   };
 }
 
+import { VisualPrimitive } from "../visual-primitives/models";
+
 export interface SceneVisualPlan {
   purpose: string;
   visualObjective: string;
@@ -124,4 +126,6 @@ export interface SceneVisualPlan {
   overlays: OverlaySpec[];
   dataVisualizations: DataVisualizationSpec[];
   dominantVisualType: "IMAGE" | "CHARACTER" | "CHART" | "MAP" | "INFOGRAPHIC" | "DIAGRAM";
+  visualPrimitives?: VisualPrimitive[];
 }
+

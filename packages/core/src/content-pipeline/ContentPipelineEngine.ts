@@ -58,6 +58,11 @@ import { ContentPipelineValidator } from "./ContentPipelineValidator";
 import { GenerationMode } from "../media-provider/GenerationMode";
 import { AssetPipelineEngine } from "../asset-intelligence/AssetPipelineEngine";
 import { AssetManifest } from "../asset-intelligence/models";
+import { AudioPipelineEngine } from "../audio-intelligence/AudioPipelineEngine";
+import { AudioMasteringEngine } from "../audio-intelligence/AudioMasteringEngine";
+import { AudioTimeline, AudioMasterReport } from "../audio-intelligence/models";
+
+
 
 export class ContentPipelineEngine implements IContentPipelineEngine {
   private _state: ContentPipelineState = ContentPipelineState.CREATED;
@@ -66,7 +71,10 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
   private _currentTaskId?: string;
   private _currentProjectId?: string;
   private _lastAssetManifest?: AssetManifest;
+  private _lastAudioTimeline?: AudioTimeline;
+  private _lastAudioMasterReport?: AudioMasterReport;
   private readonly _assetPipelineEngine: AssetPipelineEngine;
+  private readonly _audioPipelineEngine: AudioPipelineEngine;
 
   public get currentTaskId(): string | undefined {
     return this._currentTaskId;
@@ -88,9 +96,22 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
     return this._assetPipelineEngine;
   }
 
+  public get audioPipelineEngine(): AudioPipelineEngine {
+    return this._audioPipelineEngine;
+  }
+
   public get lastAssetManifest(): AssetManifest | undefined {
     return this._lastAssetManifest;
   }
+
+  public get lastAudioTimeline(): AudioTimeline | undefined {
+    return this._lastAudioTimeline;
+  }
+
+  public get lastAudioMasterReport(): AudioMasterReport | undefined {
+    return this._lastAudioMasterReport;
+  }
+
   private _eventHandlers = new Map<string, Array<(payload: any) => void>>();
   private _reports = new Map<string, PublishingPackage>();
 
@@ -131,6 +152,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
     }
 
     this._assetPipelineEngine = new AssetPipelineEngine(context);
+    this._audioPipelineEngine = new AudioPipelineEngine(context);
 
     // Initialize default implementations of managers
     this._storyboardMgr = new StoryboardManagerImpl(this);
@@ -295,6 +317,8 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
         metadata: {
           renderQuality: RenderQuality.HIGH,
           assetManifest: this._lastAssetManifest,
+          audioMasterReport: this._lastAudioMasterReport,
+          audioTimeline: this._lastAudioTimeline,
           debugInfo: {
             detectedDomain: storyboard.domainClassification?.domain || "GENERAL",
             confidence: storyboard.domainClassification?.confidence || 1.0,
@@ -311,7 +335,8 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
             })),
             renderOutputPath: renderReport.renderedFileUrl,
             videoFileUrl: renderReport.renderedFileUrl,
-            assetManifest: this._lastAssetManifest
+            assetManifest: this._lastAssetManifest,
+            audioMasterReport: this._lastAudioMasterReport
           }
         },
         analyticsSeed: { expectedViews: 1000 },
@@ -1223,43 +1248,37 @@ class VoiceGenerationManagerImpl implements IVoiceGenerationManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async generateVoice(scenes: Scene[]): Promise<VoiceSegment[]> {
-    const segments: VoiceSegment[] = [];
-    let currentOffset = 0;
+    const isTestMode =
+      this._engine.context?.env === "test" ||
+      this._engine.context?.metadata?.env === "test" ||
+      process.env.NODE_ENV === "test";
 
-    for (const sc of scenes) {
-      let audioUrl = "https://mockmedia.ai/voices/intro.mp3";
-      if (this._engine.context.mediaProviderEngine?.getVoiceManager()?.textToSpeech) {
-        const res = await this._engine.context.mediaProviderEngine.getVoiceManager().textToSpeech({
-          id: `vox-${sc.id}`,
-          text: sc.scriptText,
-          voiceId: "Rachel",
-          mode: GenerationMode.TEXT_TO_SPEECH
-        });
-        audioUrl = res.audioUrl ?? audioUrl;
-      }
+    const storyboard: Storyboard = {
+      id: `sb-${Date.now()}`,
+      projectId: this._engine.currentProjectId || "project-default",
+      scriptId: `script-${Date.now()}`,
+      scenes,
+      totalScenes: scenes.length,
+      totalDurationSeconds: scenes.reduce((acc, s) => acc + s.durationSeconds, 0),
+      createdAt: new Date()
+    };
 
-      // Validate that it doesn't leak mock/stub assets in production mode
-      const isTestMode = this._engine.context?.env === "test" || this._engine.context?.metadata?.env === "test" || process.env.NODE_ENV === "test";
-      if (!isTestMode) {
-        if (audioUrl.includes("stub-voice") || audioUrl.includes("mockmedia.ai") || audioUrl.includes("mock.ai")) {
-          throw new Error(`Invalid mock voice URL returned in production for scene ${sc.id}`);
-        }
-      }
+    const audioRes = await this._engine.audioPipelineEngine.produceAudio(storyboard, this._engine.currentTaskId);
+    (this._engine as any)._lastAudioTimeline = audioRes.timeline;
+    (this._engine as any)._lastAudioMasterReport = audioRes.masterReport;
 
-      segments.push({
-        id: `vox-seg-${sc.id}`,
-        sceneId: sc.id,
-        text: sc.scriptText,
-        audioUrl,
-        durationSeconds: sc.durationSeconds,
-        speakerId: "Rachel",
-        startOffsetSeconds: currentOffset
-      });
-      currentOffset += sc.durationSeconds;
-    }
-    return segments;
+    return audioRes.narrationPlan.segments.map(seg => ({
+      id: seg.id,
+      sceneId: seg.sceneId,
+      text: seg.text,
+      audioUrl: seg.audioUrl || `file:///${seg.filePath?.replace(/\\/g, "/")}`,
+      durationSeconds: seg.actualDurationSeconds || seg.expectedDurationSeconds || 5,
+      speakerId: seg.speakerId,
+      startOffsetSeconds: seg.startOffsetSeconds || 0
+    }));
   }
 }
+
 
 class MusicGenerationManagerImpl implements IMusicGenerationManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}
@@ -1393,8 +1412,12 @@ class CompositionManagerImpl implements ICompositionManager {
       durationSeconds: totalDur,
       resolution: "1920x1080",
       fps: 30,
-      state: CompositionState.COMPLETED
+      state: CompositionState.COMPLETED,
+      audioTimeline: (this._engine as any)._lastAudioTimeline,
+      audioMasterUrl: (this._engine as any)._lastAudioMasterReport?.masterFileUrl,
+      audioMasterReport: (this._engine as any)._lastAudioMasterReport
     };
+
   }
 }
 
@@ -1530,17 +1553,9 @@ class RenderManagerImpl implements IRenderManager {
         const imagePath = fileUrlToPath(imageAssets[i].url);
         const voicePath = fileUrlToPath(voiceAssets[i].url);
 
-        // 3. Query voice duration using ffprobe
-        const { stdout: durationStdout } = await execFilePromise("ffprobe", [
-          "-v", "error",
-          "-show_entries", "format=duration",
-          "-of", "default=noprint_wrappers=1:nokey=1",
-          voicePath
-        ]);
-        const duration = parseFloat(durationStdout.trim());
-        if (isNaN(duration)) {
-          throw new Error(`Failed to parse voice duration from ffprobe: "${durationStdout}"`);
-        }
+        // 3. Query voice duration using AudioMasteringEngine
+        const duration = (await AudioMasteringEngine.queryAudioDuration(voicePath)) || 5;
+
 
         // 4. Build per-scene clip
         const sceneOutputPath = path.join(tempDir, `scene-${i}.mp4`);

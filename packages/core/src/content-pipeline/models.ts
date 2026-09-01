@@ -160,7 +160,11 @@ export interface CompositionTimeline {
   resolution: string;
   fps: number;
   state: CompositionState;
+  audioTimeline?: any;
+  audioMasterUrl?: string;
+  audioMasterReport?: any;
 }
+
 
 export interface GeneratedAsset {
   id: string;

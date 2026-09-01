@@ -10,8 +10,18 @@ import { PipelineEventType } from "./content-pipeline/PipelineEventType";
 import { ContentPipelineValidator } from "./content-pipeline/ContentPipelineValidator";
 import { ValidationException } from "./content-pipeline/types";
 
+import * as fs from "fs";
+
 let passed = 0;
 let failed = 0;
+
+function setupFfmpegPath() {
+  const ffmpegDir = "C:\\Users\\asus\\AppData\\Local\\DigitalWave\\DW Free Video Downloader";
+  if (fs.existsSync(ffmpegDir) && !process.env.PATH?.includes(ffmpegDir)) {
+    process.env.PATH = `${ffmpegDir};${process.env.PATH}`;
+  }
+}
+setupFfmpegPath();
 
 function assert(condition: boolean, label: string): void {
   if (condition) {
@@ -22,6 +32,7 @@ function assert(condition: boolean, label: string): void {
     failed++;
   }
 }
+
 
 // Make a Mock Context with event bus, database, memory, and media provider engines
 function makeMockContext(overrides: Record<string, any> = {}): any {

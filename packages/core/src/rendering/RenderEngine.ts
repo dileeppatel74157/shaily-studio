@@ -1059,7 +1059,18 @@ export class RenderEngine implements IRenderEngine {
 
         // Step 3: Mix all audio clips
         const audioMixPath = path.join(tempDir, "audio-mix.wav");
-        if (voiceClips.length === 0 && musicClips.length === 0 && sfxClips.length === 0) {
+        const masterUrl = (timeline as any).audioMasterUrl || (timeline as any).audioTimeline?.masterFilePath;
+        let localMasterPath: string | null = null;
+        if (masterUrl) {
+          const resolved = fileUrlToPath(masterUrl);
+          if (fs.existsSync(resolved)) {
+            localMasterPath = resolved;
+          }
+        }
+
+        if (localMasterPath) {
+          fs.copyFileSync(localMasterPath, audioMixPath);
+        } else if (voiceClips.length === 0 && musicClips.length === 0 && sfxClips.length === 0) {
           await execFilePromise("ffmpeg", [
             "-y",
             "-f", "lavfi",
@@ -1071,6 +1082,7 @@ export class RenderEngine implements IRenderEngine {
           const audioInputs: string[] = [];
           const filterFilters: string[] = [];
           let inputIdx = 0;
+
 
           const processAudioPath = (filePath: string, durationSec: number, isOptional: boolean): string | null => {
             const resolved = fileUrlToPath(filePath);

@@ -56,12 +56,17 @@ import { KnowledgeNodeType } from "../knowledge-base/KnowledgeNodeType";
 import { KnowledgeSource } from "../knowledge-base/KnowledgeSource";
 import { ContentPipelineValidator } from "./ContentPipelineValidator";
 import { GenerationMode } from "../media-provider/GenerationMode";
+import { AssetPipelineEngine } from "../asset-intelligence/AssetPipelineEngine";
+import { AssetManifest } from "../asset-intelligence/models";
 
 export class ContentPipelineEngine implements IContentPipelineEngine {
   private _state: ContentPipelineState = ContentPipelineState.CREATED;
   private _currentStage: ContentStage = ContentStage.STORYBOARD;
   private _progressPercent: number = 0;
   private _currentTaskId?: string;
+  private _currentProjectId?: string;
+  private _lastAssetManifest?: AssetManifest;
+  private readonly _assetPipelineEngine: AssetPipelineEngine;
 
   public get currentTaskId(): string | undefined {
     return this._currentTaskId;
@@ -69,6 +74,22 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
 
   public set currentTaskId(val: string | undefined) {
     this._currentTaskId = val;
+  }
+
+  public get currentProjectId(): string | undefined {
+    return this._currentProjectId;
+  }
+
+  public set currentProjectId(val: string | undefined) {
+    this._currentProjectId = val;
+  }
+
+  public get assetPipelineEngine(): AssetPipelineEngine {
+    return this._assetPipelineEngine;
+  }
+
+  public get lastAssetManifest(): AssetManifest | undefined {
+    return this._lastAssetManifest;
   }
   private _eventHandlers = new Map<string, Array<(payload: any) => void>>();
   private _reports = new Map<string, PublishingPackage>();
@@ -109,6 +130,8 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
       throw new Error("Context is required for ContentPipelineEngine.");
     }
 
+    this._assetPipelineEngine = new AssetPipelineEngine(context);
+
     // Initialize default implementations of managers
     this._storyboardMgr = new StoryboardManagerImpl(this);
     this._scenePlanner = new ScenePlannerImpl(this);
@@ -120,6 +143,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
     this._renderMgr = new RenderManagerImpl(this);
     this._qualityMgr = new QualityManagerImpl(this);
   }
+
 
   public getState(): ContentPipelineState {
     return this._state;
@@ -270,6 +294,7 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
         captionsSrtUrl: "https://mockmedia.ai/captions/123.srt",
         metadata: {
           renderQuality: RenderQuality.HIGH,
+          assetManifest: this._lastAssetManifest,
           debugInfo: {
             detectedDomain: storyboard.domainClassification?.domain || "GENERAL",
             confidence: storyboard.domainClassification?.confidence || 1.0,
@@ -285,12 +310,14 @@ export class ContentPipelineEngine implements IContentPipelineEngine {
               animationAction: s.animation
             })),
             renderOutputPath: renderReport.renderedFileUrl,
-            videoFileUrl: renderReport.renderedFileUrl
+            videoFileUrl: renderReport.renderedFileUrl,
+            assetManifest: this._lastAssetManifest
           }
         },
         analyticsSeed: { expectedViews: 1000 },
         timestamp: new Date()
       };
+
 
       // Validator checks
       ContentPipelineValidator.assertValid(storyboard, timeline, pack);
@@ -1143,174 +1170,54 @@ class ScenePlannerImpl implements IScenePlanner {
 }
 
 class ImageGenerationManagerImpl implements IImageGenerationManager {
-  private readonly _characterAssetCache = new Map<string, string>();
-
   constructor(private readonly _engine: ContentPipelineEngine) {}
 
   public async generateImages(scenes: Scene[]): Promise<GeneratedAsset[]> {
-    const assets: GeneratedAsset[] = [];
     const isTestMode =
       this._engine.context?.env === "test" ||
       this._engine.context?.metadata?.env === "test" ||
       process.env.NODE_ENV === "test";
 
-    // Step 1: Discover distinct characters and generate/preserve consistent character assets
-    const charMap = new Map<string, string>(); // charId -> assetUrl
-    for (const sc of scenes) {
-      if (sc.characterConfiguration?.characterId) {
-        const charId = sc.characterConfiguration.characterId;
-        if (!charMap.has(charId)) {
-          let charAssetUrl = this._characterAssetCache.get(charId);
-          if (!charAssetUrl) {
-            const charName = sc.characterConfiguration.name || "Leo the Lion Cub";
-            const prompt = `Cute 2D cartoon character illustration, ${charName}, full body, clean readable shapes, isolated on transparent background, vibrant colors, kids storybook style`;
+    const storyboard: Storyboard = {
+      id: `sb-${Date.now()}`,
+      projectId: this._engine.currentProjectId || "project-default",
+      scriptId: `script-${Date.now()}`,
+      scenes,
+      totalScenes: scenes.length,
+      totalDurationSeconds: scenes.reduce((acc, s) => acc + s.durationSeconds, 0),
+      createdAt: new Date()
+    };
 
-            if (this._engine.context.mediaProviderEngine?.getImageManager()?.generateImage) {
-              try {
-                const res = await this._engine.context.mediaProviderEngine.getImageManager().generateImage({
-                  id: `char-img-${charId}`,
-                  prompt,
-                  mode: "TEXT_TO_IMAGE",
-                  metadata: { taskId: this._engine.currentTaskId, characterId: charId }
-                });
-                charAssetUrl = res.assets?.[0]?.url;
-              } catch (e) {
-                if (!isTestMode) throw e;
-              }
-            }
-
-            if (!charAssetUrl && isTestMode) {
-              const storageDir = path.join(process.cwd(), "storage", "media");
-              fs.mkdirSync(storageDir, { recursive: true });
-              const charFile = path.join(storageDir, `character-${charId}.png`);
-              fs.writeFileSync(charFile, createCartoonCharacterSprite(256, 256));
-              charAssetUrl = `file:///${charFile.replace(/\\/g, "/")}`;
-            }
-
-            if (charAssetUrl) {
-              this._characterAssetCache.set(charId, charAssetUrl);
-            }
-          }
-          if (charAssetUrl) {
-            charMap.set(charId, charAssetUrl);
-          }
-        }
+    const { manifest, resolvedAssets } = await this._engine.assetPipelineEngine.planAndResolveAssets(
+      storyboard,
+      scenes[0]?.visualPlan ? { overallDirection: scenes[0].visualPlan.visualObjective } as any : undefined,
+      {
+        taskId: this._engine.currentTaskId,
+        projectId: this._engine.currentProjectId,
+        isProduction: !isTestMode
       }
-    }
+    );
 
-    // Step 2: Generate background images and build multi-layer structures per scene
-    for (const sc of scenes) {
-      for (const sh of sc.shots) {
-        let mediaUrl = "https://mockmedia.ai/images/fallback.png";
-        let assetId = `img-asset-${sh.id}`;
+    (this._engine as any)._lastAssetManifest = manifest;
 
-        if (this._engine.context.mediaProviderEngine?.getImageManager()?.generateImage) {
-          const res = await this._engine.context.mediaProviderEngine.getImageManager().generateImage({
-            id: `img-${sh.id}`,
-            prompt: sh.visualPrompt,
-            mode: "TEXT_TO_IMAGE",
-            metadata: {
-              taskId: this._engine.currentTaskId,
-              sceneId: sc.id
-            }
-          });
-          const generatedAsset = res.assets?.[0];
-          if (!generatedAsset) {
-            throw new Error(`Media provider failed to generate image for shot ${sh.id}`);
-          }
-          if (!generatedAsset.id) {
-            generatedAsset.id = `img-asset-${sh.id}`;
-          }
-          if (!generatedAsset.url) {
-            throw new Error(`Media provider returned image asset with undefined URL for shot ${sh.id}`);
-          }
-
-          if (!isTestMode) {
-            if (generatedAsset.url.includes("stub-img.png") || generatedAsset.url.includes("mockmedia.ai") || generatedAsset.url.includes("mock.ai")) {
-              throw new Error(`Invalid mock image URL returned in production for shot ${sh.id}`);
-            }
-            if (generatedAsset.url.startsWith("file:///")) {
-              let p = generatedAsset.url.substring(8);
-              if (/^[a-zA-Z]:/.test(p)) {
-              } else if (/^\/[a-zA-Z]:/.test(p)) {
-                p = p.substring(1);
-              }
-              const resolvedPath = path.normalize(p);
-              if (!fs.existsSync(resolvedPath)) {
-                throw new Error(`Generated image file does not exist on disk: ${resolvedPath} for shot ${sh.id}`);
-              }
-            }
-          }
-
-          mediaUrl = generatedAsset.url;
-          assetId = generatedAsset.id;
-        } else if (isTestMode) {
-          const storageDir = path.join(process.cwd(), "storage", "media");
-          fs.mkdirSync(storageDir, { recursive: true });
-          const bgFile = path.join(storageDir, `bg-${sh.id}.png`);
-          const domain = sc.visualPlan?.purpose
-            ? (sc.visualPlan.purpose.startsWith("FINANCE") ? "FINANCE" : sc.visualPlan.purpose.startsWith("HISTORY") ? "HISTORY" : sc.visualPlan.purpose.startsWith("DOCUMENTARY") ? "DOCUMENTARY" : sc.visualPlan.purpose.startsWith("KIDS") ? "KIDS" : "GENERAL")
-            : (sc.title?.includes("Inflation") ? "FINANCE" : sc.title?.includes("Rome") ? "HISTORY" : sc.title?.includes("Ocean") ? "DOCUMENTARY" : "GENERAL");
-          fs.writeFileSync(bgFile, createDomainBackground(domain, 1280, 720));
-          mediaUrl = `file:///${bgFile.replace(/\\/g, "/")}`;
-        }
-
-        // Step 3: Populate multi-layer scene structure
-        const layers: SceneVisualLayer[] = [
-          {
-            id: `layer-bg-${sc.id}`,
-            layerType: "BACKGROUND",
-            assetUrl: mediaUrl,
-            zIndex: 0,
-            parallaxRate: 0.3
-          }
-        ];
-
-        const charId = sc.characterConfiguration?.characterId;
-        const charUrl = charId ? charMap.get(charId) : undefined;
-
-        if (charId && charUrl) {
-          const actionPreset = (sc.animation as AnimationActionPreset) || sc.animationInstructions?.[0]?.action || "WALK";
-          const movement = sc.animationInstructions?.[0]?.movement || {
-            startX: actionPreset === "ENTER_LEFT" ? 0.35 : 0.2,
-            startY: 0.65,
-            endX: actionPreset === "ENTER_LEFT" ? 0.35 : 0.8,
-            endY: 0.65
-          };
-
-          layers.push({
-            id: `layer-char-${sc.id}`,
-            layerType: "CHARACTER",
-            characterId: charId,
-            assetUrl: charUrl,
-            actionPreset,
-            movement,
-            initialPosition: {
-              x: movement.startX,
-              y: movement.startY,
-              width: 0.35,
-              height: 0.52
-            },
-            zIndex: 1,
-            parallaxRate: 1.0
-          });
-        }
-
-        sc.layers = layers;
-
-        assets.push({
-          id: assetId,
-          type: AssetType.IMAGE,
-          url: mediaUrl,
-          status: AssetStatus.GENERATED,
-          createdAt: new Date(),
-          sizeBytes: 1024 * 1024
-        });
+    return resolvedAssets.map(ra => ({
+      id: ra.id,
+      type: AssetType.IMAGE,
+      url: ra.publicUrl,
+      status: AssetStatus.GENERATED,
+      createdAt: ra.createdAt,
+      sizeBytes: ra.sizeBytes,
+      metadata: {
+        checksum: ra.checksum,
+        contentHash: ra.contentHash,
+        kind: ra.kind,
+        origin: ra.origin,
+        isFallback: ra.isFallback
       }
-    }
-    return assets;
+    }));
   }
 }
+
 
 class VoiceGenerationManagerImpl implements IVoiceGenerationManager {
   constructor(private readonly _engine: ContentPipelineEngine) {}

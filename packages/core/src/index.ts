@@ -4,7 +4,9 @@ export * from "./providers";
 export * from "./animation";
 export * from "./visual-intelligence";
 export * from "./visual-primitives";
+export * from "./asset-intelligence";
 export { ModelDescriptor } from "./router/ModelDescriptor";
+
 
 export { ContentPipelineEngine } from "./content-pipeline/ContentPipelineEngine";
 export { ContentPipelineBuilder } from "./content-pipeline/ContentPipelineBuilder";
